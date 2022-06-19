@@ -89,7 +89,7 @@ def main():
             if item in user_dicts['model_init']
         ])
         dirPath = Path('tensorboard_logs').joinpath(tb_subDir).resolve(
-            strict=True)
+            strict=False)
         dirPath.mkdir(parents=True, exist_ok=True)
 
     # prepare and split dataset
