@@ -14,24 +14,26 @@ logg = getLogger(__name__)
 
 
 class Data(LightningDataModule):
+
     def __init__(self, tokenizer, batch_size: dict):
         super().__init__()
         self.tokenizer = tokenizer
-        for batch_size_key in ('train', 'val', 'test'):
+        for batch_size_key in ('train', 'val', 'test', 'predict'):
             if batch_size_key not in batch_size or not isinstance(
                     batch_size[batch_size_key],
                     int) or batch_size[batch_size_key] == 0:
                 batch_size[batch_size_key] = 1
         self.batch_size_val = batch_size['val']
         self.batch_size_test = batch_size['test']
+        self.batch_size_predict = batch_size['predict']
         # Trainer('auto_scale_batch_size': True...) requires self.batch_size
         self.batch_size = batch_size['train']
 
     def generate_data_labels(self, dataset_path: str) -> None:
-        generate_dataset(self.tokenizer, dataset_path)
+        generate_dataset(tokenize=self.tokenizer, dataset_path=dataset_path)
 
     def split_dataset(self, dataset_path: str, dataset_split: Dict[str, int],
-                      no_training: bool, no_testing: bool) -> Dict[str, Any]:
+                      train: bool, predict: bool) -> Dict[str, Any]:
         for dataset_split_key in ('train', 'val', 'test'):
             if dataset_split_key not in dataset_split or not isinstance(
                     dataset_split[dataset_split_key], int):
@@ -41,17 +43,22 @@ class Data(LightningDataModule):
         dataset_metadata['batch size'] = {
             'train': self.batch_size,
             'val': self.batch_size_val,
-            'test': self.batch_size_test
+            'test': self.batch_size_test,
+            'predict': self.batch_size_predict
         }
-        if not no_training:
-            assert train_data is not None and val_data is not None
+        if train:
+            assert (train_data is not None and val_data is not None
+                    and test_data is not None)
             self.train_data = Data_set(train_data)
             self.valid_data = Data_set(val_data)
-        if not no_testing:
+            self.test_data = Data_set(test_data)
+        elif predict:
             assert test_data is not None
             self.test_data = Data_set(test_data)
-        if no_training and no_testing:
-            logg.debug('No Training and no Testing')
+        else:
+            strng = 'Train=False and Predict=False; both cannot be False'
+            logg.critical(strng)
+            exit()
         return dataset_metadata
 
     def train_dataloader(self) -> DataLoader:
@@ -61,8 +68,8 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.train_data),
             batch_sampler=None,
-            #num_workers=6,
-            num_workers=0,
+            num_workers=6,
+            #num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -75,8 +82,8 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.valid_data),
             batch_sampler=None,
-            #num_workers=6,
-            num_workers=0,
+            num_workers=6,
+            #num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -89,15 +96,26 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.test_data),
             batch_sampler=None,
-            #num_workers=6,
-            num_workers=0,
+            num_workers=6,
+            #num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
             timeout=0)
 
     def predict_dataloader(self) -> DataLoader:
-        pass
+        return DataLoader(
+            self.test_data,
+            batch_size=self.batch_size_predict,
+            shuffle=False,
+            sampler=RandomSampler(self.test_data),
+            batch_sampler=None,
+            num_workers=6,
+            #num_workers=0,
+            collate_fn=self._bert_collater,
+            pin_memory=True,
+            drop_last=False,
+            timeout=0)
 
     def _bert_collater(
             self, examples: List[List[List[Any]]]) -> Dict[str, Any]:
