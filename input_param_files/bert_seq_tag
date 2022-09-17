@@ -16,7 +16,7 @@ python3 Main.py input_param_files/bert_seq_tag
 
 parameters for python-dictionary 'misc'
 -
-{'save_top_k': 2, 'no_testing': False, 'statistics': True}
+{'save_top_k': 2, 'train': True, 'predict': True}
 
 
 parameters for python-dictionary 'optz_sched'
@@ -26,7 +26,7 @@ parameters for python-dictionary 'optz_sched'
 
 parameters for python-dictionary 'data'
 - 
-{'dataset_path': 'data/kaggle/usa_cars/USA_cars_datasets.csv', 'batch_size': {'train': 4, 'val': 16, 'test': 32}, 'dataset_split': {'train': 65, 'val': 15, 'test': 20}} 
+{'dataset_path': 'data/kaggle/usa_cars/USA_cars_datasets.csv', 'batch_size': {'train': 4, 'val': 16, 'test': 32, 'predict': 32}, 'dataset_split': {'train': 65, 'val': 15, 'test': 20}} 
 
 
 parameters for python-dictionary 'trainer'
@@ -34,10 +34,10 @@ Does Not work: 'auto_lr_find': True,  'auto_scale_batch_size': True
 Works:         'auto_lr_find': True,  'auto_scale_batch_size': False
 Works:         'auto_lr_find': False, 'auto_scale_batch_size': True
 - 
-{'gpus': 1, 'max_epochs': 1, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'gradient_clip_val': 0.5}
-#{'gpus': 1, 'max_epochs': 5, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'stochastic_weight_avg': True, 'gradient_clip_val': 0.5}
-#{'gpus': 1, 'max_epochs': 1, 'auto_lr_find': False, 'auto_scale_batch_size': True}
-#{'gpus': 1, 'max_epochs': 1, 'auto_lr_find': True, 'auto_scale_batch_size': False}
+{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 1, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'gradient_clip_val': 0.5}
+#{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 5, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'stochastic_weight_avg': True, 'gradient_clip_val': 0.5}
+#{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 1, 'auto_lr_find': False, 'auto_scale_batch_size': True}
+#{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 1, 'auto_lr_find': True, 'auto_scale_batch_size': False}
 
 
 parameters for python-dictionary 'model_init'
