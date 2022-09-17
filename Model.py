@@ -10,12 +10,15 @@ import pathlib
 from importlib import import_module
 import copy
 import textwrap
+import pandas as pd
+from collections import Counter
 import math
 
 logg = getLogger(__name__)
 
 
 class Model(LightningModule):
+
     def __init__(self, model_init: dict, tokenLabels_NumberCount: dict):
         super().__init__()
         # save parameters for future use of "loading a model from
@@ -90,19 +93,19 @@ class Model(LightningModule):
     def validation_step(self, batch: Dict[str, Any],
                         batch_idx: int) -> torch.Tensor:
         v_loss, _ = self._run_model(batch)
-        self.log('val_loss',
-                 v_loss,
-                 on_step=False,
-                 on_epoch=True,     # checkpoint-callback monitors epoch
-                                    # val_loss, so on_epoch Must be True
-                 prog_bar=True,
-                 batch_size=self.batch_size['val'],
-                 logger=False)
+        self.log(
+            'val_loss',
+            v_loss,
+            on_step=False,
+            on_epoch=True,  # checkpoint-callback monitors epoch
+            # val_loss, so on_epoch Must be True
+            prog_bar=True,
+            batch_size=self.batch_size['val'],
+            logger=False)
         return v_loss
 
-    def validation_epoch_end(
-            self, val_step_outputs: List[Union[torch.Tensor,
-                                               Dict[str, Any]]]) -> None:
+    def validation_epoch_end(self,
+                             val_step_outputs: List[torch.Tensor]) -> None:
         v_avg_loss = torch.stack(val_step_outputs).mean()
         # on TensorBoard, want to see x-axis in epochs (not steps=batches)
         self.logger.experiment.add_scalar('val_loss_epoch', v_avg_loss,
@@ -115,19 +118,13 @@ class Model(LightningModule):
                  ts_loss,
                  on_step=False,
                  on_epoch=True,
-                 prog_bar=False,
+                 prog_bar=True,
                  batch_size=self.batch_size['test'],
                  logger=True)
-        if self.statistics:
-            self._statistics_step(predictions=torch.argmax(logits, dim=-1),
-                                  batch=batch)
         return ts_loss
 
-    def test_epoch_end(
-            self, test_step_outputs: List[Union[torch.Tensor,
-                                                Dict[str, Any]]]) -> None:
-        if self.statistics:
-            self._statistics_end()
+    def test_epoch_end(self, test_step_outputs: List[torch.Tensor]) -> None:
+        pass
 
     def _run_model(self,
                    batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -193,11 +190,8 @@ class Model(LightningModule):
         elif 'optimizer' in locals():
             return optimizer
 
-    def clear_statistics(self) -> None:
-        self.statistics = False
-
-    def set_statistics(self, dataset_meta: Dict[str, Any],
-                       dirPath: pathlib.Path, tokenizer) -> None:
+    def prepare_for_predict(self, dataset_meta: Dict[str, Any],
+                            dirPath: pathlib.Path, tokenizer) -> None:
         self.failed_dlgs_file = dirPath.joinpath('dialogs_failed.txt')
         self.failed_dlgs_file.touch()
         if self.failed_dlgs_file.stat().st_size:
@@ -209,15 +203,20 @@ class Model(LightningModule):
             with self.test_results.open('a') as file:
                 file.write('\n\n****resume from checkpoint****\n')
 
-        self.statistics = True
         self.dataset_meta = dataset_meta
         self.dirPath = dirPath
         self.tokenizer = tokenizer
         self.y_true = []
         self.y_pred = []
+        self.df = pd.read_pickle(dataset_meta['dataset_panda'])
 
-    def _statistics_step(self, predictions: torch.Tensor,
-                         batch: Dict[str, Any]) -> None:
+    def on_predict_start(self) -> None:
+        self.cntr = Counter()
+        self.max_turn_num = 0
+
+    def predict_step(self, batch: Dict[str, Any], batch_idx: int) -> Any:
+        _, logits = self._run_model(batch)
+        predictions = torch.argmax(logits, dim=-1)
         # write to file the info about failed turns of dialogs
         predictions = torch.where(batch['labels'] == -100, batch['labels'],
                                   predictions)
@@ -279,8 +278,7 @@ class Model(LightningModule):
             self.y_pred.append(y_pred)
             assert len(y_true) == len(y_pred)
 
-    def _statistics_end(self) -> None:
-
+    def on_predict_end(self) -> None:
         # Print
         from sys import stdout
         from contextlib import redirect_stdout
