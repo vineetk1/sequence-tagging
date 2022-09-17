@@ -7,6 +7,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateMonitor
+from pytorch_lightning.callbacks import TQDMProgressBar
 from Data import Data
 from Model import Model
 from ast import literal_eval
@@ -84,7 +85,7 @@ def main():
                 user_dicts[user_dict_k] = chkpt_dicts[user_dict_k]
     else:
         tb_subDir = ",".join([
-            f'{item}={user_dicts["model_init"][item]}'
+            f'{item}={(user_dicts["model_init"][item]).replace("/", "_")}'
             for item in ['model', 'model_type', 'tokenizer_type']
             if item in user_dicts['model_init']
         ])
@@ -96,7 +97,7 @@ def main():
     from transformers import BertTokenizerFast
     tokenizer = BertTokenizerFast.from_pretrained(
         user_dicts['model_init']['model_type'])
-    data = Data(tokenizer,
+    data = Data(tokenizer=tokenizer,
                 batch_size=user_dicts['data']['batch_size']
                 if 'batch_size' in user_dicts['data'] else {})
     data.generate_data_labels(dataset_path=user_dicts['data']['dataset_path'])
@@ -104,20 +105,22 @@ def main():
         dataset_path=user_dicts['data']['dataset_path'],
         dataset_split=user_dicts['data']['dataset_split']
         if 'dataset_split' in user_dicts['data'] else {},
-        no_training=user_dicts['misc']['no_training'],
-        no_testing=user_dicts['misc']['no_testing'])
+        train=user_dicts['misc']['train'],
+        predict=user_dicts['misc']['predict'])
 
     # initialize model
     if 'ld_chkpt' in user_dicts['ld_resume_chkpt']:
         model = Model.load_from_checkpoint(
             checkpoint_path=user_dicts['ld_resume_chkpt']['ld_chkpt'])
     else:
-        model = Model(user_dicts['model_init'],
-                      dataset_metadata['train token-labels -> number:count'])
+        model = Model(model_init=user_dicts['model_init'],
+                      tokenLabels_NumberCount=dataset_metadata[
+                          'train token-labels -> number:count'])
     # batch_size is only provided to turn-off Lightning Warning;
     # resume_from_checkpoint can provide a different batch_size which will
     # conflict with this batch_size
-    model.params(user_dicts['optz_sched'], dataset_metadata['batch size'])
+    model.params(optz_sched_params=user_dicts['optz_sched'],
+                 batch_size=dataset_metadata['batch size'])
 
     # create a directory to store all types of results
     if 'resume_from_checkpoint' in user_dicts['ld_resume_chkpt']:
@@ -138,8 +141,8 @@ def main():
     paramFile.write_text(dump(user_dicts))
 
     # setup Callbacks and Trainer
-    if not (user_dicts['misc']['no_training']):
-        # Training: True, Testing: Don't care
+    if user_dicts['misc']['train']:
+        # (train, val, test): True
         ckpt_filename = ""
         for item in user_dicts['optz_sched']:
             if isinstance(user_dicts['optz_sched'][item], str):
@@ -160,30 +163,31 @@ def main():
             filename=ckpt_filename)
         lr_monitor = LearningRateMonitor(logging_interval='epoch',
                                          log_momentum=True)
-        trainer = Trainer(
-            logger=tb_logger,
-            deterministic=True,
-            num_sanity_val_steps=0,
-            callbacks=[checkpoint_callback, lr_monitor],
-            **user_dicts['trainer'])
-    elif not (user_dicts['misc']['no_testing']):
-        # Training: False, Testing: True
+        trainer = Trainer(logger=tb_logger,
+                          deterministic=True,
+                          num_sanity_val_steps=0,
+                          callbacks=[
+                              checkpoint_callback, lr_monitor,
+                              TQDMProgressBar(refresh_rate=10)
+                          ],
+                          **user_dicts['trainer'])
+    elif user_dicts['misc']['predict']:
         trainer = Trainer(logger=tb_logger,
                           num_sanity_val_steps=0,
                           log_every_n_steps=100,
                           enable_checkpointing=False,
                           **user_dicts['trainer'])
     else:
-        # Training: False, Testing: False
-        strng = ('User specified no-training and no-testing. Must do either '
-                 'training or testing or both.')
+        # (train, val, test): False, predict: False
+        strng = ('User specified train=False and predict=False. Must '
+                 'train or predict or both.')
         logg.critical(strng)
         exit()
 
     # training and testing
     trainer.tune(model, datamodule=data)
-    if not (user_dicts['misc']['no_training']):
-        # Training: True
+    if user_dicts['misc']['train']:
+        # (train, val, test): True
         trainer.fit(
             model=model,
             ckpt_path=user_dicts['ld_resume_chkpt']['resume_from_checkpoint']
@@ -191,16 +195,17 @@ def main():
             None,
             train_dataloaders=data.train_dataloader(),
             val_dataloaders=data.val_dataloader())
-    if not (user_dicts['misc']['no_testing']):
-        # Testing: True
-        if user_dicts['misc']['statistics']:
-            model.set_statistics(dataset_metadata, dirPath, tokenizer)
-        if not (user_dicts['misc']['no_training']):
-            # Training: True; auto loads checkpoint file with lowest val loss
-            trainer.test(dataloaders=data.test_dataloader(), ckpt_path='best')
+        # for testing, auto-load checkpoint file with lowest val-loss
+        trainer.test(dataloaders=data.test_dataloader(), ckpt_path='best')
+    if user_dicts['misc']['predict']:
+        model.prepare_for_predict(dataset_meta=dataset_metadata,
+                                  dirPath=dirPath,
+                                  tokenizer=tokenizer)
+        if user_dicts['misc']['train']:
+            trainer.predict(dataloaders=data.predict_dataloader(),
+                            ckpt_path='best')
         else:
-            trainer.test(model, dataloaders=data.test_dataloader())
-        model.clear_statistics()
+            trainer.predict(model=model, dataloaders=data.predict_dataloader())
     logg.info(f"Results and other information is at the directory: {dirPath}")
 
 
@@ -219,7 +224,7 @@ def verify_and_change_user_provided_parameters(user_dicts: Dict):
         logg.critical(strng)
         exit()
 
-    for k in ('no_training', 'no_testing'):
+    for k in ('train', 'predict'):
         if k in user_dicts['misc']:
             if not isinstance(user_dicts['misc'][k], bool):
                 strng = (
@@ -230,27 +235,21 @@ def verify_and_change_user_provided_parameters(user_dicts: Dict):
         else:
             user_dicts['misc'][k] = False
 
-    if user_dicts['misc']['no_training'] and not user_dicts['misc'][
-            'no_testing'] and 'ld_chkpt' not in user_dicts['ld_resume_chkpt']:
+    if not user_dicts['misc']['train'] and user_dicts['misc'][
+            'predict'] and 'ld_chkpt' not in user_dicts['ld_resume_chkpt']:
         strng = ('Path to a checkpoint file must be specified if  '
-                 'no-training but testing.')
+                 'train=False and predict=True.')
         logg.critical(strng)
         exit()
 
-    if 'statistics' in user_dicts['misc']:
-        if not isinstance(user_dicts['misc']['statistics'], bool):
-            strng = (f'value of "statistics" is not a boolean in misc '
-                     f'dictionary of file {argv[1]}.')
-            logg.critical(strng)
-            exit()
-    else:
-        user_dicts['misc']['statistics'] = False
-
     if not user_dicts['ld_resume_chkpt']:
-        if user_dicts["model_init"]['model'] != "bert" or user_dicts[
-                "model_init"]['tokenizer_type'] != "bert":
+        if user_dicts["model_init"][
+                'model'] != "bert" or user_dicts["model_init"][
+                    'tokenizer_type'] != "bert" or user_dicts[
+                        "model_init"]['model_type'] != "bert-large-uncased":
             strng = ('unknown model and tokenizer_type: '
                      f'{user_dicts["model_init"]["model"]}'
+                     f'{user_dicts["model_init"]["model_type"]}'
                      f'{user_dicts["model_init"]["tokenizer_type"]}')
             logg.critical(strng)
             exit()
