@@ -2,8 +2,7 @@ Vineet Kumar, sioom.ai
 
 This input file has user-settable hyper-parameters for loading a model from a checkpoint
    file and further training with different parameters in 'optz_sched'.
-Use Case: A user stops training in order to further :w
-train with different
+Use Case: A user stops training in order to further train with different
     hyper-parameters. Training can be stopped through the keystroke ctrl-c or by 
     using appropriate hyperparameters.
 
@@ -23,7 +22,7 @@ python3 Main.py input_param_files/bert_seq_tag-ld_chkpt_and_change_params
 
 parameters for python-dictionary 'misc'. ***Must specify the contents of this dict***
 -
-{'save_top_k': 2, 'no_testing': False, 'statistics': True}
+{'save_top_k': 2, 'train': True, 'predict': True}
 
 
 parameters for python-dictionary 'optz_sched'. ***Must specify the contents of this dict***
@@ -32,14 +31,16 @@ parameters for python-dictionary 'optz_sched'. ***Must specify the contents of t
 
 
 parameters for python-dictionary 'data'. 
+***Either keep this dict empty or specifiy All key-values
+Dataset for Predict is the same as test-set
 - 
-{}
+{'dataset_path': 'data/kaggle/usa_cars/USA_cars_datasets.csv', 'batch_size': {'train': 4, 'val': 16, 'test': 32, 'predict': 32}, 'dataset_split': {'train': 65, 'val': 15, 'test': 20}} 
 
 
 parameters for python-dictionary 'trainer'. 
 - 
-{'gpus': 1, 'max_epochs': 1}
-#{'gpus': 1, 'max_epochs': 5, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'stochastic_weight_avg': True, 'gradient_clip_val': 0.5}
+{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 2}
+#{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 5, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'stochastic_weight_avg': True, 'gradient_clip_val': 0.5}
 
 
 parameters for python-dictionary 'model_init'. Contents of this dict are replaced by corresponding checkpoint dict 
@@ -49,4 +50,4 @@ parameters for python-dictionary 'model_init'. Contents of this dict are replace
 
 parameters for python-dictionary 'ld_resume_chkpt'. ***Must specify the contents of this dict***
 - 
-{'ld_chkpt': 'tensorboard_logs/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/version_5/checkpoints/last.ckpt'}
+{'ld_chkpt': 'tensorboard_logs/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/version_17/checkpoints/last.ckpt'}
