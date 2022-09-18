@@ -1,12 +1,12 @@
 # Sequence-tagging using Deep Learning
 ## Requirements
-* PyTorch version >= 1.11.0+cu113
-* Python version >= 3.8.10
-* PyTorch-Lightning version >= 1.6.3
-* Huggingface Transformers version >= 4.18.0
+* PyTorch version >= 1.12.1+cu116
+* Python version >= 3.10.4
+* PyTorch-Lightning version >= 1.7.2
+* Huggingface Transformers version >= 4.21.1
 * Tensorboard version >= 2.9.0
-* Pandas >= 1.4.2
-* Scikit-learn >= 1.0.2
+* Pandas >= 1.4.3
+* Scikit-learn >= 1.1.2
 ## Installation
 ```
 pip3 install transformers
