@@ -22,7 +22,7 @@ python3 Main.py input_param_files/bert_seq_tag-resume_from_chkpt
 
 parameters for python-dictionary 'misc'. ***Must specify the contents of this dict***
 -
-{'save_top_k': 4, 'no_testing': False, 'statistics': True}
+{'save_top_k': 4, 'train': True, 'predict': True}
 
 
 parameters for python-dictionary 'optz_sched'. ***Contents of this dict are replaced by corresponding checkpoint dict*** 
@@ -31,15 +31,16 @@ parameters for python-dictionary 'optz_sched'. ***Contents of this dict are repl
 
 
 parameters for python-dictionary 'data'
+***Either keep this dict empty or specifiy All key-values
+Dataset for Predict is the same as test-set
 - 
-{}
-#{'default_format_path': 'data/customer_chat_sample.csv', 'batch_size': {'train': 10, 'val': 10, 'test': 10}, 'dataset_split': {'train': 80, 'val': 10, 'test': 10}} 
+{'dataset_path': 'data/kaggle/usa_cars/USA_cars_datasets.csv', 'batch_size': {'train': 4, 'val': 16, 'test': 32, 'predict': 128}, 'dataset_split': {'train': 65, 'val': 15, 'test': 20}} 
 
 
 parameters for python-dictionary 'trainer'
 - 
-{'gpus': 1, 'max_epochs': 250, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'gradient_clip_val': 0.5}
-#{'gpus': 1, 'max_epochs': 5, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'stochastic_weight_avg': True, 'gradient_clip_val': 0.5}
+{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 250, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'gradient_clip_val': 0.5}
+#{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 5, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'stochastic_weight_avg': True, 'gradient_clip_val': 0.5}
 
 
 parameters for python-dictionary 'model_init'. ***Contents of this dict are replaced by corresponding checkpoint dict*** 
@@ -49,4 +50,4 @@ parameters for python-dictionary 'model_init'. ***Contents of this dict are repl
 
 parameters for python-dictionary 'ld_resume_chkpt'. ***Must specify the contents of this dict***
 - 
-{'resume_from_checkpoint': 'tensorboard_logs/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/version_6/checkpoints/last.ckpt'}
+{'resume_from_checkpoint': 'tensorboard_logs/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/version_17/checkpoints/last.ckpt'}
