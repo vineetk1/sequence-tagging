@@ -23,9 +23,7 @@ class Data(LightningDataModule):
                     batch_size[batch_size_key],
                     int) or batch_size[batch_size_key] == 0:
                 batch_size[batch_size_key] = 1
-        self.batch_size_val = batch_size['val']
-        self.batch_size_test = batch_size['test']
-        self.batch_size_predict = batch_size['predict']
+        self.batch_sizes = batch_size
         # Trainer('auto_scale_batch_size': True...) requires self.batch_size
         self.batch_size = batch_size['train']
 
@@ -39,13 +37,9 @@ class Data(LightningDataModule):
                     dataset_split[dataset_split_key], int):
                 dataset_split[dataset_split_key] = 0
         dataset_metadata, train_data, val_data, test_data = split_dataset(
-            dataset_path=dataset_path, split=dataset_split)
-        dataset_metadata['batch size'] = {
-            'train': self.batch_size,
-            'val': self.batch_size_val,
-            'test': self.batch_size_test,
-            'predict': self.batch_size_predict
-        }
+            dataset_path=dataset_path,
+            splits=dataset_split,
+            batch_sizes=self.batch_sizes)
         if train:
             assert (train_data is not None and val_data is not None
                     and test_data is not None)
@@ -68,8 +62,8 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.train_data),
             batch_sampler=None,
-            num_workers=6,
-            #num_workers=0,
+            #num_workers=6,
+            num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -78,12 +72,12 @@ class Data(LightningDataModule):
     def val_dataloader(self) -> DataLoader:
         return DataLoader(
             self.valid_data,
-            batch_size=self.batch_size_val,
+            batch_size=self.batch_sizes['val'],
             shuffle=False,
             sampler=RandomSampler(self.valid_data),
             batch_sampler=None,
-            num_workers=6,
-            #num_workers=0,
+            #num_workers=6,
+            num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -92,12 +86,12 @@ class Data(LightningDataModule):
     def test_dataloader(self) -> DataLoader:
         return DataLoader(
             self.test_data,
-            batch_size=self.batch_size_test,
+            batch_size=self.batch_sizes['test'],
             shuffle=False,
             sampler=RandomSampler(self.test_data),
             batch_sampler=None,
-            num_workers=6,
-            #num_workers=0,
+            #num_workers=6,
+            num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -106,42 +100,57 @@ class Data(LightningDataModule):
     def predict_dataloader(self) -> DataLoader:
         return DataLoader(
             self.test_data,
-            batch_size=self.batch_size_predict,
+            batch_size=self.batch_sizes['predict'],
             shuffle=False,
             sampler=RandomSampler(self.test_data),
             batch_sampler=None,
-            num_workers=6,
-            #num_workers=0,
+            #num_workers=6,
+            num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
             timeout=0)
 
-    def _bert_collater(
-            self, examples: List[List[List[Any]]]) -> Dict[str, Any]:
-        batch_ids, batch_sentences = [], []
+    def _bert_collater(self,
+                       examples: List[List[List[Any]]]) -> Dict[str, Any]:
+        batch_ids, batch_histories, batch_sentences = [], [], []
         for example in examples:
-            batch_ids.append(example[0])
-            batch_sentences.append(example[1])
+            batch_ids.append((example[0], example[1]))
+            batch_histories.append(example[2][0])
+            batch_sentences.append(example[2][1])
 
-        batch_model_inputs = self.tokenizer(text=batch_sentences,
+        batch_model_inputs = self.tokenizer(text=batch_histories,
+                                            text_pair=batch_sentences,
                                             padding=True,
-                                            truncation=True,
+                                            truncation='only_first',
                                             return_tensors='pt',
-                                            return_token_type_ids=True,
-                                            return_attention_mask=True)
+                                            return_token_type_ids=False,
+                                            return_attention_mask=True,
+                                            return_overflowing_tokens=False)
 
-        # Verify that number of tokens in sentence are equal to token-labels
+        # Verify that number of tokens in sentence are equal to token-labels;
+        # Not in Deployment
         for i, token_label_len in enumerate(
                 batch_model_inputs['attention_mask'].count_nonzero(-1)):
-            assert token_label_len.item() == len(examples[i][2])
+            assert token_label_len.item() == len(examples[i][3])
 
-        # pad token-labels
+        """
+        indices_of_sep = torch.nonzero(
+            batch_model_inputs['input_ids'] == self.tokenizer.sep_token_id)
+        assert (indices_of_sep.size()[0] ==
+                batch_model_inputs['input_ids'].size()[0] * 2)
+        for i in range(batch_model_inputs['input_ids'].size()[0] * 2):
+            j = i * 2 if i else i
+            assert (indices_of_sep[j + 1, 1] - indices_of_sep[j, 1] +
+                    1) == len(examples[i][3])
+        """
+
+        # pad token-labels; Not in Deployment
         batch_token_labels_max_len = max(
-            [len(example[2]) for example in examples])
+            [len(example[3]) for example in examples])
         batch_token_labels = torch.LongTensor([
-            example[2] + [-100] *
-            (batch_token_labels_max_len - len(example[2]))
+            example[3] + [-100] *
+            (batch_token_labels_max_len - len(example[3]))
             for example in examples
         ])
 
@@ -151,11 +160,9 @@ class Data(LightningDataModule):
                 batch_model_inputs['input_ids'].type(torch.LongTensor),
                 'attention_mask':
                 batch_model_inputs['attention_mask'].type(torch.FloatTensor),
-                'token_type_ids':
-                batch_model_inputs['token_type_ids'].type(torch.LongTensor)
             },
             'labels': batch_token_labels,
-            'ids': tuple(batch_ids)
+            'ids': (batch_ids)
         }
 
 
