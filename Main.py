@@ -120,7 +120,7 @@ def main():
     # resume_from_checkpoint can provide a different batch_size which will
     # conflict with this batch_size
     model.params(optz_sched_params=user_dicts['optz_sched'],
-                 batch_size=dataset_metadata['batch size'])
+                 batch_size=dataset_metadata['batch sizes'])
 
     # create a directory to store all types of results
     if 'resume_from_checkpoint' in user_dicts['ld_resume_chkpt']:
