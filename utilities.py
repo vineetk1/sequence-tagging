@@ -25,6 +25,7 @@ def preTokenize_splitWords(strng: str) -> List[str]:
     word_pos = Word_pos.BEGIN
     str2out_idx: List[int] = []
     word_idx: List[int] = []
+    idx_of_last_char = len(strng) - 1
 
     for char_idx in range(len(strng)):
         assert (not word_idx) if word_pos == Word_pos.BEGIN else word_idx
@@ -45,15 +46,15 @@ def preTokenize_splitWords(strng: str) -> List[str]:
             case ".":   # period
                 pass
             case "-":   # hypen
-                # begin: exclude, mid: include, end: exclude + new word
+                # begin: exclude, mid: include, end: exclude
                 match word_pos:
                     case Word_pos.MID:
-                        if strng[char_idx+1] == " " or strng[char_idx+1] == "\n":
+                        if char_idx == idx_of_last_char or strng[char_idx+1] == " ":
                             str2out_idx.append(word_idx.append(char_idx-1))
                             word_pos = Word_pos.BEGIN
                             word_idx = []
                     case Word_pos.MID_BEGIN:
-                        if strng[char_idx+1] == " " or strng[char_idx+1] == "\n":
+                        if char_idx == idx_of_last_char or strng[char_idx+1] == " ":
                             str2out_idx.append(word_idx)
                             word_pos = Word_pos.BEGIN
                             word_idx = []
@@ -80,7 +81,7 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                 # begin: exclude, mid: exclude, end: include + two words
                 match word_pos:
                     case Word_pos.MID:
-                        if strng[char_idx+1] == " " or strng[char_idx+1] == "\n":
+                        if char_idx == idx_of_last_char or strng[char_idx+1] == " ":
                             str2out_idx.append(word_idx.append(char_idx-1))
                             str2out_idx.append([char_idx, char_idx])
                             word_pos = Word_pos.BEGIN
@@ -89,13 +90,13 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                             word_idx.append(char_idx-1)
                             word_pos = Word_pos.MID_BEGIN
                     case Word_pos.MID_BEGIN:
-                        if strng[char_idx+1] == " " or strng[char_idx+1] == "\n":
+                        if char_idx == idx_of_last_char or strng[char_idx+1] == " ":
                             str2out_idx.append(word_idx)
                             str2out_idx.append([char_idx, char_idx])
                             word_pos = Word_pos.BEGIN
                             word_idx = []
                     case Word_pos.BEGIN:
-                        if strng[char_idx+1] == " " or strng[char_idx+1] == "\n":
+                        if char_idx == idx_of_last_char or strng[char_idx+1] == " ":
                             str2out_idx.append([char_idx, char_idx])
                         else:
                             assert not word_idx
@@ -131,7 +132,7 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                     # begin: exclude, mid: exclude, end: exclude + new word
                     match word_pos:
                         case Word_pos.MID:
-                            if strng[char_idx+1] == " " or strng[char_idx+1] == "\n":
+                            if char_idx == idx_of_last_char or strng[char_idx+1] == " ":
                                 str2out_idx.append(word_idx.append(char_idx-1))
                                 word_pos = Word_pos.BEGIN
                                 word_idx = []
@@ -139,7 +140,7 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                                 word_idx.append(char_idx-1)
                                 word_pos = Word_pos.MID_BEGIN
                         case Word_pos.MID_BEGIN:
-                            if strng[char_idx+1] == " " or strng[char_idx+1] == "\n":
+                            if char_idx == idx_of_last_char or strng[char_idx+1] == " ":
                                 str2out_idx.append(word_idx)
                                 word_pos = Word_pos.BEGIN
                                 word_idx = []
@@ -150,7 +151,7 @@ def preTokenize_splitWords(strng: str) -> List[str]:
 
     match word_pos:
         case Word_pos.BEGIN | Word_pos.MID_BEGIN:
-            assert word_idx
+            assert not word_idx
         case Word_pos.MID:
             str2out_idx.append(word_idx.append(char_idx-1))
         case _:
