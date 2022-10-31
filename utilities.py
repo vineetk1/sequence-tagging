@@ -26,7 +26,7 @@ def preTokenize_splitWords(strng: str) -> List[str]:
     def resolve_floatPt_num() -> None:
         # ***this function uses strngWord2Idx and strng, and alters strng2idx**
         # ***Assume there can be periods at the beginning and end of word but
-        # only one period in the middle of word***
+        # only one (period or decimal-point) in the middle of word***
         if len(strngWord2Idx) == 2:
             # most likely case
             try:
@@ -171,7 +171,7 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                         assert False
                 charPos_inStrngWord = CharPos_inStrngWord.BEGIN
                 strngWord2Idx = []
-            case ".":   # period; code is similar to hyphen
+            case ".":   # period or decimal-point; code is similar to hyphen
                 # Problem: is it a period or decimal-point?
                 # begin (exclude) begin;  begin2end (exclude) begin;
                 # mid (include) mid;  mid2end (exclude + new word) begin;
@@ -242,7 +242,7 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                     case _:
                         assert False
             case "$":   # dollar
-                # begin (include + new word) begin;
+                # begin (include + 2 new words) begin;
                 # begin2end (include + new word) begin;
                 # mid (exclude) mid_begin; mid2end (exclude + new word) begin;
                 # mid_begin (exclude) mid_begin;
@@ -279,9 +279,10 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                         assert False
             case "%":   # percent
                 # begin (exclude) begin; begin2end (include + new word) begin;
-                # mid (exclude) mid_begin; mid2end (include + new word) begin;
+                # mid (exclude) mid_begin;
+                # mid2end (include + 2 new words) begin;
                 # mid_begin (exclude) mid_begin;
-                # mid_begin2end (include + two words) begin
+                # mid_begin2end (include + 2 two words) begin
                 match charPos_inStrngWord:
                     case CharPos_inStrngWord.MID2END:
                         strngWord2Idx.append(char_idx-1)
