@@ -21,65 +21,6 @@ def preTokenize_splitWords(strng: str) -> List[str]:
     charPos_inStrngWord = CharPos_inStrngWord.BEGIN
     strngWord2Idx: List[int] = []
     strng2idx: List[int] = []
-    can_be_floatPt_num = False
-
-    def resolve_floatPt_num() -> None:
-        # ***this function uses strngWord2Idx and strng, and alters strng2idx**
-        # ***Assume there can be periods at the beginning and end of word but
-        # only one (period or decimal-point) in the middle of word***
-        if len(strngWord2Idx) == 2:
-            # most likely case
-            try:
-                float(strng[strngWord2Idx[0]: strngWord2Idx[1]+1])
-                strng2idx.append(strngWord2Idx)
-                return
-            except ValueError:
-                pass
-
-        word = ""
-        for idx in range(0, len(strngWord2Idx), 2):
-            word = f'{word}{strng[strngWord2Idx[idx]: strngWord2Idx[idx+1]+1]}'
-        try:
-            float(word)     # word with decimal-point or period?
-            strng2idx.append(strngWord2Idx)
-            return
-        except ValueError:
-            # To make the implementation easier, assume there is only one
-            # period; this word has a period instead of a decimal-point; remove
-            # the period and create two words
-            assert (strng[strngWord2Idx[0]] != "." and
-                    strng[strngWord2Idx[-1]] != ".")
-            for i, strng_char in enumerate(strng[strngWord2Idx[
-                                                    0]: strngWord2Idx[-1]+1]):
-                if strng_char == ".":
-                    strng_char_idx = strngWord2Idx[0] + i
-                    for j, strng_idx in enumerate(strngWord2Idx):
-                        if strng_idx < strng_char_idx:
-                            continue
-                        elif strng_idx == strng_char_idx:
-                            if strngWord2Idx[j] == strngWord2Idx[j+1]:
-                                strng2idx.append(strngWord2Idx[: j])
-                                if j+2 < len(strngWord2Idx):
-                                    strng2idx.append(strngWord2Idx[j+2:])
-                            elif len(strngWord2Idx[: j]) % 2:
-                                strng2idx.append(strngWord2Idx[: j])
-                                temp = [strng_idx+1]
-                                temp.extend(strngWord2Idx[j+1:])
-                                strng2idx.append(temp)
-                            else:
-                                temp = strngWord2Idx[: j]
-                                temp.append(strng_idx-1)
-                                strng2idx.append(temp)
-                                strng2idx.append(strngWord2Idx[j+1:])
-                        elif strng_idx > strng_char_idx:
-                            temp = strngWord2Idx[: j]
-                            temp.append(strng_char_idx-1)
-                            strng2idx.append(temp)
-                            temp = [strng_char_idx+1]
-                            temp.extend(strngWord2Idx[j:])
-                            strng2idx.append(temp)
-                        else:
-                            assert False
 
     for char_idx, char in enumerate(strng):
         if char == " ":
@@ -117,11 +58,7 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                         charPos_inStrngWord = CharPos_inStrngWord.MID
                     case CharPos_inStrngWord.MID2END:
                         strngWord2Idx.append(char_idx)
-                        if can_be_floatPt_num:
-                            resolve_floatPt_num()
-                            can_be_floatPt_num = False
-                        else:
-                            strng2idx.append(strngWord2Idx)
+                        strng2idx.append(strngWord2Idx)
                         charPos_inStrngWord = CharPos_inStrngWord.BEGIN
                         strngWord2Idx = []
                     case CharPos_inStrngWord.BEGIN2END:
@@ -130,11 +67,7 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                         strngWord2Idx = []
                     case CharPos_inStrngWord.MID_BEGIN2END:
                         strngWord2Idx.extend([char_idx, char_idx])
-                        if can_be_floatPt_num:
-                            resolve_floatPt_num()
-                            can_be_floatPt_num = False
-                        else:
-                            strng2idx.append(strngWord2Idx)
+                        strng2idx.append(strngWord2Idx)
                         charPos_inStrngWord = CharPos_inStrngWord.BEGIN
                         strngWord2Idx = []
                     case _:
@@ -148,20 +81,12 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                 match charPos_inStrngWord:
                     case CharPos_inStrngWord.MID2END:
                         strngWord2Idx.append(char_idx-1)
-                        if can_be_floatPt_num:
-                            resolve_floatPt_num()
-                            can_be_floatPt_num = False
-                        else:
-                            strng2idx.append(strngWord2Idx)
+                        strng2idx.append(strngWord2Idx)
                     case CharPos_inStrngWord.MID:
                         strngWord2Idx.append(char_idx-1)
                         strng2idx.append(strngWord2Idx)
                     case CharPos_inStrngWord.MID_BEGIN2END:
-                        if can_be_floatPt_num:
-                            resolve_floatPt_num()
-                            can_be_floatPt_num = False
-                        else:
-                            strng2idx.append(strngWord2Idx)
+                        strng2idx.append(strngWord2Idx)
                     case CharPos_inStrngWord.MID_BEGIN:
                         strng2idx.append(strngWord2Idx)
                     case (CharPos_inStrngWord.BEGIN |
@@ -171,43 +96,7 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                         assert False
                 charPos_inStrngWord = CharPos_inStrngWord.BEGIN
                 strngWord2Idx = []
-            case ".":   # period or decimal-point; code is similar to hyphen
-                # Problem: is it a period or decimal-point?
-                # begin (exclude) begin;  begin2end (exclude) begin;
-                # mid (include) mid;  mid2end (exclude + new word) begin;
-                # mid_begin (include) mid;
-                # mid_begin2end (exclude + new word) begin
-                match charPos_inStrngWord:
-                    case CharPos_inStrngWord.MID:
-                        can_be_floatPt_num = True
-                    case CharPos_inStrngWord.MID_BEGIN:
-                        strngWord2Idx.append(char_idx)
-                        charPos_inStrngWord = CharPos_inStrngWord.MID
-                        can_be_floatPt_num = True
-                    case CharPos_inStrngWord.BEGIN:
-                        pass
-                    case CharPos_inStrngWord.BEGIN2END:
-                        charPos_inStrngWord = CharPos_inStrngWord.BEGIN
-                    case CharPos_inStrngWord.MID2END:
-                        strngWord2Idx.append(char_idx-1)
-                        if can_be_floatPt_num:
-                            resolve_floatPt_num()
-                            can_be_floatPt_num = False
-                        else:
-                            strng2idx.append(strngWord2Idx)
-                        charPos_inStrngWord = CharPos_inStrngWord.BEGIN
-                        strngWord2Idx = []
-                    case CharPos_inStrngWord.MID_BEGIN2END:
-                        if can_be_floatPt_num:
-                            resolve_floatPt_num()
-                            can_be_floatPt_num = False
-                        else:
-                            strng2idx.append(strngWord2Idx)
-                        charPos_inStrngWord = CharPos_inStrngWord.BEGIN
-                        strngWord2Idx = []
-                    case _:
-                        assert False
-            case "-":   # hypen
+            case "-" | ".":   # hypen or period/decimal-point
                 # begin (exclude) begin;  begin2end (exclude) begin;
                 # mid (include) mid;  mid2end (exclude + new word) begin;
                 # mid_begin (include) mid;
@@ -224,19 +113,11 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                         charPos_inStrngWord = CharPos_inStrngWord.BEGIN
                     case CharPos_inStrngWord.MID2END:
                         strngWord2Idx.append(char_idx-1)
-                        if can_be_floatPt_num:
-                            resolve_floatPt_num()
-                            can_be_floatPt_num = False
-                        else:
-                            strng2idx.append(strngWord2Idx)
+                        strng2idx.append(strngWord2Idx)
                         charPos_inStrngWord = CharPos_inStrngWord.BEGIN
                         strngWord2Idx = []
                     case CharPos_inStrngWord.MID_BEGIN2END:
-                        if can_be_floatPt_num:
-                            resolve_floatPt_num()
-                            can_be_floatPt_num = False
-                        else:
-                            strng2idx.append(strngWord2Idx)
+                        strng2idx.append(strngWord2Idx)
                         charPos_inStrngWord = CharPos_inStrngWord.BEGIN
                         strngWord2Idx = []
                     case _:
@@ -255,19 +136,11 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                         charPos_inStrngWord = CharPos_inStrngWord.BEGIN
                     case CharPos_inStrngWord.MID2END:
                         strngWord2Idx.append(char_idx-1)
-                        if can_be_floatPt_num:
-                            resolve_floatPt_num()
-                            can_be_floatPt_num = False
-                        else:
-                            strng2idx.append(strngWord2Idx)
+                        strng2idx.append(strngWord2Idx)
                         charPos_inStrngWord = CharPos_inStrngWord.BEGIN
                         strngWord2Idx = []
                     case CharPos_inStrngWord.MID_BEGIN2END:
-                        if can_be_floatPt_num:
-                            resolve_floatPt_num()
-                            can_be_floatPt_num = False
-                        else:
-                            strng2idx.append(strngWord2Idx)
+                        strng2idx.append(strngWord2Idx)
                         charPos_inStrngWord = CharPos_inStrngWord.BEGIN
                         strngWord2Idx = []
                     case CharPos_inStrngWord.MID:
@@ -286,11 +159,7 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                 match charPos_inStrngWord:
                     case CharPos_inStrngWord.MID2END:
                         strngWord2Idx.append(char_idx-1)
-                        if can_be_floatPt_num:
-                            resolve_floatPt_num()
-                            can_be_floatPt_num = False
-                        else:
-                            strng2idx.append(strngWord2Idx)
+                        strng2idx.append(strngWord2Idx)
                         strng2idx.append([char_idx, char_idx])
                         charPos_inStrngWord = CharPos_inStrngWord.BEGIN
                         strngWord2Idx = []
@@ -298,11 +167,7 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                         strng2idx.append([char_idx, char_idx])
                         charPos_inStrngWord = CharPos_inStrngWord.BEGIN
                     case CharPos_inStrngWord.MID_BEGIN2END:
-                        if can_be_floatPt_num:
-                            resolve_floatPt_num()
-                            can_be_floatPt_num = False
-                        else:
-                            strng2idx.append(strngWord2Idx)
+                        strng2idx.append(strngWord2Idx)
                         strng2idx.append([char_idx, char_idx])
                         charPos_inStrngWord = CharPos_inStrngWord.BEGIN
                         strngWord2Idx = []
@@ -323,19 +188,11 @@ def preTokenize_splitWords(strng: str) -> List[str]:
                 match charPos_inStrngWord:
                     case CharPos_inStrngWord.MID2END:
                         strngWord2Idx.append(char_idx-1)
-                        if can_be_floatPt_num:
-                            resolve_floatPt_num()
-                            can_be_floatPt_num = False
-                        else:
-                            strng2idx.append(strngWord2Idx)
+                        strng2idx.append(strngWord2Idx)
                         charPos_inStrngWord = CharPos_inStrngWord.BEGIN
                         strngWord2Idx = []
                     case CharPos_inStrngWord.MID_BEGIN2END:
-                        if can_be_floatPt_num:
-                            resolve_floatPt_num()
-                            can_be_floatPt_num = False
-                        else:
-                            strng2idx.append(strngWord2Idx)
+                        strng2idx.append(strngWord2Idx)
                         charPos_inStrngWord = CharPos_inStrngWord.BEGIN
                         strngWord2Idx = []
                     case CharPos_inStrngWord.MID:
@@ -406,41 +263,3 @@ def generate_user_output(user_input_pretok: List[str], word_labels: List[str]):
 
 def generate_history(user_output: str) -> str:
     return (" ")
-
-
-strng = ""
-result = preTokenize_splitWords(strng)
-my_result = []
-print(f'{strng}\n{my_result}\n{result}\n{result == my_result}\n')
-
-strng = "   "
-result = preTokenize_splitWords(strng)
-my_result = []
-print(f'{strng}\n{my_result}\n{result}\n{result == my_result}\n')
-
-strng = "\n"
-result = preTokenize_splitWords(strng)
-my_result = []
-print(f'{strng}\n{my_result}\n{result}\n{result == my_result}\n')
-
-strng = "mercedes,camry red.less than $16000 50% in-cash\n"
-result = preTokenize_splitWords(strng)
-my_result = ['mercedes', 'camry', 'red', 'less', 'than', '$', '16000', '50', '%', 'in-cash']
-print(f'{strng}\n{my_result}\n{result}\n{result == my_result}\n')
-
-strng = ",.-$% $44.#6$7$ re%d,g$r@e&^en,$20.4 dark#$-br\t>w?:n -n-o-- "
-result = preTokenize_splitWords(strng)
-my_result = ['$', '%', '$', '44.67', 'red', 'green', '$', '20.4', 'dark-brwn', 'n-o-']
-print(f'{strng}\n{my_result}\n{result}\n{result == my_result}\n')
-
-strng = ".44.6.after.the..56.3...222.6. 367.98"
-result = preTokenize_splitWords(strng)
-my_result = ['44.6', 'after', 'the', '56.3', '222.6', '367.98']
-print(f'{strng}\n{my_result}\n{result}\n{result == my_result}\n')
-
-strng = "%&()_+%@ \t\n_^"
-result = preTokenize_splitWords(strng)
-my_result = []
-print(f'{strng}\n{my_result}\n{result}\n{result == my_result}\n')
-
-x = 1
