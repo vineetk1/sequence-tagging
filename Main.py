@@ -114,6 +114,7 @@ def main():
             checkpoint_path=user_dicts['ld_resume_chkpt']['ld_chkpt'])
     else:
         model = Model(model_init=user_dicts['model_init'],
+                      num_classes=len(dataset_metadata['token-label names']),
                       tokenLabels_NumberCount=dataset_metadata[
                           'train token-labels -> number:count'])
     # batch_size is only provided to turn-off Lightning Warning;
@@ -243,10 +244,9 @@ def verify_and_change_user_provided_parameters(user_dicts: Dict):
         exit()
 
     if not user_dicts['ld_resume_chkpt']:
-        if user_dicts["model_init"][
-                'model'] != "bert" or user_dicts["model_init"][
-                    'tokenizer_type'] != "bert" or user_dicts[
-                        "model_init"]['model_type'] != "bert-large-uncased":
+        if user_dicts["model_init"]['model'] != "bert" or user_dicts[
+                "model_init"]['tokenizer_type'] != "bert" or user_dicts[
+                    "model_init"]['model_type'] != "bert-large-uncased":
             strng = ('unknown model and tokenizer_type: '
                      f'{user_dicts["model_init"]["model"]}'
                      f'{user_dicts["model_init"]["model_type"]}'
