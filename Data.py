@@ -9,6 +9,7 @@ from logging import getLogger
 from typing import List, Dict, Any
 from Generate_dataset import generate_dataset
 from Split_dataset import split_dataset
+import Utilities
 
 logg = getLogger(__name__)
 
@@ -113,14 +114,16 @@ class Data(LightningDataModule):
 
     def _bert_collater(self,
                        examples: List[List[List[Any]]]) -> Dict[str, Any]:
-        batch_ids, batch_histories, batch_sentences = [], [], []
+        batch_ids, batch_user_inputs, batch_histories = [], [], []
         for example in examples:
             batch_ids.append((example[0], example[1]))
-            batch_histories.append(example[2][0])
-            batch_sentences.append(example[2][1])
+            batch_user_inputs.append(
+                Utilities.preTokenize_splitWords(example[2]))
+            batch_histories.append(example[3])
 
         batch_model_inputs = self.tokenizer(text=batch_histories,
-                                            text_pair=batch_sentences,
+                                            text_pair=batch_user_inputs,
+                                            is_split_into_words=True,
                                             padding=True,
                                             truncation='only_first',
                                             return_tensors='pt',
@@ -128,29 +131,18 @@ class Data(LightningDataModule):
                                             return_attention_mask=True,
                                             return_overflowing_tokens=False)
 
-        # Verify that number of tokens in sentence are equal to token-labels;
-        # Not in Deployment
+        # Verify that number of tokens in history and user_input are equal to
+        # token-labelsi; Not in Deployment
         for i, token_label_len in enumerate(
                 batch_model_inputs['attention_mask'].count_nonzero(-1)):
-            assert token_label_len.item() == len(examples[i][3])
-
-        """
-        indices_of_sep = torch.nonzero(
-            batch_model_inputs['input_ids'] == self.tokenizer.sep_token_id)
-        assert (indices_of_sep.size()[0] ==
-                batch_model_inputs['input_ids'].size()[0] * 2)
-        for i in range(batch_model_inputs['input_ids'].size()[0] * 2):
-            j = i * 2 if i else i
-            assert (indices_of_sep[j + 1, 1] - indices_of_sep[j, 1] +
-                    1) == len(examples[i][3])
-        """
+            assert token_label_len.item() == len(examples[i][4])
 
         # pad token-labels; Not in Deployment
         batch_token_labels_max_len = max(
-            [len(example[3]) for example in examples])
+            [len(example[4]) for example in examples])
         batch_token_labels = torch.LongTensor([
-            example[3] + [-100] *
-            (batch_token_labels_max_len - len(example[3]))
+            example[4] + [-100] *
+            (batch_token_labels_max_len - len(example[4]))
             for example in examples
         ])
 
@@ -162,7 +154,7 @@ class Data(LightningDataModule):
                 batch_model_inputs['attention_mask'].type(torch.FloatTensor),
             },
             'labels': batch_token_labels,
-            'ids': (batch_ids)
+            'ids': batch_ids
         }
 
 
