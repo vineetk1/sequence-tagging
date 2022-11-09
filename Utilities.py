@@ -231,6 +231,11 @@ def preTokenize_splitWords(strng: str) -> List[str]:
 
 def convert_tokenLabels2wordLabels(tokenizer, user_input_pretok: List[str],
                                    token_labels: List[str]) -> List[str]:
+    #word_labels = Utilities.convert_tokenLabels2wordLabels(
+    #    tokenizer=tokenizer,
+    #    user_input_pretok=dlg_turn,
+    #    token_labels=tokenLabels_for_dlgTurn[1:-1])
+    #assert word_labels == wordLabels_for_dlg_turn
     # NOTE: token_labels must NOT have special characters like CLS, SEP, PAD
     map_words2tokens = tokenizer(user_input_pretok,
                                  is_split_into_words=True).word_ids()
@@ -256,10 +261,9 @@ def convert_tokenLabels2wordLabels(tokenizer, user_input_pretok: List[str],
     return (word_labels)
 
 
-def generate_user_output(user_input_pretok: List[str], word_labels: List[str]):
+def generate_userOutputs_histories(user_input_pretok: List[str], word_labels:
+                                   List[str]) -> Tuple[str, List[str]]:
     assert len(word_labels) == len(user_input_pretok)
-    return (" ")
-
-
-def generate_history(user_output: str) -> str:
-    return (" ")
+    user_output = " "
+    history = [" "]
+    return user_output, history
