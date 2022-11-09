@@ -19,7 +19,8 @@ logg = getLogger(__name__)
 
 class Model(LightningModule):
 
-    def __init__(self, model_init: dict, tokenLabels_NumberCount: dict):
+    def __init__(self, model_init: dict, num_classes: int,
+                 tokenLabels_NumberCount: dict):
         super().__init__()
         # save parameters for future use of "loading a model from
         # checkpoint"
@@ -28,8 +29,7 @@ class Model(LightningModule):
 
         if model_init['model'] == "bert":
             from transformers import BertModel
-            # -1 => -100 is not a class
-            self.num_classes = len(tokenLabels_NumberCount) - 1
+            self.num_classes = num_classes
             self.bertModel = BertModel.from_pretrained(
                 model_init['model_type'], add_pooling_layer=False)
             self.classification_head_dropout = torch.nn.Dropout(
@@ -211,8 +211,10 @@ class Model(LightningModule):
         self.df = pd.read_pickle(dataset_meta['dataset_panda'])
 
     def on_predict_start(self) -> None:
-        self.cntr = Counter()
-        self.max_turn_num = 0
+        self.num_of_failed_turns: int = 0
+        self.num_of_failed_token_labels: int = 0
+        #self.cntr = Counter()
+        #self.max_turn_num = 0
 
     def predict_step(self, batch: Dict[str, Any], batch_idx: int) -> Any:
         _, logits = self._run_model(batch)
@@ -227,16 +229,19 @@ class Model(LightningModule):
                                            subsequent_indent=19 * " ")
             for failed_dlgTurnIdx, failed_elementIdx in torch.ne(
                     batch['labels'], predictions).nonzero():
+                self.num_of_failed_token_labels += 1
                 input_tokens = self.tokenizer.convert_ids_to_tokens(
                     batch['model_inputs']['input_ids'][failed_dlgTurnIdx])
                 failed_token_label_str = (
                     f"{input_tokens[failed_elementIdx]}, "
-                    f"{self.dataset_meta['token-labels -> number:name'][batch['labels'][failed_dlgTurnIdx][failed_elementIdx].item()]}, "
-                    f"{ self.dataset_meta['token-labels -> number:name'][predictions[failed_dlgTurnIdx][failed_elementIdx].item()]};\t"
+                    f"{self.dataset_meta['token-label names'][batch['labels'][failed_dlgTurnIdx][failed_elementIdx].item()]}, "
+                    f"{ self.dataset_meta['token-label names'][predictions[failed_dlgTurnIdx][failed_elementIdx].item()]};\t"
                 )
                 if failed_dlgTurnIdx == prev_failed_dlgTurnIdx:
                     file.write(failed_token_label_str)
                     continue
+                else:
+                    self.num_of_failed_turns += 1
                 input_tokens_str = "Input tokens = " + " ".join(input_tokens)
                 dlg_id_str = f"dlg_id = {batch['ids'][failed_dlgTurnIdx]}"
                 actual_str = "True labels = "
@@ -244,11 +249,11 @@ class Model(LightningModule):
                 for i in torch.arange(batch['labels'].shape[1]):
                     if batch['labels'][failed_dlgTurnIdx][i].item() != -100:
                         actual_str = actual_str + self.dataset_meta[
-                            'token-labels -> number:name'][batch['labels'][
+                            'token-label names'][batch['labels'][
                                 failed_dlgTurnIdx][i].item()] + " "
                         predicted_str = (
                             predicted_str +
-                            self.dataset_meta['token-labels -> number:name']
+                            self.dataset_meta['token-label names']
                             [predictions[failed_dlgTurnIdx][i].item()] + " ")
                 failed_token_labels_txt = ('Failed token labels: Input token, '
                                            'True label, Predicted label; ....')
@@ -268,12 +273,10 @@ class Model(LightningModule):
             for predicted_token_label_num, actual_token_label_num in zip(
                     prediction, actual):
                 if actual_token_label_num != -100:
-                    y_true.append(
-                        self.dataset_meta['token-labels -> number:name']
-                        [actual_token_label_num])
-                    y_pred.append(
-                        self.dataset_meta['token-labels -> number:name']
-                        [predicted_token_label_num])
+                    y_true.append(self.dataset_meta['token-label names']
+                                  [actual_token_label_num])
+                    y_pred.append(self.dataset_meta['token-label names']
+                                  [predicted_token_label_num])
             self.y_true.append(y_true)
             self.y_pred.append(y_pred)
             assert len(y_true) == len(y_pred)
@@ -288,6 +291,10 @@ class Model(LightningModule):
             with out.open("a") as results_file:
                 with redirect_stdout(stdout if out ==
                                      stdoutput else results_file):
+                    print(f'# of failed turns = {self.num_of_failed_turns}')
+                    strng = (f'# of failed token-labels = '
+                             f'{self.num_of_failed_token_labels}')
+                    print(strng)
                     for k, v in self.dataset_meta.items():
                         print(k)
                         print(
@@ -302,30 +309,31 @@ class Model(LightningModule):
                     from seqeval.metrics import recall_score
                     from seqeval.metrics import f1_score
                     from seqeval.metrics import classification_report
-                    print('Classification Report=', end="")
+                    print('Classification Report')
                     print(
                         classification_report(self.y_true,
                                               self.y_pred,
                                               mode='strict',
                                               scheme=IOB2))
-                    print('Precision=', end="")
+                    print('Precision = ', end="")
                     print(
                         precision_score(self.y_true,
                                         self.y_pred,
                                         mode='strict',
                                         scheme=IOB2))
-                    print('Recall=', end="")
+                    print('Recall = ', end="")
                     print(
                         recall_score(self.y_true,
                                      self.y_pred,
                                      mode='strict',
                                      scheme=IOB2))
-                    print('F1=', end="")
+                    print('F1 = ', end="")
                     print(
                         f1_score(self.y_true,
                                  self.y_pred,
                                  mode='strict',
                                  scheme=IOB2))
-                    print(
-                        f'Accuracy={accuracy_score(self.y_true, self.y_pred): .2f}'
-                    )
+                    strng = (
+                        f'Accuracy = '
+                        f'{accuracy_score(self.y_true, self.y_pred): .2f}')
+                    print(strng)
