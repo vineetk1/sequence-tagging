@@ -78,11 +78,8 @@ def split_dataset(
 
     # e.g. 'test-set unseen token-labels': token-labels in test-dataset that
     # are not in train-dataset
-    trainValTest_tokenLabels_unseen = [
-        set(range(len(bio2_label_names))).difference(
-            set(sub_dataset_tokenLabels_count.keys()))
-        for sub_dataset_tokenLabels_count in (trainValTest_tokenLabels_count)
-    ]
+    testSet_unseen_tokenLabels = (trainValTest_tokenLabels_count[2].keys() -
+                                  trainValTest_tokenLabels_count[0].keys())
 
     dataset_metadata = {
         'batch sizes': batch_sizes,
@@ -98,9 +95,7 @@ def split_dataset(
         trainValTest_tokenLabels_count[0],
         'val token-labels -> number:count': trainValTest_tokenLabels_count[1],
         'test token-labels -> number:count': trainValTest_tokenLabels_count[2],
-        'train unseen token-labels': trainValTest_tokenLabels_unseen[0],
-        'val unseen token-labels': trainValTest_tokenLabels_unseen[1],
-        'test unseen token-labels': trainValTest_tokenLabels_unseen[2],
+        'test-set unseen token-labels': testSet_unseen_tokenLabels,
         'dataset_panda': dataset_file
     }
 
