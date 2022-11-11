@@ -38,6 +38,7 @@ class Data(LightningDataModule):
                     dataset_split[dataset_split_key], int):
                 dataset_split[dataset_split_key] = 0
         dataset_metadata, train_data, val_data, test_data = split_dataset(
+            tokenizer=self.tokenizer,
             dataset_path=dataset_path,
             splits=dataset_split,
             batch_sizes=self.batch_sizes)
