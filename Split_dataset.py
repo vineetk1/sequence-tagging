@@ -9,12 +9,15 @@ from sklearn.model_selection import train_test_split
 import pathlib
 import pickle
 from collections import Counter
+import Utilities
 
 logg = getLogger(__name__)
 
 
 def split_dataset(
-    dataset_path: str, splits: Dict[str, int], batch_sizes: Dict[str, int]
+    tokenizer, dataset_path: str, splits: Dict[str,
+                                               int], batch_sizes: Dict[str,
+                                                                       int]
 ) -> Tuple[Dict[str, Any], List[List[List[Any]]], List[List[List[Any]]],
            List[List[List[Any]]]]:
     assert splits['train'] + splits['val'] + splits['test'] == 100
@@ -78,8 +81,19 @@ def split_dataset(
 
     # e.g. 'test-set unseen token-labels': token-labels in test-dataset that
     # are not in train-dataset
-    testSet_unseen_tokenLabels = (trainValTest_tokenLabels_count[2].keys() -
-                                  trainValTest_tokenLabels_count[0].keys())
+    def tokens_in_dataset(dataset):
+        if dataset is None:
+            return set()
+        tokens_in_dataset = set()
+        for example in dataset:
+            tokens_in_dataset |= set(tokenizer(Utilities.preTokenize_splitWords(example[2]), is_split_into_words=True)['input_ids'])
+        return tokens_in_dataset
+
+    trainTest_tokens_in_dataset = [
+        tokens_in_dataset(dataset)
+        for dataset in (train_data, test_data)
+    ]
+    testSet_unseen_tokens = (trainTest_tokens_in_dataset[1] - trainTest_tokens_in_dataset[0])
 
     dataset_metadata = {
         'batch sizes': batch_sizes,
@@ -95,7 +109,7 @@ def split_dataset(
         trainValTest_tokenLabels_count[0],
         'val token-labels -> number:count': trainValTest_tokenLabels_count[1],
         'test token-labels -> number:count': trainValTest_tokenLabels_count[2],
-        'test-set unseen token-labels': testSet_unseen_tokenLabels,
+        'test-set unseen tokens': testSet_unseen_tokens,
         'dataset_panda': dataset_file
     }
 
