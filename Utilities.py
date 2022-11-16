@@ -6,6 +6,7 @@ from logging import getLogger
 from typing import List, Dict, Tuple, Any
 import string
 from enum import Enum
+import torch
 
 logg = getLogger(__name__)
 
@@ -229,36 +230,76 @@ def preTokenize_splitWords(strng: str) -> List[str]:
     return strng_pretok_split
 
 
-def convert_tokenLabels2wordLabels(tokenizer, user_input_pretok: List[str],
-                                   token_labels: List[str]) -> List[str]:
-    #word_labels = Utilities.convert_tokenLabels2wordLabels(
-    #    tokenizer=tokenizer,
-    #    user_input_pretok=dlg_turn,
-    #    token_labels=tokenLabels_for_dlgTurn[1:-1])
-    #assert word_labels == wordLabels_for_dlg_turn
-    # NOTE: token_labels must NOT have special characters like CLS, SEP, PAD
-    map_words2tokens = tokenizer(user_input_pretok,
-                                 is_split_into_words=True).word_ids()
-    word_labels = []
-    prev_word_idx = None
-    for token_idx, word_idx in enumerate(map_words2tokens[1:-1]):
-        assert word_idx is not None
-        if word_idx != prev_word_idx:  # first token of a word
-            word_labels.append(token_labels[token_idx])
+def convert_tokenLabels2wordLabels(
+        tokenizer, batch: Dict[str, Any],
+        batch_nnOut_tokenLabels_ids: torch.Tensor,
+        all_token_labels: List[str]) -> List[List[str]]:
+    batch_word_labels = []
+    # tokens between two SEP belong to tokens of batch['user_input_pretok']
+    userInputTokens_beginEnd_idx = (
+            batch['nnIn_ids']['input_ids'] == 102).nonzero()
+
+    for bch_idx in range(batch_nnOut_tokenLabels_ids.shape[0]):
+        prev_word_idx = None
+        word_labels = []
+        for userInputToken_idx in range(
+                (userInputTokens_beginEnd_idx[bch_idx * 2, 1] + 1).item(), (
+                   userInputTokens_beginEnd_idx[(bch_idx * 2) + 1, 1]).item()):
+            word_idx = batch['mapWords2Tokens'][bch_idx][userInputToken_idx]
+            if word_idx != prev_word_idx:  # first token of a word
+                word_labels.append(all_token_labels[
+                    batch_nnOut_tokenLabels_ids[
+                        bch_idx, userInputToken_idx].item()])
             prev_word_idx = word_idx
-            # checking for correctness
-            # the first token can also be "I"; for example:
-            # color = “dark brown”, word-label = B-color, I-color
-            remaining_tokenLabel_of_word = (
-                f"I{token_labels[token_idx][1:]}"
-                if token_labels[token_idx][0] != "O" else "O")
-        elif word_idx == prev_word_idx:  # not first token of a word
-            # checking for correctness
-            assert token_labels[token_idx] == remaining_tokenLabel_of_word
-        else:
-            assert False
-    assert len(word_labels) == len(user_input_pretok)
-    return (word_labels)
+        batch_word_labels.append(word_labels)
+    return (batch_word_labels)
+
+
+def CHECK_convert_tokenLabels2wordLabels(
+        tokenizer, batch: Dict[str, Any],
+        batch_nnOut_tokenLabels_ids: torch.Tensor,
+        all_token_labels: List[str]) -> List[List[str]]:
+    # purpose of this function is to check that word-labels are generated
+    # correctly
+    assert batch['nnIn_ids'][
+            'input_ids'].shape == batch_nnOut_tokenLabels_ids.shape
+    batch_word_labels = []
+    # tokens between two SEP belong to tokens of batch['user_input_pretok']
+    userInputTokens_beginEnd_idx = (
+            batch['nnIn_ids']['input_ids'] == 102).nonzero()
+
+    for bch_idx in range(batch_nnOut_tokenLabels_ids.shape[0]):
+        prev_word_idx = None
+        word_labels = []
+        for userInputToken_idx in range(
+                (userInputTokens_beginEnd_idx[bch_idx * 2, 1] + 1).item(), (
+                   userInputTokens_beginEnd_idx[(bch_idx * 2) + 1, 1]).item()):
+            word_idx = batch['mapWords2Tokens'][bch_idx][userInputToken_idx]
+            assert word_idx is not None
+            batch_nnOut_tokenLabel = all_token_labels[
+                    batch_nnOut_tokenLabels_ids[
+                        bch_idx, userInputToken_idx].item()]
+            if word_idx != prev_word_idx:  # first token of a word
+                word_labels.append(batch_nnOut_tokenLabel)
+                # checking for correctness
+                # the first token can also be "I"; for example:
+                # color = “dark brown”, word-label = B-color, I-color
+                remaining_tokenLabel_of_word = (
+                        f"I{batch_nnOut_tokenLabel[1:]}" if (
+                            batch_nnOut_tokenLabel[0]) != "O" else "O")
+            elif word_idx == prev_word_idx:  # not first token of a word
+                #*******Since token_labels are compared in Model.predict_step(), is it necessary to do it again here????
+                #assert batch_nnOut_tokenLabel == remaining_tokenLabel_of_word
+                pass
+            else:
+                assert False
+            prev_word_idx = word_idx
+        batch_word_labels.append(word_labels)
+    assert len(batch['user_input_pretok']) == len(batch_word_labels)
+    for batch_idx in range(len(batch_word_labels)):
+        assert len(batch['user_input_pretok'][batch_idx]) == len(
+                batch_word_labels[batch_idx])
+    return (batch_word_labels)
 
 
 def generate_userOutputs_histories(user_input_pretok: List[str], word_labels:
