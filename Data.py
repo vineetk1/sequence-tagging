@@ -6,7 +6,7 @@ from pytorch_lightning import LightningDataModule
 import torch
 from torch.utils.data import Dataset, RandomSampler, DataLoader
 from logging import getLogger
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from Generate_dataset import generate_dataset
 from Split_dataset import split_dataset
 import Utilities
@@ -115,27 +115,29 @@ class Data(LightningDataModule):
 
     def _bert_collater(self,
                        examples: List[List[List[Any]]]) -> Dict[str, Any]:
-        batch_ids, batch_user_inputs, batch_histories = [], [], []
+        batch_ids: List[Tuple[int, int]] = []
+        batch_user_input_pretok: List[List[str]] = []
+        batch_histories: List[List[str]] = []
         for example in examples:
             batch_ids.append((example[0], example[1]))
-            batch_user_inputs.append(
+            batch_user_input_pretok.append(
                 Utilities.preTokenize_splitWords(example[2]))
             batch_histories.append(example[3])
 
-        batch_model_inputs = self.tokenizer(text=batch_histories,
-                                            text_pair=batch_user_inputs,
-                                            is_split_into_words=True,
-                                            padding=True,
-                                            truncation='only_first',
-                                            return_tensors='pt',
-                                            return_token_type_ids=False,
-                                            return_attention_mask=True,
-                                            return_overflowing_tokens=False)
+        batch_nnIn_ids = self.tokenizer(text=batch_histories,
+                                        text_pair=batch_user_input_pretok,
+                                        is_split_into_words=True,
+                                        padding=True,
+                                        truncation='only_first',
+                                        return_tensors='pt',
+                                        return_token_type_ids=False,
+                                        return_attention_mask=True,
+                                        return_overflowing_tokens=False)
 
         # Verify that number of tokens in history and user_input are equal to
-        # token-labelsi; Not in Deployment
+        # token-labels; Not in Deployment
         for i, token_label_len in enumerate(
-                batch_model_inputs['attention_mask'].count_nonzero(-1)):
+                batch_nnIn_ids['attention_mask'].count_nonzero(-1)):
             assert token_label_len.item() == len(examples[i][4])
 
         # pad token-labels; Not in Deployment
@@ -148,14 +150,21 @@ class Data(LightningDataModule):
         ])
 
         return {
-            'model_inputs': {
-                'input_ids':
-                batch_model_inputs['input_ids'].type(torch.LongTensor),
-                'attention_mask':
-                batch_model_inputs['attention_mask'].type(torch.FloatTensor),
-            },
-            'labels': batch_token_labels,
-            'ids': batch_ids
+            'user_input_pretok':
+            batch_user_input_pretok,
+            'nnIn_ids':
+            batch_nnIn_ids,
+            'ids':
+            batch_ids,
+            'labels':
+            batch_token_labels,
+            # batch_word_ids should be generate in
+            # Utilities.convert_tokenLabels2wordLabels() when
+            # (batch['nnIn_ids'].is_fast) is True instead of False
+            'mapWords2Tokens': [
+                batch_nnIn_ids.word_ids(batch_idx)
+                for batch_idx in range(batch_nnIn_ids['input_ids'].shape[0])
+            ]
         }
 
 
