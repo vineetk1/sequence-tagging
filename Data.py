@@ -16,17 +16,17 @@ logg = getLogger(__name__)
 
 class Data(LightningDataModule):
 
-    def __init__(self, tokenizer, batch_size: dict):
+    def __init__(self, tokenizer, bch_size: dict):
         super().__init__()
         self.tokenizer = tokenizer
-        for batch_size_key in ('train', 'val', 'test', 'predict'):
-            if batch_size_key not in batch_size or not isinstance(
-                    batch_size[batch_size_key],
-                    int) or batch_size[batch_size_key] == 0:
-                batch_size[batch_size_key] = 1
-        self.batch_sizes = batch_size
-        # Trainer('auto_scale_batch_size': True...) requires self.batch_size
-        self.batch_size = batch_size['train']
+        for bch_size_key in ('train', 'val', 'test', 'predict'):
+            if bch_size_key not in bch_size or not isinstance(
+                    bch_size[bch_size_key],
+                    int) or bch_size[bch_size_key] == 0:
+                bch_size[bch_size_key] = 1
+        self.bch_sizes = bch_size
+        # Trainer('auto_scale_bch_size': True...) requires self.bch_size
+        self.bch_size = bch_size['train']
 
     def generate_data_labels(self, dataset_path: str) -> None:
         generate_dataset(tokenize=self.tokenizer, dataset_path=dataset_path)
@@ -41,7 +41,7 @@ class Data(LightningDataModule):
             tokenizer=self.tokenizer,
             dataset_path=dataset_path,
             splits=dataset_split,
-            batch_sizes=self.batch_sizes)
+            bch_sizes=self.bch_sizes)
         if train:
             assert (train_data is not None and val_data is not None
                     and test_data is not None)
@@ -60,7 +60,7 @@ class Data(LightningDataModule):
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
             self.train_data,
-            batch_size=self.batch_size,
+            batch_size=self.bch_size,
             shuffle=False,
             sampler=RandomSampler(self.train_data),
             batch_sampler=None,
@@ -74,7 +74,7 @@ class Data(LightningDataModule):
     def val_dataloader(self) -> DataLoader:
         return DataLoader(
             self.valid_data,
-            batch_size=self.batch_sizes['val'],
+            batch_size=self.bch_sizes['val'],
             shuffle=False,
             sampler=RandomSampler(self.valid_data),
             batch_sampler=None,
@@ -88,7 +88,7 @@ class Data(LightningDataModule):
     def test_dataloader(self) -> DataLoader:
         return DataLoader(
             self.test_data,
-            batch_size=self.batch_sizes['test'],
+            batch_size=self.bch_sizes['test'],
             shuffle=False,
             sampler=RandomSampler(self.test_data),
             batch_sampler=None,
@@ -102,7 +102,7 @@ class Data(LightningDataModule):
     def predict_dataloader(self) -> DataLoader:
         return DataLoader(
             self.test_data,
-            batch_size=self.batch_sizes['predict'],
+            batch_size=self.bch_sizes['predict'],
             shuffle=False,
             sampler=RandomSampler(self.test_data),
             batch_sampler=None,
@@ -115,56 +115,57 @@ class Data(LightningDataModule):
 
     def _bert_collater(self,
                        examples: List[List[List[Any]]]) -> Dict[str, Any]:
-        batch_ids: List[Tuple[int, int]] = []
-        batch_user_input_pretok: List[List[str]] = []
-        batch_histories: List[List[str]] = []
+        bch_ids: List[Tuple[int, int]] = []
+        bch_userIn_pretok: List[List[str]] = []
+        bch_histories: List[List[str]] = []
         for example in examples:
-            batch_ids.append((example[0], example[1]))
-            batch_user_input_pretok.append(
+            bch_ids.append((example[0], example[1]))
+            bch_userIn_pretok.append(
                 Utilities.preTokenize_splitWords(example[2]))
-            batch_histories.append(example[3])
+            bch_histories.append(example[3])
 
-        batch_nnIn_ids = self.tokenizer(text=batch_histories,
-                                        text_pair=batch_user_input_pretok,
-                                        is_split_into_words=True,
-                                        padding=True,
-                                        truncation='only_first',
-                                        return_tensors='pt',
-                                        return_token_type_ids=False,
-                                        return_attention_mask=True,
-                                        return_overflowing_tokens=False)
+        bch_nnIn_ids = self.tokenizer(text=bch_histories,
+                                      text_pair=bch_userIn_pretok,
+                                      is_split_into_words=True,
+                                      padding=True,
+                                      truncation='only_first',
+                                      return_tensors='pt',
+                                      return_token_type_ids=False,
+                                      return_attention_mask=True,
+                                      return_overflowing_tokens=False)
 
-        # Verify that number of tokens in history and user_input are equal to
+        # Verify that number of tokens in history and userIn are equal to
         # token-labels; Not in Deployment
         for i, token_label_len in enumerate(
-                batch_nnIn_ids['attention_mask'].count_nonzero(-1)):
+                bch_nnIn_ids['attention_mask'].count_nonzero(-1)):
             assert token_label_len.item() == len(examples[i][4])
 
         # pad token-labels; Not in Deployment
-        batch_token_labels_max_len = max(
+        bch_token_labels_max_len = max(
             [len(example[4]) for example in examples])
-        batch_token_labels = torch.LongTensor([
-            example[4] + [-100] *
-            (batch_token_labels_max_len - len(example[4]))
+        bch_token_labels = torch.LongTensor([
+            example[4] + [-100] * (bch_token_labels_max_len - len(example[4]))
             for example in examples
         ])
 
         return {
-            'user_input_pretok':
-            batch_user_input_pretok,
+            'userIn_pretok':
+            bch_userIn_pretok,
             'nnIn_ids':
-            batch_nnIn_ids,
+            bch_nnIn_ids,
             'ids':
-            batch_ids,
+            bch_ids,
             'labels':
-            batch_token_labels,
-            # batch_word_ids should be generate in
-            # Utilities.convert_tokenLabels2wordLabels() when
-            # (batch['nnIn_ids'].is_fast) is True instead of False
+            bch_token_labels,
+            # ***bch_word_ids should be generated in
+            # Utilities.convert_tokenLabels2wordLabels() when Huggingface
+            # debugs (bch['nnIn_ids'].is_fast) to True instead of False
             'mapWords2Tokens': [
-                batch_nnIn_ids.word_ids(batch_idx)
-                for batch_idx in range(batch_nnIn_ids['input_ids'].shape[0])
-            ]
+                bch_nnIn_ids.word_ids(bch_idx)
+                for bch_idx in range(bch_nnIn_ids['input_ids'].shape[0])
+            ],
+            'userOut':
+            len(examples) * [Utilities.userOut_init()]
         }
 
 
