@@ -98,7 +98,7 @@ def main():
     tokenizer = BertTokenizerFast.from_pretrained(
         user_dicts['model_init']['model_type'])
     data = Data(tokenizer=tokenizer,
-                batch_size=user_dicts['data']['batch_size']
+                bch_size=user_dicts['data']['batch_size']
                 if 'batch_size' in user_dicts['data'] else {})
     data.generate_data_labels(dataset_path=user_dicts['data']['dataset_path'])
     dataset_metadata = data.split_dataset(
@@ -114,14 +114,14 @@ def main():
             checkpoint_path=user_dicts['ld_resume_chkpt']['ld_chkpt'])
     else:
         model = Model(model_init=user_dicts['model_init'],
-                      num_classes=len(dataset_metadata['token-label names']),
+                      num_classes=len(dataset_metadata['idx2tokenLabels']),
                       tokenLabels_NumberCount=dataset_metadata[
                           'train token-labels -> number:count'])
-    # batch_size is only provided to turn-off Lightning Warning;
-    # resume_from_checkpoint can provide a different batch_size which will
-    # conflict with this batch_size
+    # bch_size is only provided to turn-off Lightning Warning;
+    # resume_from_checkpoint can provide a different bch_size which will
+    # conflict with this bch_size
     model.params(optz_sched_params=user_dicts['optz_sched'],
-                 batch_size=dataset_metadata['batch sizes'])
+                 bch_size=dataset_metadata['bch sizes'])
 
     # create a directory to store all types of results
     if 'resume_from_checkpoint' in user_dicts['ld_resume_chkpt']:
@@ -199,9 +199,12 @@ def main():
         # for testing, auto-load checkpoint file with lowest val-loss
         trainer.test(dataloaders=data.test_dataloader(), ckpt_path='best')
     if user_dicts['misc']['predict']:
-        model.prepare_for_predict(dataset_meta=dataset_metadata,
-                                  dirPath=dirPath,
-                                  tokenizer=tokenizer)
+        model.prepare_for_predict(
+            predictStatistics=user_dicts['misc']['predictStatistics'],
+            path_to_idx2tokenLabels=user_dicts['data']['dataset_path'],
+            tokenizer=tokenizer,
+            dataset_meta=dataset_metadata,
+            dirPath=dirPath)
         if user_dicts['misc']['train']:
             trainer.predict(dataloaders=data.predict_dataloader(),
                             ckpt_path='best')
@@ -225,7 +228,7 @@ def verify_and_change_user_provided_parameters(user_dicts: Dict):
         logg.critical(strng)
         exit()
 
-    for k in ('train', 'predict'):
+    for k in ('train', 'predict', 'predictStatistics'):
         if k in user_dicts['misc']:
             if not isinstance(user_dicts['misc'][k], bool):
                 strng = (
