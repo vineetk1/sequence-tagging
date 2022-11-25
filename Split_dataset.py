@@ -16,7 +16,7 @@ logg = getLogger(__name__)
 
 def split_dataset(
     tokenizer, dataset_path: str, splits: Dict[str,
-                                               int], batch_sizes: Dict[str,
+                                               int], bch_sizes: Dict[str,
                                                                        int]
 ) -> Tuple[Dict[str, Any], List[List[List[Any]]], List[List[List[Any]]],
            List[List[List[Any]]]]:
@@ -34,7 +34,7 @@ def split_dataset(
         exit()
     df = pd.read_pickle(dataset_file)
     with dataset_meta_file.open('rb') as dmF:
-        bio2_label_names = pickle.load(dmF)
+        idx2tokenLabels = pickle.load(dmF)
 
     # Split dataset into train, val, test
     if not splits['train'] and splits['test']:
@@ -86,17 +86,19 @@ def split_dataset(
             return set()
         tokens_in_dataset = set()
         for example in dataset:
-            tokens_in_dataset |= set(tokenizer(Utilities.preTokenize_splitWords(example[2]), is_split_into_words=True)['input_ids'])
+            tokens_in_dataset |= set(
+                tokenizer(Utilities.preTokenize_splitWords(example[2]),
+                          is_split_into_words=True)['input_ids'])
         return tokens_in_dataset
 
     trainTest_tokens_in_dataset = [
-        tokens_in_dataset(dataset)
-        for dataset in (train_data, test_data)
+        tokens_in_dataset(dataset) for dataset in (train_data, test_data)
     ]
-    testSet_unseen_tokens = (trainTest_tokens_in_dataset[1] - trainTest_tokens_in_dataset[0])
+    testSet_unseen_tokens = (trainTest_tokens_in_dataset[1] -
+                             trainTest_tokens_in_dataset[0])
 
     dataset_metadata = {
-        'batch sizes': batch_sizes,
+        'bch sizes': bch_sizes,
         'dataset splits': splits,
         'dataset lengths': {
             'original': len(df),
@@ -104,7 +106,7 @@ def split_dataset(
             'val': len(df_val) if df_val is not None else 0,
             'test': len(df_test) if df_test is not None else 0
         },
-        'token-label names': bio2_label_names,
+        'idx2tokenLabels': idx2tokenLabels,
         'train token-labels -> number:count':
         trainValTest_tokenLabels_count[0],
         'val token-labels -> number:count': trainValTest_tokenLabels_count[1],
