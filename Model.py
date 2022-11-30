@@ -240,7 +240,7 @@ class Model(LightningModule):
                 bch_nnOut_tokenLabels_ids=bch_nnOut_tokenLabels_ids,
                 idx2tokenLabels=self.idx2tokenLabels)
 
-        batch_userOut: List[Dict[str, List[str]]] = Utilities.generate_userOut(
+        bch_userOut: List[Dict[str, List[str]]] = Utilities.generate_userOut(
             bch_prev_userOut=batch['userOut'],
             bch_userIn_pretok=batch['userIn_pretok'],
             bch_wordLabels=bch_wordLabels)
@@ -258,8 +258,8 @@ class Model(LightningModule):
 
         # write to file the info about failed turns of dialogs
         bch_nnOut_tokenLabels_ids = torch.where(batch['labels'] == -100,
-                                                  batch['labels'],
-                                                  bch_nnOut_tokenLabels_ids)
+                                                batch['labels'],
+                                                bch_nnOut_tokenLabels_ids)
         with self.failed_dlgs_file.open('a') as file:
             prev_failed_dlgTurnIdx = None
             testSet_unseen_tokens = []
@@ -274,8 +274,8 @@ class Model(LightningModule):
 
                 true_label_num = batch['labels'][failed_dlgTurnIdx][
                     failed_elementIdx].item()
-                pred_label_num = bch_nnOut_tokenLabels_ids[
-                    failed_dlgTurnIdx][failed_elementIdx].item()
+                pred_label_num = bch_nnOut_tokenLabels_ids[failed_dlgTurnIdx][
+                    failed_elementIdx].item()
                 failed_token_label_out = (
                     f'{userIn_pretok[failed_elementIdx]}, '
                     f"{self.dataset_meta['idx2tokenLabels'][true_label_num]}"
