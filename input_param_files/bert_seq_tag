@@ -16,7 +16,7 @@ python3 Main.py input_param_files/bert_seq_tag
 
 parameters for python-dictionary 'misc'
 -
-{'save_top_k': 2, 'train': True, 'predict': True}
+{'save_top_k': 2, 'train': True, 'predict': False, 'predictStatistics': False}
 
 
 parameters for python-dictionary 'optz_sched'
@@ -34,7 +34,7 @@ Does Not work: 'auto_lr_find': True,  'auto_scale_batch_size': True
 Works:         'auto_lr_find': True,  'auto_scale_batch_size': False
 Works:         'auto_lr_find': False, 'auto_scale_batch_size': True
 - 
-{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 1, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'gradient_clip_val': 0.5}
+{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 500, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'gradient_clip_val': 0.5}
 #{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 5, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'stochastic_weight_avg': True, 'gradient_clip_val': 0.5}
 #{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 1, 'auto_lr_find': False, 'auto_scale_batch_size': True}
 #{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 1, 'auto_lr_find': True, 'auto_scale_batch_size': False}
