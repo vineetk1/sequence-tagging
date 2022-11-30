@@ -22,7 +22,7 @@ python3 Main.py input_param_files/bert_seq_tag-resume_from_chkpt
 
 parameters for python-dictionary 'misc'. ***Must specify the contents of this dict***
 -
-{'save_top_k': 4, 'train': True, 'predict': True}
+{'save_top_k': 4, 'train': True, 'predict': False, 'predictStatistics': False}
 
 
 parameters for python-dictionary 'optz_sched'. ***Contents of this dict are replaced by corresponding checkpoint dict*** 
