@@ -329,37 +329,47 @@ def generate_userOut(
     bch_userOut = [userOut_init() for _ in range(len(bch_wordLabels))]
 
     for bch_idx in range(len(bch_wordLabels)):
-        tkn_lbl_idx = 0
-        while tkn_lbl_idx < len(bch_wordLabels[bch_idx]):
+        wrdLbl_idx = 0
+        while wrdLbl_idx < len(bch_wordLabels[bch_idx]):
+            if (wrdLbl := bch_wordLabels[bch_idx][wrdLbl_idx])[0] == "O":
+                continue
 
-            def _extract_from_tkn_lbl(label):
-                label_prefix = label[0]     # 'B' or 'I'
-                if label[-1] == ')':
+            def _extract_from_wrdLbl(wrdLbl):
+                wrdLbl_prefix = wrdLbl[0]     # 'B' or 'I'
+                if wrdLbl[-1] == ')':
                     try:
-                        label_openParen_idx = label.index('(')
+                        wrdLbl_openParen_idx = wrdLbl.index('(')
                     except ValueError:
                         logg.critical(
-                          '{label} has closing- but not opening-parenthesis')
+                          '{wrdLbl} has closing- but not opening-parenthesis')
                         exit()
-                    label_name = label[2: label_openParen_idx]
-                    label_value = label[label_openParen_idx+1: -1]
+                    wrdLbl_name = wrdLbl[2: wrdLbl_openParen_idx]
+                    wrdLbl_value = wrdLbl[wrdLbl_openParen_idx+1: -1]
                 else:
-                    label_name = label[2:]
-                    label_value = None
-                return label_prefix, label_name, label_value
-            tkn_lbl_prefix, tkn_lbl_name, tkn_lbl_value = _extract_from_tkn_lbl(
-                    bch_wordLabels[bch_idx][tkn_lbl_idx])
+                    wrdLbl_name = wrdLbl[2:]
+                    wrdLbl_value = None
+                return wrdLbl_prefix, wrdLbl_name, wrdLbl_value
+            wrdLbl_prefix, wrdLbl_name, wrdLbl_value = _extract_from_wrdLbl(
+                    wrdLbl)
 
-            match tkn_lbl_name:
-                case tkn_lbl_name if (tkn_lbl_name in syntheticData.groupOf_car_entity_names_with_str_entity_values):
+            match wrdLbl_name:
+                case wrdLbl_name if (
+                        wrdLbl_name in syntheticData.
+                        groupOf_car_entity_names_with_str_entity_values):
                     # neural-net must memorize value (eg. mercedes) with its
                     # corresponding name (eg. brand)
-                    bch_userOut[bch_idx][tkn_lbl_name].append(tkn_lbl_value if tkn_lbl_value  else bch_userIn_pretok[bch_idx][tkn_lbl_idx])
-                case tkn_lbl_name if (tkn_lbl_name in syntheticData.groupOf_car_entity_names_with_floatInt_entity_values) or (tkn_lbl_name in syntheticData.groupOf_car_entity_names_with_int_entity_values):
-                    assert tkn_lbl_value is None
-                    bch_userOut[bch_idx][tkn_lbl_name].append(bch_userIn_pretok[bch_idx][tkn_lbl_idx])
+                    bch_userOut[bch_idx][wrdLbl_name].append(
+                           wrdLbl_value if wrdLbl_value else bch_userIn_pretok[
+                               bch_idx][wrdLbl_idx])
+                case wrdLbl_name if ((
+                        wrdLbl_name in syntheticData.
+                        groupOf_car_entity_names_with_floatInt_entity_values)
+                        or (wrdLbl_name in syntheticData.
+                            groupOf_car_entity_names_with_int_entity_values)):
+                    assert wrdLbl_value is None
+                    bch_userOut[bch_idx][wrdLbl_name].append(bch_userIn_pretok[bch_idx][wrdLbl_idx])
 
-            tkn_lbl_idx += 1
+            wrdLbl_idx += 1
 
     return bch_userOut
 
