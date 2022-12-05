@@ -236,35 +236,83 @@ def preTokenize_splitWords(strng: str) -> List[str]:
     return strng_pretok_split
 
 
-def convert_tokenLabels2wordLabels(
+def tknLbls2entity_wrds_lbls(
         bch: Dict[str, Any],
-        bch_nnOut_tokenLabels_ids: torch.Tensor,
-        idx2tokenLabels: List[str]) -> List[List[str]]:
-    bch_wordLabels = []
+        bch_nnOut_tknLbls_ids: torch.Tensor,
+        ids2tknLbls: List[str], tokenizer) -> Tuple[List[List[str]], List[
+                                                             List[str]]]:
+    # purpose of this function is to check that word-labels are generated
+    # correctly
+    bch_nnOut_entityWrdLbls = []
+    bch_userInFiltered_entityWrds = []
     # tokens between two SEP belong to tokens of bch['userIn_pretok']
-    userInTokens_beginEnd_idx = (
+    nnIn_tknIds_beginEnd_idx = (
             bch['nnIn_ids']['input_ids'] == 102).nonzero()
 
-    for bch_idx in range(bch_nnOut_tokenLabels_ids.shape[0]):
-        prev_word_idx = None
-        wordLabels = []
-        for userInToken_idx in range(
-                (userInTokens_beginEnd_idx[bch_idx * 2, 1] + 1).item(), (
-                   userInTokens_beginEnd_idx[(bch_idx * 2) + 1, 1]).item()):
-            word_idx = bch['mapWords2Tokens'][bch_idx][userInToken_idx]
-            if word_idx != prev_word_idx:  # first token of a word
-                wordLabels.append(idx2tokenLabels[
-                    bch_nnOut_tokenLabels_ids[
-                        bch_idx, userInToken_idx].item()])
-            prev_word_idx = word_idx
-        bch_wordLabels.append(wordLabels)
-    return (bch_wordLabels)
+    for bch_idx in range(bch_nnOut_tknLbls_ids.shape[0]):
+        assert bch_nnOut_tknLbls_ids[bch_idx].shape[0] == bch['nnIn_ids'][
+                'input_ids'][bch_idx].shape[0]
+        prev_wrd_idx = None
+        entityWrdLbls = []
+        entityWrds = []
+        multipleWord_entity = ""
+
+        assert_nnIn_tkns = []
+        assert_nnOut_tknLbls = []
+        for nnIn_tknIds_idx in range(
+                (nnIn_tknIds_beginEnd_idx[bch_idx * 2, 1] + 1).item(), (
+                   nnIn_tknIds_beginEnd_idx[(bch_idx * 2) + 1, 1]).item()):
+            # this for-loop is for debugging-only
+            assert_nnIn_tkns.append(tokenizer.decode(bch['nnIn_ids'][
+                                    'input_ids'][bch_idx, nnIn_tknIds_idx]))
+            assert_nnOut_tknLbls.append(ids2tknLbls[bch_nnOut_tknLbls_ids[
+                                           bch_idx, nnIn_tknIds_idx].item()])
+
+        for nnIn_tknIds_idx in range(
+                (nnIn_tknIds_beginEnd_idx[bch_idx * 2, 1] + 1).item(), (
+                   nnIn_tknIds_beginEnd_idx[(bch_idx * 2) + 1, 1]).item()):
+            wrd_idx = bch['mapWords2Tokens'][bch_idx][nnIn_tknIds_idx]
+            assert wrd_idx is not None
+            if wrd_idx != prev_wrd_idx:  # first token of a word
+                nnOut_tknLbl = ids2tknLbls[bch_nnOut_tknLbls_ids[
+                                           bch_idx, nnIn_tknIds_idx].item()]
+                assert nnOut_tknLbl[0] != "T"
+                if nnOut_tknLbl[0] == 'B':
+                    if multipleWord_entity:  # previous multipleWord_entity
+                        entityWrds.append(multipleWord_entity)
+                    entityWrdLbls.append(nnOut_tknLbl)
+                    multipleWord_entity = bch[
+                                             'userIn_pretok'][bch_idx][wrd_idx]
+                elif nnOut_tknLbl[0] == 'I':
+                    assert multipleWord_entity
+                    multipleWord_entity = (
+                            f"{multipleWord_entity} {bch['userIn_pretok'][bch_idx][wrd_idx]}")
+                elif nnOut_tknLbl[0] == 'O':  # previous multipleWord_entity
+                    if multipleWord_entity:
+                        entityWrds.append(multipleWord_entity)
+                    multipleWord_entity = ""
+                else:
+                    strng = (f'invalid token-label {nnOut_tknLbl} starts with '
+                             f'{nnOut_tknLbl[0]}')
+                    logg.critical(strng)
+                    assert False
+            else:
+                assert (ids2tknLbls[bch_nnOut_tknLbls_ids[
+                        bch_idx, nnIn_tknIds_idx].item()])[0] == "T"
+            prev_wrd_idx = wrd_idx
+        if multipleWord_entity:  # previous multipleWord_entity
+            entityWrds.append(multipleWord_entity)
+        assert len(entityWrdLbls) == len(entityWrds)
+        bch_nnOut_entityWrdLbls.append(entityWrdLbls)
+        bch_userInFiltered_entityWrds.append(entityWrds)
+    assert len(bch_userInFiltered_entityWrds) == len(bch_nnOut_entityWrdLbls)
+    return bch_userInFiltered_entityWrds, bch_nnOut_entityWrdLbls
 
 
-def CHECK_convert_tokenLabels2wordLabels(
-        bch: Dict[str, Any],
-        bch_nnOut_tokenLabels_ids: torch.Tensor,
-        idx2tokenLabels: List[str]) -> List[List[str]]:
+def CHECK_tokenLabels2wordLabels(
+    bch: Dict[str, Any],
+    bch_nnOut_tokenLabels_ids: torch.Tensor,
+    idx2tokenLabels: List[str]) -> List[List[str]]:
     # purpose of this function is to check that word-labels are generated
     # correctly
     assert bch['nnIn_ids'][
@@ -272,7 +320,7 @@ def CHECK_convert_tokenLabels2wordLabels(
     bch_wordLabels = []
     # tokens between two SEP belong to tokens of bch['userIn_pretok']
     userInTokens_beginEnd_idx = (
-            bch['nnIn_ids']['input_ids'] == 102).nonzero()
+        bch['nnIn_ids']['input_ids'] == 102).nonzero()
 
     for bch_idx in range(bch_nnOut_tokenLabels_ids.shape[0]):
         prev_word_idx = None
@@ -321,7 +369,7 @@ def generate_userOut(
         bch_userIn_pretok: List[List[str]],
         bch_wordLabels: List[List[str]]) -> List[Dict[str, List[str]]]:
     assert len(bch_wordLabels) == len(bch_userIn_pretok)
-    assert len(bch_prev_userOut) == len(bch_userIn_pretok)
+    assert len(bch_wordLabels) == len(bch_prev_userOut)
     # init_userOut = userOut_init(); bch_userOut =
     # [init_userOut for _ in range(len(bch_wordLabels))] Does NOT work
     # because each copy of dict points to same memory location; i.e. writing a
@@ -332,6 +380,7 @@ def generate_userOut(
         wrdLbl_idx = 0
         while wrdLbl_idx < len(bch_wordLabels[bch_idx]):
             if (wrdLbl := bch_wordLabels[bch_idx][wrdLbl_idx])[0] == "O":
+                wrdLbl_idx += 1
                 continue
 
             def _extract_from_wrdLbl(wrdLbl):
@@ -342,7 +391,7 @@ def generate_userOut(
                     except ValueError:
                         logg.critical(
                           '{wrdLbl} has closing- but not opening-parenthesis')
-                        exit()
+                        assert False
                     wrdLbl_name = wrdLbl[2: wrdLbl_openParen_idx]
                     wrdLbl_value = wrdLbl[wrdLbl_openParen_idx+1: -1]
                 else:
@@ -356,8 +405,7 @@ def generate_userOut(
                 case wrdLbl_name if (
                         wrdLbl_name in syntheticData.
                         groupOf_car_entity_names_with_str_entity_values):
-                    # neural-net must memorize value (eg. mercedes) with its
-                    # corresponding name (eg. brand)
+                    # bool-OR does not make sense, so AND/OR are ignored
                     bch_userOut[bch_idx][wrdLbl_name].append(
                            wrdLbl_value if wrdLbl_value else bch_userIn_pretok[
                                bch_idx][wrdLbl_idx])
@@ -376,4 +424,4 @@ def generate_userOut(
 
 def userOut2history(
         bch_userOut: List[Dict[str, List[str]]]) -> List[List[str]]:
-    x = 0
+    return len(bch_userOut) * [[""]]
