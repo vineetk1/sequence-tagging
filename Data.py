@@ -115,57 +115,44 @@ class Data(LightningDataModule):
 
     def _bert_collater(self,
                        examples: List[List[List[Any]]]) -> Dict[str, Any]:
-        bch_ids: List[Tuple[int, int]] = []
-        bch_userIn_pretok: List[List[str]] = []
-        bch_histories: List[List[str]] = []
+        bch_dlgTrn_ids: List[Tuple[int, int]] = []
+        bch_userIn_filtered_wrds: List[List[str]] = []
+        bch_history: List[List[str]] = []
         for example in examples:
-            bch_ids.append((example[0], example[1]))
-            bch_userIn_pretok.append(
-                Utilities.preTokenize_splitWords(example[2]))
-            bch_histories.append(example[3])
+            bch_dlgTrn_ids.append((example[0], example[1]))
+            bch_userIn_filtered_wrds.append(
+                Utilities.userIn_filter_splitWords(example[2]))
+            bch_history.append(example[3])
 
-        bch_nnIn_ids = self.tokenizer(text=bch_histories,
-                                      text_pair=bch_userIn_pretok,
-                                      is_split_into_words=True,
-                                      padding=True,
-                                      truncation='only_first',
-                                      return_tensors='pt',
-                                      return_token_type_ids=False,
-                                      return_attention_mask=True,
-                                      return_overflowing_tokens=False)
+        bch_nnIn_tknIds = self.tokenizer(text=bch_history,
+                                         text_pair=bch_userIn_filtered_wrds,
+                                         is_split_into_words=True,
+                                         padding=True,
+                                         truncation='only_first',
+                                         return_tensors='pt',
+                                         return_token_type_ids=False,
+                                         return_attention_mask=True,
+                                         return_overflowing_tokens=False)
 
         # Verify that number of tokens in history and userIn are equal to
         # token-labels; Not in Deployment
-        for i, token_label_len in enumerate(
-                bch_nnIn_ids['attention_mask'].count_nonzero(-1)):
-            assert token_label_len.item() == len(examples[i][4])
+        for i, tknLbls_len in enumerate(
+                bch_nnIn_tknIds['attention_mask'].count_nonzero(-1)):
+            assert tknLbls_len.item() == len(examples[i][4])
 
         # pad token-labels; Not in Deployment
-        bch_token_labels_max_len = max(
-            [len(example[4]) for example in examples])
-        bch_token_labels = torch.LongTensor([
-            example[4] + [-100] * (bch_token_labels_max_len - len(example[4]))
+        bch_tknLbls_max_len = max([len(example[4]) for example in examples])
+        bch_tknLbls = torch.LongTensor([
+            example[4] + [-100] * (bch_tknLbls_max_len - len(example[4]))
             for example in examples
         ])
 
         return {
-            'userIn_pretok':
-            bch_userIn_pretok,
-            'nnIn_ids':
-            bch_nnIn_ids,
-            'ids':
-            bch_ids,
-            'labels':
-            bch_token_labels,
-            # ***bch_word_ids should be generated in
-            # Utilities.convert_tokenLabels2wordLabels() when Huggingface
-            # debugs (bch['nnIn_ids'].is_fast) to True instead of False
-            'mapWords2Tokens': [
-                bch_nnIn_ids.word_ids(bch_idx)
-                for bch_idx in range(bch_nnIn_ids['input_ids'].shape[0])
-            ],
-            'userOut':
-            len(examples) * [Utilities.userOut_init()]
+            'userIn_filtered_wrds': bch_userIn_filtered_wrds,
+            'nnIn_tknIds': bch_nnIn_tknIds,
+            'dlgTrn_id': bch_dlgTrn_ids,
+            'tknLbl_ids': bch_tknLbls,
+            'userOut': len(examples) * [Utilities.userOut_init()]
         }
 
 
