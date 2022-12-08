@@ -115,11 +115,11 @@ class Data(LightningDataModule):
 
     def _bert_collater(self,
                        examples: List[List[List[Any]]]) -> Dict[str, Any]:
-        bch_dlgTrn_ids: List[Tuple[int, int]] = []
+        bch_dlgTrnId: List[Tuple[int, int]] = []
         bch_userIn_filtered_wrds: List[List[str]] = []
         bch_history: List[List[str]] = []
         for example in examples:
-            bch_dlgTrn_ids.append((example[0], example[1]))
+            bch_dlgTrnId.append((example[0], example[1]))
             bch_userIn_filtered_wrds.append(
                 Utilities.userIn_filter_splitWords(example[2]))
             bch_history.append(example[3])
@@ -141,17 +141,17 @@ class Data(LightningDataModule):
             assert tknLbls_len.item() == len(examples[i][4])
 
         # pad token-labels; Not in Deployment
-        bch_tknLbls_max_len = max([len(example[4]) for example in examples])
-        bch_tknLbls = torch.LongTensor([
-            example[4] + [-100] * (bch_tknLbls_max_len - len(example[4]))
+        bch_tknLblIds_max_len = max([len(example[4]) for example in examples])
+        bch_tknLblIds = torch.LongTensor([
+            example[4] + [-100] * (bch_tknLblIds_max_len - len(example[4]))
             for example in examples
         ])
 
         return {
             'userIn_filtered_wrds': bch_userIn_filtered_wrds,
             'nnIn_tknIds': bch_nnIn_tknIds,
-            'dlgTrn_id': bch_dlgTrn_ids,
-            'tknLbl_ids': bch_tknLbls,
+            'dlgTrnId': bch_dlgTrnId,
+            'tknLblIds': bch_tknLblIds,
             'userOut': len(examples) * [Utilities.userOut_init()]
         }
 
