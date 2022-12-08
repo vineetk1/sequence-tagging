@@ -57,11 +57,11 @@ def split_dataset(
         assert len(df) == len(df_train) + len(df_val) + len(df_test)
 
     train_data, val_data, test_data = (df_train[[
-        'dlg id', 'turn num', 'user input', 'history', 'token labels nums'
+        'dlg id', 'turn num', 'user input', 'history', 'token labels ids'
     ]].values.tolist() if df_train is not None else None, df_val[[
-        'dlg id', 'turn num', 'user input', 'history', 'token labels nums'
+        'dlg id', 'turn num', 'user input', 'history', 'token labels ids'
     ]].values.tolist() if df_val is not None else None, df_test[[
-        'dlg id', 'turn num', 'user input', 'history', 'token labels nums'
+        'dlg id', 'turn num', 'user input', 'history', 'token labels ids'
     ]].values.tolist() if df_test is not None else None)
 
     # create meta-data for the datasets
@@ -87,7 +87,7 @@ def split_dataset(
         tokens_in_dataset = set()
         for example in dataset:
             tokens_in_dataset |= set(
-                tokenizer(Utilities.preTokenize_splitWords(example[2]),
+                tokenizer(Utilities.userIn_filter_splitWords(example[2]),
                           is_split_into_words=True)['input_ids'])
         return tokens_in_dataset
 
