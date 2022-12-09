@@ -15,9 +15,8 @@ logg = getLogger(__name__)
 
 
 def split_dataset(
-    tokenizer, dataset_path: str, splits: Dict[str,
-                                               int], bch_sizes: Dict[str,
-                                                                       int]
+    tokenizer, dataset_path: str, splits: Dict[str, int], bch_sizes: Dict[str,
+                                                                          int]
 ) -> Tuple[Dict[str, Any], List[List[List[Any]]], List[List[List[Any]]],
            List[List[List[Any]]]]:
     assert splits['train'] + splits['val'] + splits['test'] == 100
@@ -34,7 +33,7 @@ def split_dataset(
         exit()
     df = pd.read_pickle(dataset_file)
     with dataset_meta_file.open('rb') as dmF:
-        idx2tokenLabels = pickle.load(dmF)
+        idx2tknLbl = pickle.load(dmF)
 
     # Split dataset into train, val, test
     if not splits['train'] and splits['test']:
@@ -56,46 +55,45 @@ def split_dataset(
             random_state=42)
         assert len(df) == len(df_train) + len(df_val) + len(df_test)
 
-    train_data, val_data, test_data = (df_train[[
-        'dlg id', 'turn num', 'user input', 'history', 'token labels ids'
-    ]].values.tolist() if df_train is not None else None, df_val[[
-        'dlg id', 'turn num', 'user input', 'history', 'token labels ids'
-    ]].values.tolist() if df_val is not None else None, df_test[[
-        'dlg id', 'turn num', 'user input', 'history', 'token labels ids'
-    ]].values.tolist() if df_test is not None else None)
+    train_data, val_data, test_data = (
+        df_train[['dlgId', 'trnId', 'userIn', 'history', 'tknLblIds'
+                  ]].values.tolist() if df_train is not None else None,
+        df_val[['dlgId', 'trnId', 'userIn', 'history', 'tknLblIds'
+                ]].values.tolist() if df_val is not None else None,
+        df_test[['dlgId', 'trnId', 'userIn', 'history', 'tknLblIds'
+                 ]].values.tolist() if df_test is not None else None)
 
     # create meta-data for the datasets
-    def token_labels_count(dataset):
+    def tknLbls_count(dataset):
         if dataset is None:
             return None
         count = Counter()
         for example in dataset:
-            for token_label in example[4]:
-                count[token_label] += 1
+            for tknLbl in example[4]:
+                count[tknLbl] += 1
         return dict(count)
 
     trainValTest_tokenLabels_count = [
-        token_labels_count(dataset)
-        for dataset in (train_data, val_data, test_data)
+        tknLbls_count(dataset) for dataset in (train_data, val_data, test_data)
     ]
 
     # e.g. 'test-set unseen token-labels': token-labels in test-dataset that
     # are not in train-dataset
-    def tokens_in_dataset(dataset):
+    def tkns_in_dataset(dataset):
         if dataset is None:
             return set()
-        tokens_in_dataset = set()
+        tkns_in_dataset = set()
         for example in dataset:
-            tokens_in_dataset |= set(
+            tkns_in_dataset |= set(
                 tokenizer(Utilities.userIn_filter_splitWords(example[2]),
                           is_split_into_words=True)['input_ids'])
-        return tokens_in_dataset
+        return tkns_in_dataset
 
-    trainTest_tokens_in_dataset = [
-        tokens_in_dataset(dataset) for dataset in (train_data, test_data)
+    trainTest_tkns_in_dataset = [
+        tkns_in_dataset(dataset) for dataset in (train_data, test_data)
     ]
-    testSet_unseen_tokens = (trainTest_tokens_in_dataset[1] -
-                             trainTest_tokens_in_dataset[0])
+    testSet_unseen_tkns = (trainTest_tkns_in_dataset[1] -
+                           trainTest_tkns_in_dataset[0])
 
     dataset_metadata = {
         'bch sizes': bch_sizes,
@@ -106,12 +104,12 @@ def split_dataset(
             'val': len(df_val) if df_val is not None else 0,
             'test': len(df_test) if df_test is not None else 0
         },
-        'idx2tokenLabels': idx2tokenLabels,
+        'idx2tknLbl': idx2tknLbl,
         'train token-labels -> number:count':
         trainValTest_tokenLabels_count[0],
         'val token-labels -> number:count': trainValTest_tokenLabels_count[1],
         'test token-labels -> number:count': trainValTest_tokenLabels_count[2],
-        'test-set unseen tokens': testSet_unseen_tokens,
+        'test-set unseen tokens': testSet_unseen_tkns,
         'dataset_panda': dataset_file
     }
 
