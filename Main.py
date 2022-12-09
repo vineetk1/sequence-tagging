@@ -114,7 +114,7 @@ def main():
             checkpoint_path=user_dicts['ld_resume_chkpt']['ld_chkpt'])
     else:
         model = Model(model_init=user_dicts['model_init'],
-                      num_classes=len(dataset_metadata['idx2tokenLabels']),
+                      num_classes=len(dataset_metadata['idx2tknLbl']),
                       tokenLabels_NumberCount=dataset_metadata[
                           'train token-labels -> number:count'])
     # bch_size is only provided to turn-off Lightning Warning;
@@ -201,7 +201,7 @@ def main():
     if user_dicts['misc']['predict']:
         model.prepare_for_predict(
             predictStatistics=user_dicts['misc']['predictStatistics'],
-            path_to_idx2tokenLabels=user_dicts['data']['dataset_path'],
+            path_to_idx2tknLbl=user_dicts['data']['dataset_path'],
             tokenizer=tokenizer,
             dataset_meta=dataset_metadata,
             dirPath=dirPath)
