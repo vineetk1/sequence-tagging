@@ -393,6 +393,7 @@ def generate_userOut(
         bch_prev_userOut: List[Dict[str, List[str]]],
         bch_userIn_filtered_entityWrds: List[List[str]],
         bch_wordLabels: List[List[str]]) -> List[Dict[str, List[str]]]:
+    return len(bch_prev_userOut) * [""]
     assert len(bch_wordLabels) == len(bch_userIn_filtered_entityWrds)
     assert len(bch_wordLabels) == len(bch_prev_userOut)
     # init_userOut = userOut_init(); bch_userOut =
