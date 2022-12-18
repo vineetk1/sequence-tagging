@@ -116,16 +116,16 @@ class Data(LightningDataModule):
     def _bert_collater(self,
                        examples: List[List[List[Any]]]) -> Dict[str, Any]:
         bch_dlgTrnId: List[Tuple[int, int]] = []
-        bch_userIn_filtered_wrds: List[List[str]] = []
+        bch_userIn_filtered: List[List[str]] = []
         bch_history: List[List[str]] = []
         for example in examples:
             bch_dlgTrnId.append((example[0], example[1]))
-            bch_userIn_filtered_wrds.append(
+            bch_userIn_filtered.append(
                 Utilities.userIn_filter_splitWords(example[2]))
             bch_history.append(example[3])
 
         bch_nnIn_tknIds = self.tokenizer(text=bch_history,
-                                         text_pair=bch_userIn_filtered_wrds,
+                                         text_pair=bch_userIn_filtered,
                                          is_split_into_words=True,
                                          padding=True,
                                          truncation='only_first',
@@ -148,11 +148,16 @@ class Data(LightningDataModule):
         ])
 
         return {
-            'userIn_filtered_wrds': bch_userIn_filtered_wrds,
+            'userIn_filtered': bch_userIn_filtered,
             'nnIn_tknIds': bch_nnIn_tknIds,
             'dlgTrnId': bch_dlgTrnId,
             'tknLblIds': bch_tknLblIds,
-            'userOut': len(examples) * [Utilities.userOut_init()]
+            # init_userOut = userOut_init(); bch_userOut =
+            # [init_userOut for _ in range(len(examples))] Does NOT work
+            # because each copy of dict points to same memory location; i.e.
+            # writing a value to a key in a dict will write that value to all
+            # dicts
+            'userOut': [Utilities.userOut_init() for _ in range(len(examples))]
         }
 
 
