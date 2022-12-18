@@ -193,8 +193,8 @@ class Model(LightningModule):
             return optimizer
 
     def prepare_for_predict(self, predictStatistics: bool, tokenizer,
-                            path_to_idx2tknLbl: str,
-                            dataset_meta: Dict[str, Any],
+                            path_to_idx2tknLbl: str, dataset_meta: Dict[str,
+                                                                        Any],
                             dirPath: pathlib.Path) -> None:
         dirName = pathlib.Path(path_to_idx2tknLbl).resolve(
             strict=True).parents[0]
@@ -242,7 +242,7 @@ class Model(LightningModule):
                 ids2tknLbls=self.idx2tknLbl))
 
         bch_userOut: List[Dict[str, List[str]]] = Utilities.generate_userOut(
-            bch_prev_userOut=batch['userOut'],
+            bch_userOut=batch['userOut'],
             bch_userIn_filtered_entityWrds=bch_userIn_filtered_entityWrds,
             bch_wordLabels=bch_nnOut_entityWrdLbls)
 
@@ -261,8 +261,8 @@ class Model(LightningModule):
 
         # write to file the info about failed turns of dialogs
         bch_nnOut_tknLblIds = torch.where(batch['tknLblIds'] == -100,
-                                            batch['tknLblIds'],
-                                            bch_nnOut_tknLblIds)
+                                          batch['tknLblIds'],
+                                          bch_nnOut_tknLblIds)
         with self.failed_dlgs_file.open('a') as file:
             prev_failed_dlgTurnIdx = None
             testSet_unseen_tokens = []
@@ -300,8 +300,7 @@ class Model(LightningModule):
                 if ((batch['nnIn_tknIds']['input_ids'][failed_dlgTurnIdx]
                      [failed_elementIdx].item())
                         in self.dataset_meta['test-set unseen tokens']):
-                    testSet_unseen_tokens.append(
-                        nnIn_tkns[failed_elementIdx])
+                    testSet_unseen_tokens.append(nnIn_tkns[failed_elementIdx])
                 nnIn_tkns_out = "Input tokens = " + " ".join(nnIn_tkns)
                 dlg_id_out = f"dlg_id = {batch['dlgTrnId'][failed_dlgTurnIdx]}"
                 true_labels_out = "True labels = "
@@ -309,15 +308,14 @@ class Model(LightningModule):
                 for i in torch.arange(batch['tknLblIds'].shape[1]):
                     if batch['tknLblIds'][failed_dlgTurnIdx][i].item() != -100:
                         true_labels_out = (
-                            true_labels_out +
-                            self.dataset_meta['idx2tknLbl']
+                            true_labels_out + self.dataset_meta['idx2tknLbl']
                             [batch['tknLblIds'][failed_dlgTurnIdx][i].item()] +
                             " ")
                         predicted_labels_out = (
                             predicted_labels_out +
-                            self.dataset_meta['idx2tknLbl'][
-                                bch_nnOut_tknLblIds[failed_dlgTurnIdx]
-                                [i].item()] + " ")
+                            self.dataset_meta['idx2tknLbl']
+                            [bch_nnOut_tknLblIds[failed_dlgTurnIdx][i].item()]
+                            + " ")
                 failed_token_label_heading_out = (
                     'Failed token labels: Input token, '
                     'True label, Predicted label; ....')
