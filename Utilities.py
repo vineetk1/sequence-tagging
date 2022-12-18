@@ -244,7 +244,7 @@ def tknLbls2entity_wrds_lbls(
     # correctly
     bch_nnOut_entityWrdLbls = []
     bch_userIn_filtered_entityWrds = []
-    # tokens between two SEP belong to tokens of bch['userIn_filtered_wrds']
+    # tokens between two SEP belong to tokens of bch['userIn_filtered']
     nnIn_tknIds_beginEnd_idx = (
             bch['nnIn_tknIds']['input_ids'] == 102).nonzero()
 
@@ -271,8 +271,8 @@ def tknLbls2entity_wrds_lbls(
                     entityWrd = nnOut_tknLbl[tknLbl_openParen_idx+1: -1]
                     entityWrdLbl = nnOut_tknLbl[2: tknLbl_openParen_idx]
                 else:
-                    entityWrd = bch['userIn_filtered_wrds'][bch_idx][
-                                                            userIn_filtered_idx]
+                    entityWrd = bch['userIn_filtered'][bch_idx][
+                                                           userIn_filtered_idx]
                     entityWrdLbl = nnOut_tknLbl[2:]
                 if nnOut_tknLbl[0] == 'B':
                     if multipleWord_entity:  # previous multipleWord_entity
@@ -297,7 +297,7 @@ def ASSERT_tknLbls2entity_wrds_lbls(
     # correctly
     bch_nnOut_entityWrdLbls = []
     bch_userIn_filtered_entityWrds = []
-    # tokens between two SEP belong to tokens of bch['userIn_filtered_wrds']
+    # tokens between two SEP belong to tokens of bch['userIn_filtered']
     nnIn_tknIds_beginEnd_idx = (
             bch['nnIn_tknIds']['input_ids'] == 102).nonzero()
 
@@ -342,8 +342,8 @@ def ASSERT_tknLbls2entity_wrds_lbls(
                     entityWrd = nnOut_tknLbl[tknLbl_openParen_idx+1: -1]
                     entityWrdLbl = nnOut_tknLbl[2: tknLbl_openParen_idx]
                 else:
-                    entityWrd = bch['userIn_filtered_wrds'][bch_idx][
-                                                            userIn_filtered_idx]
+                    entityWrd = bch['userIn_filtered'][bch_idx][
+                                                           userIn_filtered_idx]
                     entityWrdLbl = nnOut_tknLbl[2:]
                 if nnOut_tknLbl[0] == 'B':
                     if multipleWord_entity:  # previous multipleWord_entity
@@ -367,7 +367,7 @@ def ASSERT_tknLbls2entity_wrds_lbls(
                         entityWrd = nnOut_tknLbl[tknLbl_openParen_idx+1: -1]
                         entityWrdLbl = nnOut_tknLbl[2: tknLbl_openParen_idx]
                     else:
-                        entityWrd = bch['userIn_filtered_wrds'][bch_idx][
+                        entityWrd = bch['userIn_filtered'][bch_idx][
                                                            userIn_filtered_idx]
                         entityWrdLbl = nnOut_tknLbl[2:]
                     assert assert_entityWrdLbl == entityWrdLbl
@@ -390,63 +390,120 @@ def userOut_init():
 
 
 def generate_userOut(
-        bch_prev_userOut: List[Dict[str, List[str]]],
+        bch_userOut: List[Dict[str, List[str]]],
         bch_userIn_filtered_entityWrds: List[List[str]],
-        bch_wordLabels: List[List[str]]) -> List[Dict[str, List[str]]]:
-    return len(bch_prev_userOut) * [""]
-    assert len(bch_wordLabels) == len(bch_userIn_filtered_entityWrds)
-    assert len(bch_wordLabels) == len(bch_prev_userOut)
-    # init_userOut = userOut_init(); bch_userOut =
-    # [init_userOut for _ in range(len(bch_wordLabels))] Does NOT work
-    # because each copy of dict points to same memory location; i.e. writing a
-    # value to a key in a dict will write that value to all dicts
-    bch_userOut = [userOut_init() for _ in range(len(bch_wordLabels))]
+        bch_entityWrdLbls: List[List[str]]) -> List[Dict[str, List[str]]]:
+    assert len(bch_entityWrdLbls) == len(bch_userIn_filtered_entityWrds)
+    assert len(bch_entityWrdLbls) == len(bch_userOut)
 
-    for bch_idx in range(len(bch_wordLabels)):
+    for bch_idx in range(len(bch_entityWrdLbls)):
+        assert len(bch_entityWrdLbls[bch_idx]) == len(
+                                       bch_userIn_filtered_entityWrds[bch_idx])
         wrdLbl_idx = 0
-        while wrdLbl_idx < len(bch_wordLabels[bch_idx]):
-            if (wrdLbl := bch_wordLabels[bch_idx][wrdLbl_idx])[0] == "O":
-                wrdLbl_idx += 1
-                continue
-
-            def _extract_from_wrdLbl(wrdLbl):
-                wrdLbl_prefix = wrdLbl[0]     # 'B' or 'I'
-                if wrdLbl[-1] == ')':
-                    try:
-                        wrdLbl_openParen_idx = wrdLbl.index('(')
-                    except ValueError:
-                        logg.critical(
-                          '{wrdLbl} has closing- but not opening-parenthesis')
-                        assert False
-                    wrdLbl_name = wrdLbl[2: wrdLbl_openParen_idx]
-                    wrdLbl_value = wrdLbl[wrdLbl_openParen_idx+1: -1]
-                else:
-                    wrdLbl_name = wrdLbl[2:]
-                    wrdLbl_value = None
-                return wrdLbl_prefix, wrdLbl_name, wrdLbl_value
-            wrdLbl_prefix, wrdLbl_name, wrdLbl_value = _extract_from_wrdLbl(
-                    wrdLbl)
-
-            match wrdLbl_name:
-                case wrdLbl_name if (
-                        wrdLbl_name in syntheticData.
+        cmd: str = ""
+        unit: str = ""
+        carEntityWrds: List[str] = []
+        carEntityWrdLbls: str = ""
+        carEntityWrdsNeeded: int = None
+        while wrdLbl_idx < len(bch_entityWrdLbls[bch_idx]):
+            entityWrd = bch_userIn_filtered_entityWrds[bch_idx][wrdLbl_idx]
+            match entityWrdLbl := bch_entityWrdLbls[bch_idx][wrdLbl_idx]:
+                case entityWrdLbl if (
+                        entityWrdLbl in syntheticData.
                         groupOf_car_entity_names_with_str_entity_values):
+                    if cmd or carEntityWrdLbls:
+                        transition(bch_userOut[bch_idx], cmd, unit, carEntityWrds,
+                                   carEntityWrdLbls)
+                        cmd, unit, carEntityWrds, carEntityWrdLbls, carEntityWrdsNeeded = (
+                         "",  "",   [],     "",      None)
                     # bool-OR does not make sense, so AND/OR are ignored
-                    bch_userOut[bch_idx][wrdLbl_name].append(
-                     wrdLbl_value if wrdLbl_value else bch_userIn_filtered_entityWrds[
-                               bch_idx][wrdLbl_idx])
-                case wrdLbl_name if ((
-                        wrdLbl_name in syntheticData.
+                    bch_userOut[bch_idx][entityWrdLbl].append(entityWrd)
+                case entityWrdLbl if ((
+                        entityWrdLbl in syntheticData.
                         groupOf_car_entity_names_with_floatInt_entity_values)
-                        or (wrdLbl_name in syntheticData.
+                        or (entityWrdLbl in syntheticData.
                             groupOf_car_entity_names_with_int_entity_values)):
-                    assert wrdLbl_value is None
-                    bch_userOut[bch_idx][wrdLbl_name].append(
-                                bch_userIn_filtered_entityWrds[bch_idx][wrdLbl_idx])
-
+                    if (carEntityWrdLbls and carEntityWrdLbls != entityWrdLbl) or (
+                                                     carEntityWrdsNeeded == len(carEntityWrds)):
+                        transition(bch_userOut[bch_idx], cmd, unit, carEntityWrds,
+                                   carEntityWrdLbls)
+                        cmd, unit, carEntityWrds, carEntityWrdLbls, carEntityWrdsNeeded = (
+                         "",  "",   [],     "",      None)
+                    carEntityWrds.append(entityWrd)
+                    carEntityWrdLbls = entityWrdLbl
+                case 'units_price' | 'units_mileage':
+                    if not unit:
+                        unit = entityWrd
+                    else:
+                        assert unit in syntheticData.other_labels_values[
+                                                                entityWrdLbl]
+                        assert entityWrd in syntheticData.other_labels_values[
+                                                                entityWrdLbl]
+                case 'more' | 'less':
+                    if (cmd or unit or carEntityWrds or carEntityWrdLbls or
+                            carEntityWrdsNeeded is not None):
+                        transition(bch_userOut[bch_idx], cmd, unit, carEntityWrds,
+                                   carEntityWrdLbls)
+                        cmd, unit, carEntityWrds, carEntityWrdLbls, carEntityWrdsNeeded = (
+                         "",  "",   [],     "",      None)
+                    # start with a new sentence-segment
+                    cmd = entityWrdLbl
+                    carEntityWrdsNeeded = 1
+                case 'range':
+                    if cmd:
+                        transition(bch_userOut[bch_idx], cmd, unit, carEntityWrds,
+                                   carEntityWrdLbls)
+                        cmd, unit, carEntityWrds, carEntityWrdLbls, carEntityWrdsNeeded = (
+                         "",  "",   [],     "",      None)
+                    cmd = entityWrdLbl
+                    carEntityWrdsNeeded = 2
+                case '-ve':
+                    pass
+                case '+ve':
+                    pass
+                case 'or':
+                    pass
+                case 'and':
+                    pass
+                case _:
+                    assert False
             wrdLbl_idx += 1
-
+        if cmd or len(carEntityWrds):
+            transition(bch_userOut[bch_idx], cmd, unit, carEntityWrds, carEntityWrdLbls)
     return bch_userOut
+
+
+def transition(userOut: Dict[str, List[str]], cmd: str, unit: str,
+               carEntityWrds: List[str], carEntityWrdLbls: str) -> None:
+    assert carEntityWrdLbls
+    assert not carEntityWrdLbls or (
+                carEntityWrdLbls == 'year', carEntityWrdLbls == 'price', carEntityWrdLbls == 'mileage')
+    if not carEntityWrdLbls:
+        return
+    match cmd:
+        case 'more' | 'less':
+            assert len(carEntityWrds) == 1
+            if carEntityWrds:
+                userOut[carEntityWrdLbls].append(
+                 f"{cmd} {carEntityWrds[0]}{' ' if unit else ''}{unit}")
+                if len(carEntityWrds) > 1:
+                    for carEntityWrd in carEntityWrds[1:]:
+                        userOut[carEntityWrdLbls].append(
+                         f"{carEntityWrd}{' ' if unit else ''}{unit}")
+        case 'range':
+            assert len(carEntityWrds) == 2
+            if len(carEntityWrds) >= 2:
+                userOut[carEntityWrdLbls].append(
+                 f"{carEntityWrds[0]}-{carEntityWrds[1]}{' ' if unit else ''}{unit}")
+                if len(carEntityWrds) > 2:
+                    for carEntityWrd in carEntityWrds[2:]:
+                        userOut[carEntityWrdLbls].append(
+                         f"{carEntityWrd}{' ' if unit else ''}{unit}")
+        case _:
+            if carEntityWrds:
+                for carEntityWrd in carEntityWrds:
+                    userOut[carEntityWrdLbls].append(
+                     f"{carEntityWrd}{' ' if unit else ''}{unit}")
 
 
 def userOut2history(
