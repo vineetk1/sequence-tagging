@@ -402,20 +402,21 @@ def generate_userOut(
         wrdLbl_idx = 0
         cmd: str = ""
         unit: str = ""
-        carEntityWrds: List[str] = []
-        carEntityWrdLbls: str = ""
-        carEntityWrdsNeeded: int = None
+        carEntityNums: List[str] = []
+        carEntityNumsLbl: str = ""
+        carEntityNumsNeeded: int = None
         while wrdLbl_idx < len(bch_entityWrdLbls[bch_idx]):
             entityWrd = bch_userIn_filtered_entityWrds[bch_idx][wrdLbl_idx]
             match entityWrdLbl := bch_entityWrdLbls[bch_idx][wrdLbl_idx]:
                 case entityWrdLbl if (
                         entityWrdLbl in syntheticData.
                         groupOf_car_entity_names_with_str_entity_values):
-                    if cmd or carEntityWrdLbls:
-                        transition(bch_userOut[bch_idx], cmd, unit, carEntityWrds,
-                                   carEntityWrdLbls)
-                        cmd, unit, carEntityWrds, carEntityWrdLbls, carEntityWrdsNeeded = (
-                         "",  "",   [],     "",      None)
+                    if (cmd or unit or carEntityNums or carEntityNumsLbl or
+                            carEntityNumsNeeded is not None):
+                        transition(bch_userOut[bch_idx], cmd, unit,
+                                   carEntityNums, carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                        cmd, unit, carEntityNumsLbl = "", "", ""
+                        carEntityNums, carEntityNumsNeeded = [], None
                     # bool-OR does not make sense, so AND/OR are ignored
                     bch_userOut[bch_idx][entityWrdLbl].append(entityWrd)
                 case entityWrdLbl if ((
@@ -423,40 +424,58 @@ def generate_userOut(
                         groupOf_car_entity_names_with_floatInt_entity_values)
                         or (entityWrdLbl in syntheticData.
                             groupOf_car_entity_names_with_int_entity_values)):
-                    if (carEntityWrdLbls and carEntityWrdLbls != entityWrdLbl) or (
-                                                     carEntityWrdsNeeded == len(carEntityWrds)):
-                        transition(bch_userOut[bch_idx], cmd, unit, carEntityWrds,
-                                   carEntityWrdLbls)
-                        cmd, unit, carEntityWrds, carEntityWrdLbls, carEntityWrdsNeeded = (
-                         "",  "",   [],     "",      None)
-                    carEntityWrds.append(entityWrd)
-                    carEntityWrdLbls = entityWrdLbl
+                    if ((carEntityNumsLbl and carEntityNumsLbl != entityWrdLbl)
+                       or (carEntityNumsNeeded == len(carEntityNums))):
+                        transition(bch_userOut[bch_idx], cmd, unit,
+                                   carEntityNums, carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                        cmd, unit, carEntityNumsLbl = "", "", ""
+                        carEntityNums, carEntityNumsNeeded = [], None
+                    carEntityNums.append(entityWrd)
+                    carEntityNumsLbl = entityWrdLbl
                 case 'units_price' | 'units_mileage':
                     if not unit:
                         unit = entityWrd
-                    else:
-                        assert unit in syntheticData.other_labels_values[
-                                                                entityWrdLbl]
+                    elif unit not in syntheticData.other_labels_values[
+                                                                entityWrdLbl]:
                         assert entityWrd in syntheticData.other_labels_values[
-                                                                entityWrdLbl]
+                                                                 entityWrdLbl]
+                        transition(bch_userOut[bch_idx], cmd, unit,
+                                   carEntityNums, carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                        cmd, unit, carEntityNumsLbl = "", entityWrd, ""
+                        carEntityNums, carEntityNumsNeeded = [], None
+                    else:
+                        pass
                 case 'more' | 'less':
-                    if (cmd or unit or carEntityWrds or carEntityWrdLbls or
-                            carEntityWrdsNeeded is not None):
-                        transition(bch_userOut[bch_idx], cmd, unit, carEntityWrds,
-                                   carEntityWrdLbls)
-                        cmd, unit, carEntityWrds, carEntityWrdLbls, carEntityWrdsNeeded = (
-                         "",  "",   [],     "",      None)
-                    # start with a new sentence-segment
-                    cmd = entityWrdLbl
-                    carEntityWrdsNeeded = 1
-                case 'range':
                     if cmd:
-                        transition(bch_userOut[bch_idx], cmd, unit, carEntityWrds,
-                                   carEntityWrdLbls)
-                        cmd, unit, carEntityWrds, carEntityWrdLbls, carEntityWrdsNeeded = (
-                         "",  "",   [],     "",      None)
+                        transition(bch_userOut[bch_idx], cmd, unit,
+                                   carEntityNums, carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                        unit, carEntityNumsLbl, carEntityNums = "", "", []
                     cmd = entityWrdLbl
-                    carEntityWrdsNeeded = 2
+                    carEntityNumsNeeded = 1
+                case 'range1':
+                    if (cmd or unit or carEntityNums or carEntityNumsLbl or
+                            carEntityNumsNeeded is not None):
+                        transition(bch_userOut[bch_idx], cmd, unit,
+                                   carEntityNums, carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                        unit, carEntityNumsLbl, carEntityNums = "", "", []
+                    # start of sentence-segment
+                    cmd = entityWrdLbl
+                    carEntityNumsNeeded = 2
+                case 'range2':
+                    if not cmd and len(carEntityNums) == 1:
+                        cmd = entityWrdLbl
+                        carEntityNumsNeeded = 2
+                    elif not carEntityNums:
+                        # bad sentence-segment
+                        cmd, unit, carEntityNumsLbl = "", "", ""
+                        carEntityNums, carEntityNumsNeeded = [], None
+                    else:
+                        transition(bch_userOut[bch_idx], cmd, unit,
+                                   carEntityNums[:-1], carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                        cmd = entityWrdLbl
+                        # no change in unit
+                        carEntityNums = carEntityNums[-1]
+                        carEntityNumsNeeded = 2
                 case '-ve':
                     pass
                 case '+ve':
@@ -468,42 +487,40 @@ def generate_userOut(
                 case _:
                     assert False
             wrdLbl_idx += 1
-        if cmd or len(carEntityWrds):
-            transition(bch_userOut[bch_idx], cmd, unit, carEntityWrds, carEntityWrdLbls)
+        if cmd or len(carEntityNums):
+            transition(bch_userOut[bch_idx], cmd, unit, carEntityNums,
+                       carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
     return bch_userOut
 
 
 def transition(userOut: Dict[str, List[str]], cmd: str, unit: str,
-               carEntityWrds: List[str], carEntityWrdLbls: str) -> None:
-    assert carEntityWrdLbls
-    assert not carEntityWrdLbls or (
-                carEntityWrdLbls == 'year', carEntityWrdLbls == 'price', carEntityWrdLbls == 'mileage')
-    if not carEntityWrdLbls:
+               carEntityNums: List[str], carEntityNumsLbl: str, wrdLbl_idx, entityWrdLbls, userIn_filtered_entityWrds) -> None:
+    if not carEntityNumsLbl or not carEntityNums:
         return
+    assert (carEntityNumsLbl == 'year' or carEntityNumsLbl == 'price' or
+            carEntityNumsLbl == 'mileage')
     match cmd:
         case 'more' | 'less':
-            assert len(carEntityWrds) == 1
-            if carEntityWrds:
-                userOut[carEntityWrdLbls].append(
-                 f"{cmd} {carEntityWrds[0]}{' ' if unit else ''}{unit}")
-                if len(carEntityWrds) > 1:
-                    for carEntityWrd in carEntityWrds[1:]:
-                        userOut[carEntityWrdLbls].append(
-                         f"{carEntityWrd}{' ' if unit else ''}{unit}")
+            if carEntityNums:
+                if len(carEntityNums) > 1:
+                    for carEntityNum in carEntityNums[:-1]:
+                        userOut[carEntityNumsLbl].append(
+                         f"{carEntityNum}{' ' if unit else ''}{unit}")
+                userOut[carEntityNumsLbl].append(
+                 f"{cmd} {carEntityNums[-1]}{' ' if unit else ''}{unit}")
         case 'range':
-            assert len(carEntityWrds) == 2
-            if len(carEntityWrds) >= 2:
-                userOut[carEntityWrdLbls].append(
-                 f"{carEntityWrds[0]}-{carEntityWrds[1]}{' ' if unit else ''}{unit}")
-                if len(carEntityWrds) > 2:
-                    for carEntityWrd in carEntityWrds[2:]:
-                        userOut[carEntityWrdLbls].append(
-                         f"{carEntityWrd}{' ' if unit else ''}{unit}")
+            if len(carEntityNums) > 1:
+                if len(carEntityNums) > 2:
+                    for carEntityNum in carEntityNums[:-2]:
+                        userOut[carEntityNumsLbl].append(
+                         f"{carEntityNum}{' ' if unit else ''}{unit}")
+                userOut[carEntityNumsLbl].append(
+                 f"{carEntityNums[-2]}-{carEntityNums[-1]}{' ' if unit else ''}{unit}")
         case _:
-            if carEntityWrds:
-                for carEntityWrd in carEntityWrds:
-                    userOut[carEntityWrdLbls].append(
-                     f"{carEntityWrd}{' ' if unit else ''}{unit}")
+            if carEntityNums:
+                for carEntityNum in carEntityNums:
+                    userOut[carEntityNumsLbl].append(
+                     f"{carEntityNum}{' ' if unit else ''}{unit}")
 
 
 def userOut2history(
