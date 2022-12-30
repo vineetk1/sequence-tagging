@@ -383,9 +383,9 @@ def ASSERT_tknLbls2entity_wrds_lbls(
 
 def userOut_init():
     userOut = {}
-    for car_entity_name in syntheticData.groupOf_car_entity_names:
-        # dict keys are in same order as syntheticData.groupOf_car_entity_names
-        userOut[car_entity_name] = []
+    for car_entityWrdLbl in syntheticData.groupOf_car_entityWrdLbls:
+        # dict keys in same order as syntheticData.groupOf_car_entityWrdLbls
+        userOut[car_entityWrdLbl] = []
     return userOut
 
 
@@ -412,7 +412,7 @@ def generate_userOut(
             match entityWrdLbl := bch_entityWrdLbls[bch_idx][wrdLbl_idx]:
                 case entityWrdLbl if (
                         entityWrdLbl in syntheticData.
-                        groupOf_car_entity_names_with_str_entity_values):
+                        groupOf_car_entityWrdLbls_with_nonNum_entityWrds):
                     if carEntityNumsLbl:
                         if not carEntityNums:
                             assert False
@@ -424,9 +424,7 @@ def generate_userOut(
                     bch_userOut[bch_idx][entityWrdLbl].append(entityWrd)
                 case entityWrdLbl if ((
                         entityWrdLbl in syntheticData.
-                        groupOf_car_entity_names_with_floatInt_entity_values)
-                        or (entityWrdLbl in syntheticData.
-                            groupOf_car_entity_names_with_int_entity_values)):
+                        groupOf_car_entityWrdLbls_with_Num_entityWrds)):
                     if carEntityNumsLbl and carEntityNumsLbl != entityWrdLbl:
                         if not carEntityNums:
                             assert False
@@ -439,7 +437,7 @@ def generate_userOut(
                     carEntityNumsLbl = entityWrdLbl
                 case 'units_price' | 'units_mileage':
                     if not unit or (
-                      unit in syntheticData.other_labels_values[entityWrdLbl]):
+                      unit in syntheticData.other_labels_words[entityWrdLbl]):
                         unit = entityWrd
                         if cmd and len(carEntityNums) >= carEntityNumsNeeded:
                             transition(bch_userOut[bch_idx], cmd, unit,
@@ -449,7 +447,7 @@ def generate_userOut(
                             carEntityNums, carEntityNumsNeeded = [], None
                     else:
                         # unit not in
-                        # syntheticData.other_labels_values[entityWrdLbl])
+                        # syntheticData.other_labels_words[entityWrdLbl])
                         if not (carEntityNumsLbl and carEntityNums):
                             assert False
                         if carEntityNumsLbl and carEntityNums:
