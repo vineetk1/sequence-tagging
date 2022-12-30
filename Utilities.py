@@ -535,14 +535,6 @@ def generate_userOut(
                         # plus this one
                         cmd, unit, carEntityNumsLbl = "", "", ""
                         carEntityNums, carEntityNumsNeeded = [], None
-                case '-ve':
-                    pass
-                case '+ve':
-                    pass
-                case 'or':
-                    pass
-                case 'and':
-                    pass
                 case _:
                     assert False
             wrdLbl_idx += 1
