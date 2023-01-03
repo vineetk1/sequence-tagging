@@ -535,6 +535,43 @@ def generate_userOut(
                         # plus this one
                         cmd, unit, carEntityNumsLbl = "", "", ""
                         carEntityNums, carEntityNumsNeeded = [], None
+                case 'remove':
+                    if cmd:
+                        if len(carEntityNums) < carEntityNumsNeeded:
+                            assert False
+                        if len(carEntityNums) >= carEntityNumsNeeded:
+                            transition(bch_userOut[bch_idx], cmd, unit,
+                                       carEntityNums, carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                        # else throw previous collected data
+                    elif carEntityNums:
+                        transition(bch_userOut[bch_idx], "", unit,
+                                   carEntityNums, carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                    cmd, unit, carEntityNumsLbl = "", "", ""
+                    carEntityNums.clear()
+                    carEntityNumsNeeded = None
+
+                    wrdLbl_idx += 1
+                    if wrdLbl_idx >= len(bch_entityWrdLbls[bch_idx]):
+                        break
+                    entityWrd = bch_userIn_filtered_entityWrds[
+                                                        bch_idx][wrdLbl_idx]
+                    match entityWrdLbl := bch_entityWrdLbls[
+                                                        bch_idx][wrdLbl_idx]:
+                        case 'everything':
+                            # remove everything
+                            for key in bch_userOut[bch_idx].keys():
+                                bch_userOut[bch_idx][key].clear()
+                        case entityWrdLbl if (entityWrdLbl in syntheticData.
+                                              groupOf_car_entityWrdLbls):
+                            # remove brand                 delete brands
+                            assert (entityWrd in syntheticData.
+                                    groupOf_car_entityWrdLbls) or (
+                                            entityWrd[:-1] in syntheticData.
+                                            groupOf_car_entityWrdLbls)
+                            bch_userOut[bch_idx][entityWrdLbl].clear()
+                        case _:
+                            assert False
+                            wrdLbl_idx -= 1
                 case _:
                     assert False
             wrdLbl_idx += 1
