@@ -622,4 +622,10 @@ def transition(userOut: Dict[str, List[str]], cmd: str, unit: str,
 
 def userOut2history(
         bch_userOut: List[Dict[str, List[str]]]) -> List[List[str]]:
-    return len(bch_userOut) * [[""]]
+    bch_history: List[List[str]] = []
+    for userOut in bch_userOut:
+        userOut_flat: List[str] = []
+        for values in userOut.values():
+            userOut_flat.extend(values)
+        bch_history.append(userOut_flat)
+    return bch_history
