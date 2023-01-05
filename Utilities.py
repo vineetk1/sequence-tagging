@@ -62,6 +62,8 @@ def userIn_filter_splitWords(userIn: str) -> List[str]:
                         userIn_wrd2Idx.append(char_idx)
                         userIn2idx.append(userIn_wrd2Idx)
                         charPos_inUserInWrd = CharPos_inUserInWrd.BEGIN
+                        # cannot do userIn_wrd2Idx.clear() because userIn2idx
+                        # has reference to userIn_wrd2Idx
                         userIn_wrd2Idx = []
                     case CharPos_inUserInWrd.BEGIN2END:
                         userIn2idx.append([char_idx, char_idx])
