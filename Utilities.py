@@ -418,9 +418,10 @@ def generate_userOut(
                             assert False
                         if carEntityNums:
                             transition(bch_userOut[bch_idx], cmd, unit,
-                                       carEntityNums, carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
-                    cmd, unit, carEntityNumsLbl = "", "", ""
-                    carEntityNums, carEntityNumsNeeded = [], None
+                                       carEntityNums, carEntityNumsLbl)
+                    cmd, carEntityNumsNeeded, unit = "", None, ""
+                    carEntityNums.clear()
+                    carEntityNumsLbl = ""
                     bch_userOut[bch_idx][entityWrdLbl].append(entityWrd)
                 case entityWrdLbl if ((
                         entityWrdLbl in syntheticData.
@@ -430,9 +431,9 @@ def generate_userOut(
                             assert False
                         if carEntityNums:
                             transition(bch_userOut[bch_idx], cmd, unit,
-                                       carEntityNums, carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
-                        cmd, unit = "", ""
-                        carEntityNums, carEntityNumsNeeded = [], None
+                                       carEntityNums, carEntityNumsLbl)
+                        cmd, carEntityNumsNeeded, unit = "", None, ""
+                        carEntityNums.clear()
                     carEntityNums.append(entityWrd)
                     carEntityNumsLbl = entityWrdLbl
                 case 'units_price' | 'units_mileage':
@@ -441,10 +442,10 @@ def generate_userOut(
                         unit = entityWrd
                         if cmd and len(carEntityNums) >= carEntityNumsNeeded:
                             transition(bch_userOut[bch_idx], cmd, unit,
-                                       carEntityNums, carEntityNumsLbl,
-                                       wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
-                            cmd, unit, carEntityNumsLbl = "", "", ""
-                            carEntityNums, carEntityNumsNeeded = [], None
+                                       carEntityNums, carEntityNumsLbl)
+                            cmd, carEntityNumsNeeded, unit = "", None, ""
+                            carEntityNums.clear()
+                            carEntityNumsLbl = ""
                     else:
                         # unit not in
                         # syntheticData.other_labels_words[entityWrdLbl])
@@ -452,11 +453,11 @@ def generate_userOut(
                             assert False
                         if carEntityNumsLbl and carEntityNums:
                             transition(bch_userOut[bch_idx], cmd, unit,
-                                       carEntityNums, carEntityNumsLbl,
-                                       wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                                       carEntityNums, carEntityNumsLbl)
                         # else throw previous collected data
-                        cmd, carEntityNumsLbl = "", ""
-                        carEntityNums, carEntityNumsNeeded = [], None
+                        cmd, carEntityNumsNeeded = "", None
+                        carEntityNums.clear()
+                        carEntityNumsLbl = ""
                         unit = entityWrd
                 case 'more' | 'less':
                     if cmd:
@@ -465,47 +466,54 @@ def generate_userOut(
                         if len(carEntityNums) == carEntityNumsNeeded:
                             # start of sentence-segment; less than $5000
                             transition(bch_userOut[bch_idx], cmd, unit,
-                                       carEntityNums, carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
-                            unit, carEntityNumsLbl, carEntityNums = "", "", []
+                                       carEntityNums, carEntityNumsLbl)
+                            carEntityNums.clear()
+                            unit, carEntityNumsLbl = "", ""
                             cmd, carEntityNumsNeeded = entityWrdLbl, 1
                         elif len(carEntityNums) > carEntityNumsNeeded:
                             # ASSUME end of sentence-segment; $5000 or less
                             transition(bch_userOut[bch_idx], cmd, unit,
-                                       carEntityNums[:-1], carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                                       carEntityNums[:-1], carEntityNumsLbl)
                             transition(bch_userOut[bch_idx], entityWrdLbl,
-                                       unit, carEntityNums[-1], carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
-                            cmd, unit, carEntityNumsLbl = "", "", ""
-                            carEntityNums, carEntityNumsNeeded = [], None
+                                       unit, carEntityNums[-1],
+                                       carEntityNumsLbl)
+                            cmd, carEntityNumsNeeded, unit = "", None, ""
+                            carEntityNums.clear()
+                            carEntityNumsLbl = ""
                         else:   # len(carEntityNums) < carEntityNumsNeeded
                             # bad userIn-seg; throw previous collected info
                             # plus throw new info
-                            cmd, unit, carEntityNumsLbl = "", "", ""
-                            carEntityNums, carEntityNumsNeeded = [], None
+                            cmd, carEntityNumsNeeded, unit = "", None, ""
+                            carEntityNums.clear()
+                            carEntityNumsLbl = ""
                     elif not carEntityNums:
                         # start of sentence-segment; less than $5000
-                        unit, carEntityNumsLbl, carEntityNums = "", "", []
+                        carEntityNums.clear()
+                        unit, carEntityNumsLbl = "", ""
                         cmd, carEntityNumsNeeded = entityWrdLbl, 1
                     else:   # carEntityNums
                         # ASSUME end of sentence-segment; $5000 or less
                         if len(carEntityNums) > 1:
                             transition(bch_userOut[bch_idx], "", unit,
-                                       carEntityNums[:-1], carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                                       carEntityNums[:-1], carEntityNumsLbl)
                         transition(bch_userOut[bch_idx], entityWrdLbl,
-                                   unit, carEntityNums[-1], carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
-                        cmd, unit, carEntityNumsLbl = "", "", ""
-                        carEntityNums, carEntityNumsNeeded = [], None
+                                   unit, carEntityNums[-1], carEntityNumsLbl)
+                        cmd, carEntityNumsNeeded, unit = "", None, ""
+                        carEntityNums.clear()
+                        carEntityNumsLbl = ""
                 case 'range1':
                     if cmd:
                         if len(carEntityNums) < carEntityNumsNeeded:
                             assert False
                         if len(carEntityNums) >= carEntityNumsNeeded:
                             transition(bch_userOut[bch_idx], cmd, unit,
-                                       carEntityNums, carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                                       carEntityNums, carEntityNumsLbl)
                         # else throw previous collected data
                     elif carEntityNums:
                         transition(bch_userOut[bch_idx], "", unit,
-                                   carEntityNums, carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
-                    unit, carEntityNumsLbl, carEntityNums = "", "", []
+                                   carEntityNums, carEntityNumsLbl)
+                    carEntityNums.clear()
+                    unit, carEntityNumsLbl = "", ""
                     cmd, carEntityNumsNeeded = entityWrdLbl, 2
                 case 'range2':
                     # $2000 - $4000
@@ -514,41 +522,43 @@ def generate_userOut(
                             assert False
                         if len(carEntityNums) > carEntityNumsNeeded:
                             transition(bch_userOut[bch_idx], cmd, unit,
-                                       carEntityNums[:-1], carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                                       carEntityNums[:-1], carEntityNumsLbl)
                             cmd, carEntityNumsNeeded = entityWrdLbl, 2
                             carEntityNums = carEntityNums[-1]
                         else:   # len(carEntityNums) <= carEntityNumsNeeded
                             # bad userIn-seg; throw previous collected info
                             # plus this one
-                            cmd, unit, carEntityNumsLbl = "", "", ""
-                            carEntityNums, carEntityNumsNeeded = [], None
+                            cmd, carEntityNumsNeeded, unit = "", None, ""
+                            carEntityNums.clear()
+                            carEntityNumsLbl = ""
                     elif len(carEntityNums) == 1:
                         cmd, carEntityNumsNeeded = entityWrdLbl, 2
                     elif len(carEntityNums) > 1:
                         transition(bch_userOut[bch_idx], "", unit,
-                                   carEntityNums[:-1], carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                                   carEntityNums[:-1], carEntityNumsLbl)
                         cmd, carEntityNumsNeeded = entityWrdLbl, 2
                         carEntityNums = carEntityNums[-1]
                     else:   # not carEntityNums:
                         assert False
                         # bad userIn-seg; throw previous collected info
                         # plus this one
-                        cmd, unit, carEntityNumsLbl = "", "", ""
-                        carEntityNums, carEntityNumsNeeded = [], None
+                        cmd, carEntityNumsNeeded, unit = "", None, ""
+                        carEntityNums.clear()
+                        carEntityNumsLbl = ""
                 case 'remove':
                     if cmd:
                         if len(carEntityNums) < carEntityNumsNeeded:
                             assert False
                         if len(carEntityNums) >= carEntityNumsNeeded:
                             transition(bch_userOut[bch_idx], cmd, unit,
-                                       carEntityNums, carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                                       carEntityNums, carEntityNumsLbl)
                         # else throw previous collected data
                     elif carEntityNums:
                         transition(bch_userOut[bch_idx], "", unit,
-                                   carEntityNums, carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
-                    cmd, unit, carEntityNumsLbl = "", "", ""
+                                   carEntityNums, carEntityNumsLbl)
+                    cmd, carEntityNumsNeeded, unit = "", None, ""
                     carEntityNums.clear()
-                    carEntityNumsNeeded = None
+                    carEntityNumsLbl = ""
 
                     wrdLbl_idx += 1
                     if wrdLbl_idx >= len(bch_entityWrdLbls[bch_idx]):
@@ -577,12 +587,12 @@ def generate_userOut(
             wrdLbl_idx += 1
         if cmd or len(carEntityNums):
             transition(bch_userOut[bch_idx], cmd, unit, carEntityNums,
-                       carEntityNumsLbl, wrdLbl_idx, bch_entityWrdLbls[bch_idx], bch_userIn_filtered_entityWrds[bch_idx])
+                       carEntityNumsLbl)
     return bch_userOut
 
 
 def transition(userOut: Dict[str, List[str]], cmd: str, unit: str,
-               carEntityNums: List[str], carEntityNumsLbl: str, wrdLbl_idx, entityWrdLbls, userIn_filtered_entityWrds) -> None:
+               carEntityNums: List[str], carEntityNumsLbl: str) -> None:
     assert carEntityNumsLbl and carEntityNums
     if not carEntityNumsLbl or not carEntityNums:
         return
