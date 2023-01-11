@@ -632,12 +632,8 @@ def transition(userOut: Dict[str, List[str]], cmd: str, unit: str,
             assert False
 
 
-def userOut2history(
-        bch_userOut: List[Dict[str, List[str]]]) -> List[List[str]]:
-    bch_history: List[List[str]] = []
-    for userOut in bch_userOut:
-        userOut_flat: List[str] = []
-        for values in userOut.values():
-            userOut_flat.extend(values)
-        bch_history.append(userOut_flat)
-    return bch_history
+def userOut2history(userOut: Dict[str, List[str]]) -> List[str]:
+    history: List[str] = []
+    for values in userOut.values():
+        history.extend(values)
+    return history
