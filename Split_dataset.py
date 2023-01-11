@@ -56,11 +56,11 @@ def split_dataset(
         assert len(df) == len(df_train) + len(df_val) + len(df_test)
 
     train_data, val_data, test_data = (
-        df_train[['dlgId', 'trnId', 'userIn', 'history', 'tknLblIds'
+        df_train[['dlgId', 'trnId', 'userIn', 'prevTrnUserOut', 'tknLblIds'
                   ]].values.tolist() if df_train is not None else None,
-        df_val[['dlgId', 'trnId', 'userIn', 'history', 'tknLblIds'
+        df_val[['dlgId', 'trnId', 'userIn', 'prevTrnUserOut', 'tknLblIds'
                 ]].values.tolist() if df_val is not None else None,
-        df_test[['dlgId', 'trnId', 'userIn', 'history', 'tknLblIds'
+        df_test[['dlgId', 'trnId', 'userIn', 'prevTrnUserOut', 'tknLblIds'
                  ]].values.tolist() if df_test is not None else None)
 
     # create meta-data for the datasets
