@@ -242,7 +242,7 @@ class Model(LightningModule):
                 ids2tknLbls=self.idx2tknLbl))
 
         bch_userOut: List[Dict[str, List[str]]] = Utilities.generate_userOut(
-            bch_userOut=batch['userOut'],
+            bch_userOut=batch['prevTrnUserOut'],
             bch_userIn_filtered_entityWrds=bch_userIn_filtered_entityWrds,
             bch_wordLabels=bch_nnOut_entityWrdLbls)
 
