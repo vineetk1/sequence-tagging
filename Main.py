@@ -96,7 +96,11 @@ def main():
     # prepare and split dataset
     from transformers import BertTokenizerFast
     tokenizer = BertTokenizerFast.from_pretrained(
-        user_dicts['model_init']['model_type'])
+            user_dicts['model_init']['model_type'])
+    tokenizer.truncation_side = 'right'     # this is the default also
+    # comment the line below because I want the default value of 512 token-ids
+    # for the  max length of input to the model
+    # tokenizer.model_max_length = 100
     data = Data(tokenizer=tokenizer,
                 bch_size=user_dicts['data']['batch_size']
                 if 'batch_size' in user_dicts['data'] else {})
