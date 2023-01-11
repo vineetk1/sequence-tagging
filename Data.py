@@ -64,8 +64,8 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.train_data),
             batch_sampler=None,
-            num_workers=6,
-            #num_workers=0,
+            #num_workers=6,
+            num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -78,8 +78,8 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.valid_data),
             batch_sampler=None,
-            num_workers=6,
-            #num_workers=0,
+            #num_workers=6,
+            num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -92,8 +92,8 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.test_data),
             batch_sampler=None,
-            num_workers=6,
-            #num_workers=0,
+            #num_workers=6,
+            num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -106,8 +106,8 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.test_data),
             batch_sampler=None,
-            num_workers=6,
-            #num_workers=0,
+            #num_workers=6,
+            num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -118,29 +118,37 @@ class Data(LightningDataModule):
         bch_dlgTrnId: List[Tuple[int, int]] = []
         bch_userIn_filtered: List[List[str]] = []
         bch_history: List[List[str]] = []
+        bch_prevTrnUserOut: List[Dict[str, List[str]]] = []
         for example in examples:
             bch_dlgTrnId.append((example[0], example[1]))
             bch_userIn_filtered.append(
                 Utilities.userIn_filter_splitWords(example[2]))
-            bch_history.append(example[3])
+            bch_history.append(Utilities.userOut2history(example[3]))
+            bch_prevTrnUserOut.append(example[3])
 
         bch_nnIn_tknIds = self.tokenizer(text=bch_history,
                                          text_pair=bch_userIn_filtered,
                                          is_split_into_words=True,
                                          padding=True,
-                                         truncation='only_first',
+                                         truncation='do_not_truncate',
                                          return_tensors='pt',
                                          return_token_type_ids=False,
                                          return_attention_mask=True,
                                          return_overflowing_tokens=False)
 
-        # Verify that number of tokens in history and userIn are equal to
-        # token-labels; Not in Deployment
+        # Stop if truncation is needed; Not in Predict 
+        if bch_nnIn_tknIds['input_ids'
+                           ].shape[1] > self.tokenizer.model_max_length:
+            logg.critical('Truncation needed')
+            exit()
+
+        # Verify that number of token-ids in history and userIn_filtered are
+        # equal to token-label-ids; Not in Predict
         for i, tknLbls_len in enumerate(
                 bch_nnIn_tknIds['attention_mask'].count_nonzero(-1)):
             assert tknLbls_len.item() == len(examples[i][4])
 
-        # pad token-labels; Not in Deployment
+        # pad token-label-ids; Not in Predict
         bch_tknLblIds_max_len = max([len(example[4]) for example in examples])
         bch_tknLblIds = torch.LongTensor([
             example[4] + [-100] * (bch_tknLblIds_max_len - len(example[4]))
@@ -148,16 +156,16 @@ class Data(LightningDataModule):
         ])
 
         return {
-            'userIn_filtered': bch_userIn_filtered,
-            'nnIn_tknIds': bch_nnIn_tknIds,
             'dlgTrnId': bch_dlgTrnId,
-            'tknLblIds': bch_tknLblIds,
+            'nnIn_tknIds': bch_nnIn_tknIds,
+            'tknLblIds': bch_tknLblIds,             # used in Training
             # init_userOut = userOut_init(); bch_userOut =
             # [init_userOut for _ in range(len(examples))] Does NOT work
             # because each copy of dict points to same memory location; i.e.
             # writing a value to a key in a dict will write that value to all
             # dicts
-            'userOut': [Utilities.userOut_init() for _ in range(len(examples))]
+            'prevTrnUserOut': bch_prevTrnUserOut,    # used in Predict
+            'userIn_filtered': bch_userIn_filtered,  # used in Predict
         }
 
 
