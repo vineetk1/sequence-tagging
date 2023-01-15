@@ -1,19 +1,21 @@
 # Sequence-tagging using Deep Learning
 ## Requirements
-* PyTorch version >= 1.12.1+cu116
+* PyTorch version >= 1.13.1+cu117
 * Python version >= 3.10.4
-* PyTorch-Lightning version >= 1.7.2
-* Huggingface Transformers version >= 4.21.1
-* Tensorboard version >= 2.9.0
-* Pandas >= 1.4.3
-* Scikit-learn >= 1.1.2
+* PyTorch-Lightning version >= 1.8.6
+* Huggingface Transformers version >= 4.25.1
+* Tensorboard version >= 2.11.0
+* Pandas >= 1.5.2
+* Scikit-learn >= 1.2.0
+* Seqeval >= 1.2.2
 ## Installation
 ```
-pip3 install transformers
-pip3 install pytorch-lightning
-pip3 install tensorboard
-pip3 install pandas
-pip3 install scikit-learn
+pip install transformers
+pip install pytorch-lightning
+pip install tensorboard
+pip install pandas
+pip install scikit-learn
+pip install seqeval
 git clone https://github.com/vineetk1/sequence-tagging.git
 cd sequence-tagging
 ```

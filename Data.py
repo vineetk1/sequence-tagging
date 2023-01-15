@@ -136,7 +136,7 @@ class Data(LightningDataModule):
                                          return_attention_mask=True,
                                          return_overflowing_tokens=False)
 
-        # Stop if truncation is needed; Not in Predict 
+        # Stop if truncation is needed; Not in Predict
         if bch_nnIn_tknIds['input_ids'
                            ].shape[1] > self.tokenizer.model_max_length:
             logg.critical('Truncation needed')
