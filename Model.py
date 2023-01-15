@@ -132,7 +132,7 @@ class Model(LightningModule):
                    batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         outputs = self.bertModel(**batch['nnIn_tknIds'])
         logits = self.classification_head(
-            self.classification_head_dropout(outputs[0]))
+            self.classification_head_dropout(outputs.last_hidden_state))
         loss = self.loss_fct(logits.view(-1, self.num_classes),
                              batch['tknLblIds'].view(-1))
         return loss, logits
@@ -232,7 +232,8 @@ class Model(LightningModule):
         #self.max_turn_num = 0
 
     def predict_step(self, batch: Dict[str, Any], batch_idx: int) -> Any:
-        _, logits = self._run_model(batch)
+        outputs = self.bertModel(**batch['nnIn_tknIds'])
+        logits = self.classification_head(outputs.last_hidden_state)
         bch_nnOut_tknLblIds = torch.argmax(logits, dim=-1)
 
         bch_userIn_filtered_entityWrds, bch_nnOut_entityWrdLbls = (
@@ -244,7 +245,7 @@ class Model(LightningModule):
         bch_userOut: List[Dict[str, List[str]]] = Utilities.generate_userOut(
             bch_userOut=batch['prevTrnUserOut'],
             bch_userIn_filtered_entityWrds=bch_userIn_filtered_entityWrds,
-            bch_wordLabels=bch_nnOut_entityWrdLbls)
+            bch_entityWrdLbls=bch_nnOut_entityWrdLbls)
 
         if not hasattr(self, 'tokenizer'):
             # predictStatistics is False
