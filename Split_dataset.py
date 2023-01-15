@@ -23,9 +23,8 @@ def split_dataset(
 
     # retrieve data files
     dirName = pathlib.Path(dataset_path).resolve(strict=True).parents[0]
-    fileName_noSuffix = pathlib.Path(dataset_path).stem
-    dataset_file = dirName.joinpath(f'{fileName_noSuffix}.df')
-    dataset_meta_file = dirName.joinpath(f'{fileName_noSuffix}.meta')
+    dataset_file = dirName.joinpath('dataset.df')
+    dataset_meta_file = dirName.joinpath('dataset.meta')
     if (not dataset_file.exists()) or (not dataset_meta_file.exists()):
         strng = ('Either one or both of following files do not exist: '
                  '{dataset_file}, {dataset_meta_file}')
