@@ -196,10 +196,8 @@ class Model(LightningModule):
                             path_to_idx2tknLbl: str, dataset_meta: Dict[str,
                                                                         Any],
                             dirPath: pathlib.Path) -> None:
-        dirName = pathlib.Path(path_to_idx2tknLbl).resolve(
-            strict=True).parents[0]
-        fileName_noSuffix = pathlib.Path(path_to_idx2tknLbl).stem
-        idx2tknLbl_file = dirName.joinpath(f'{fileName_noSuffix}.meta')
+        dirName = pathlib.Path(path_to_idx2tknLbl).resolve(strict=True)
+        idx2tknLbl_file = dirName.joinpath('dataset.meta')
         if not idx2tknLbl_file.exists():
             logg.critical('idx2tknLbl file does not exist')
             exit()
