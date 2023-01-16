@@ -89,24 +89,26 @@ def main():
             for item in ['model', 'model_type', 'tokenizer_type']
             if item in user_dicts['model_init']
         ])
-        dirPath = Path('tensorboard_logs').joinpath(tb_subDir).resolve(
-            strict=False)
+        dataset_dirPath = Path(
+            user_dicts['data']['dataset_dirPath']).resolve(strict=True)
+        dirPath = dataset_dirPath.joinpath(tb_subDir).resolve(strict=False)
         dirPath.mkdir(parents=True, exist_ok=True)
 
     # prepare and split dataset
     from transformers import BertTokenizerFast
     tokenizer = BertTokenizerFast.from_pretrained(
-            user_dicts['model_init']['model_type'])
-    tokenizer.truncation_side = 'right'     # this is the default also
+        user_dicts['model_init']['model_type'])
+    tokenizer.truncation_side = 'right'  # this is the default also
     # comment the line below because I want the default value of 512 token-ids
     # for the  max length of input to the model
     # tokenizer.model_max_length = 100
     data = Data(tokenizer=tokenizer,
                 bch_size=user_dicts['data']['batch_size']
                 if 'batch_size' in user_dicts['data'] else {})
-    data.generate_data_labels(dataset_path=user_dicts['data']['dataset_path'])
+    data.generate_data_labels(
+        dataset_dirPath=user_dicts['data']['dataset_dirPath'])
     dataset_metadata = data.split_dataset(
-        dataset_path=user_dicts['data']['dataset_path'],
+        dataset_dirPath=user_dicts['data']['dataset_dirPath'],
         dataset_split=user_dicts['data']['dataset_split']
         if 'dataset_split' in user_dicts['data'] else {},
         train=user_dicts['misc']['train'],
@@ -205,7 +207,7 @@ def main():
     if user_dicts['misc']['predict']:
         model.prepare_for_predict(
             predictStatistics=user_dicts['misc']['predictStatistics'],
-            path_to_idx2tknLbl=user_dicts['data']['dataset_path'],
+            path_to_idx2tknLbl=user_dicts['data']['dataset_dirPath'],
             tokenizer=tokenizer,
             dataset_meta=dataset_metadata,
             dirPath=dirPath)
@@ -261,8 +263,8 @@ def verify_and_change_user_provided_parameters(user_dicts: Dict):
             logg.critical(strng)
             exit()
 
-        if not ('dataset_path' in user_dicts['data']
-                and isinstance(user_dicts['data']['dataset_path'], str)):
+        if not ('dataset_dirPath' in user_dicts['data']
+                and isinstance(user_dicts['data']['dataset_dirPath'], str)):
             logg.critical('Must specify a path to the dataset.')
             exit()
 
