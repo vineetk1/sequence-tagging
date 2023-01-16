@@ -28,10 +28,12 @@ class Data(LightningDataModule):
         # Trainer('auto_scale_bch_size': True...) requires self.bch_size
         self.bch_size = bch_size['train']
 
-    def generate_data_labels(self, dataset_path: str) -> None:
-        generate_dataset(tokenize=self.tokenizer, dataset_path=dataset_path)
+    def generate_data_labels(self, dataset_dirPath: str) -> None:
+        generate_dataset(tokenize=self.tokenizer,
+                         dataset_dirPath=dataset_dirPath)
 
-    def split_dataset(self, dataset_path: str, dataset_split: Dict[str, int],
+    def split_dataset(self, dataset_dirPath: str, dataset_split: Dict[str,
+                                                                        int],
                       train: bool, predict: bool) -> Dict[str, Any]:
         for dataset_split_key in ('train', 'val', 'test'):
             if dataset_split_key not in dataset_split or not isinstance(
@@ -39,7 +41,7 @@ class Data(LightningDataModule):
                 dataset_split[dataset_split_key] = 0
         dataset_metadata, train_data, val_data, test_data = split_dataset(
             tokenizer=self.tokenizer,
-            dataset_path=dataset_path,
+            dataset_dirPath=dataset_dirPath,
             splits=dataset_split,
             bch_sizes=self.bch_sizes)
         if train:
@@ -137,8 +139,8 @@ class Data(LightningDataModule):
                                          return_overflowing_tokens=False)
 
         # Stop if truncation is needed; Not in Predict
-        if bch_nnIn_tknIds['input_ids'
-                           ].shape[1] > self.tokenizer.model_max_length:
+        if bch_nnIn_tknIds['input_ids'].shape[
+                1] > self.tokenizer.model_max_length:
             logg.critical('Truncation needed')
             exit()
 
@@ -158,13 +160,13 @@ class Data(LightningDataModule):
         return {
             'dlgTrnId': bch_dlgTrnId,
             'nnIn_tknIds': bch_nnIn_tknIds,
-            'tknLblIds': bch_tknLblIds,             # used in Training
+            'tknLblIds': bch_tknLblIds,  # used in Training
             # init_userOut = userOut_init(); bch_userOut =
             # [init_userOut for _ in range(len(examples))] Does NOT work
             # because each copy of dict points to same memory location; i.e.
             # writing a value to a key in a dict will write that value to all
             # dicts
-            'prevTrnUserOut': bch_prevTrnUserOut,    # used in Predict
+            'prevTrnUserOut': bch_prevTrnUserOut,  # used in Predict
             'userIn_filtered': bch_userIn_filtered,  # used in Predict
         }
 
