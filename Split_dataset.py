@@ -15,16 +15,17 @@ logg = getLogger(__name__)
 
 
 def split_dataset(
-    tokenizer, dataset_path: str, splits: Dict[str, int], bch_sizes: Dict[str,
-                                                                          int]
+    tokenizer, dataset_dirPath: str, splits: Dict[str,
+                                                  int], bch_sizes: Dict[str,
+                                                                        int]
 ) -> Tuple[Dict[str, Any], List[List[List[Any]]], List[List[List[Any]]],
            List[List[List[Any]]]]:
     assert splits['train'] + splits['val'] + splits['test'] == 100
 
     # retrieve data files
-    dirName = pathlib.Path(dataset_path).resolve(strict=True).parents[0]
-    dataset_file = dirName.joinpath('dataset.df')
-    dataset_meta_file = dirName.joinpath('dataset.meta')
+    dataset_dirPath = pathlib.Path(dataset_dirPath).resolve(strict=True)
+    dataset_file = dataset_dirPath.joinpath('dataset.df')
+    dataset_meta_file = dataset_dirPath.joinpath('dataset.meta')
     if (not dataset_file.exists()) or (not dataset_meta_file.exists()):
         strng = ('Either one or both of following files do not exist: '
                  '{dataset_file}, {dataset_meta_file}')
