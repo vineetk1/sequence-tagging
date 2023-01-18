@@ -103,8 +103,6 @@ def userIn_filter_splitWords(userIn: str) -> List[str]:
                         userIn_wrd2Idx = []
                     case _:
                         assert False
-                charPos_inUserInWrd = CharPos_inUserInWrd.BEGIN
-                userIn_wrd2Idx = []
             case "-" | ".":   # hypen or period/decimal-point
                 # begin (exclude) begin;  begin2end (exclude) begin;
                 # mid (include) mid;  mid2end (exclude + new word) begin;
