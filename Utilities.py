@@ -23,6 +23,7 @@ def userIn_filter_splitWords(userIn: str) -> List[str]:
     charPos_inUserInWrd = CharPos_inUserInWrd.BEGIN
     userIn_wrd2Idx: List[int] = []
     userIn2idx: List[int] = []
+    second_pass: List[int] = []
 
     for char_idx, char in enumerate(userIn):
         if char == " ":
@@ -103,7 +104,40 @@ def userIn_filter_splitWords(userIn: str) -> List[str]:
                         userIn_wrd2Idx = []
                     case _:
                         assert False
-            case "-" | ".":   # hypen or period/decimal-point
+            case "-":   # hypen
+                # * (Include as new word; resolve in second pass) begin
+                # hyphen is resolved in second pass
+                # begin (include + 1 word) begin;
+                # begin2end (include + 1 word) begin;
+                # mid (include + 2 words) begin;
+                # mid2end (include + 2 words) begin;
+                # mid_begin (include + 2 words) mid_begin;
+                # mid_begin2end (include + 2 words) begin
+                match charPos_inUserInWrd:
+                    case CharPos_inUserInWrd.BEGIN:
+                        userIn2idx.append([char_idx, char_idx])
+                    case CharPos_inUserInWrd.BEGIN2END:
+                        userIn2idx.append([char_idx, char_idx])
+                    case CharPos_inUserInWrd.MID2END:
+                        userIn_wrd2Idx.append(char_idx-1)
+                        userIn2idx.append(userIn_wrd2Idx)
+                        userIn2idx.append([char_idx, char_idx])
+                    case CharPos_inUserInWrd.MID_BEGIN2END:
+                        userIn2idx.append(userIn_wrd2Idx)
+                        userIn2idx.append([char_idx, char_idx])
+                    case CharPos_inUserInWrd.MID:
+                        userIn_wrd2Idx.append(char_idx-1)
+                        userIn2idx.append(userIn_wrd2Idx)
+                        userIn2idx.append([char_idx, char_idx])
+                    case CharPos_inUserInWrd.MID_BEGIN:
+                        userIn2idx.append(userIn_wrd2Idx)
+                        userIn2idx.append([char_idx, char_idx])
+                    case _:
+                        assert False
+                charPos_inUserInWrd = CharPos_inUserInWrd.BEGIN
+                userIn_wrd2Idx = []
+                second_pass.append(len(userIn2idx) - 1)
+            case ".":   # period/decimal-point
                 # begin (exclude) begin;  begin2end (exclude) begin;
                 # mid (include) mid;  mid2end (exclude + new word) begin;
                 # mid_begin (include) mid;
@@ -233,6 +267,34 @@ def userIn_filter_splitWords(userIn: str) -> List[str]:
                 for idx in range(0, len(userIn_wrd2Idx), 2):
                     word = f'{word}{userIn[userIn_wrd2Idx[idx]: userIn_wrd2Idx[idx+1]+1]}'
                 userIn_filter_split.append(word)
+    assert len(userIn2idx) == len(userIn_filter_split)
+
+    if second_pass:
+        remove_word_idxs = []
+        for idx_in_userIn2idx in second_pass:
+            match userIn_filter_split[idx_in_userIn2idx]:
+                case "-":   # hyphen
+                    try:
+                        if idx_in_userIn2idx:
+                            float(userIn_filter_split[idx_in_userIn2idx-1])
+                        else:
+                            remove_word_idxs.append(idx_in_userIn2idx)
+                            continue
+                        if idx_in_userIn2idx < len(userIn_filter_split) - 1:
+                            float(userIn_filter_split[idx_in_userIn2idx+1])
+                        else:
+                            remove_word_idxs.append(idx_in_userIn2idx)
+                            continue
+                    except ValueError:
+                        remove_word_idxs.append(idx_in_userIn2idx)
+                case _:
+                    assert False
+                    pass
+        # for i, prev_word_idx in enumerate(remove_word_idxs):
+        #    del userIn_filter_split[prev_word_idx - i]
+        # deleting an item changes the indices; delete from high index to low
+        for item_idx in reversed(remove_word_idxs):
+            del userIn_filter_split[item_idx]
     return userIn_filter_split
 
 
