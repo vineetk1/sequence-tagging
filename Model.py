@@ -234,6 +234,13 @@ class Model(LightningModule):
         logits = self.classification_head(outputs.last_hidden_state)
         bch_nnOut_tknLblIds = torch.argmax(logits, dim=-1)
 
+        #bch_userIn_filtered_entityWrds, bch_nnOut_entityWrdLbls = (
+        #    Utilities.ASSERT_tknLbls2entity_wrds_lbls(
+        #        bch=batch,
+        #        bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
+        #        ids2tknLbls=self.idx2tknLbl,
+        #        tokenizer=self.tokenizer))
+
         bch_userIn_filtered_entityWrds, bch_nnOut_entityWrdLbls = (
             Utilities.tknLbls2entity_wrds_lbls(
                 bch=batch,
@@ -250,13 +257,6 @@ class Model(LightningModule):
             return
 
         # gather statistics
-
-        #bch_userIn_filtered_entityWrds, bch_nnOut_entityWrdLbls = (
-        #    Utilities.ASSERT_tknLbls2entity_wrds_lbls(
-        #        bch=batch,
-        #        bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
-        #        ids2tknLbls=self.idx2tknLbl,
-        #        tokenizer=self.tokenizer))
 
         # write to file the info about failed turns of dialogs
         bch_nnOut_tknLblIds = torch.where(batch['tknLblIds'] == -100,
