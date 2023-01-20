@@ -281,7 +281,10 @@ def userIn_filter_splitWords(userIn: str) -> List[str]:
                             remove_word_idxs.append(idx_in_userIn2idx)
                             continue
                         if idx_in_userIn2idx < len(userIn_filter_split) - 1:
-                            float(userIn_filter_split[idx_in_userIn2idx+1])
+                            if userIn_filter_split[idx_in_userIn2idx+1] == "$":
+                                pass
+                            else:
+                                float(userIn_filter_split[idx_in_userIn2idx+1])
                         else:
                             remove_word_idxs.append(idx_in_userIn2idx)
                             continue
@@ -537,7 +540,7 @@ def generate_userOut(
                             transition(bch_userOut[bch_idx], cmd, unit,
                                        carEntityNums[:-1], carEntityNumsLbl)
                             transition(bch_userOut[bch_idx], entityWrdLbl,
-                                       unit, carEntityNums[-1],
+                                       unit, [carEntityNums[-1]],
                                        carEntityNumsLbl)
                             cmd, carEntityNumsNeeded, unit = "", None, ""
                             carEntityNums.clear()
@@ -559,7 +562,7 @@ def generate_userOut(
                             transition(bch_userOut[bch_idx], "", unit,
                                        carEntityNums[:-1], carEntityNumsLbl)
                         transition(bch_userOut[bch_idx], entityWrdLbl,
-                                   unit, carEntityNums[-1], carEntityNumsLbl)
+                                   unit, [carEntityNums[-1]], carEntityNumsLbl)
                         cmd, carEntityNumsNeeded, unit = "", None, ""
                         carEntityNums.clear()
                         carEntityNumsLbl = ""
@@ -586,7 +589,7 @@ def generate_userOut(
                             transition(bch_userOut[bch_idx], cmd, unit,
                                        carEntityNums[:-1], carEntityNumsLbl)
                             cmd, carEntityNumsNeeded = entityWrdLbl, 2
-                            carEntityNums = carEntityNums[-1]
+                            carEntityNums = [carEntityNums[-1]]
                         else:   # len(carEntityNums) <= carEntityNumsNeeded
                             # bad userIn-seg; throw previous collected info
                             # plus this one
@@ -599,7 +602,7 @@ def generate_userOut(
                         transition(bch_userOut[bch_idx], "", unit,
                                    carEntityNums[:-1], carEntityNumsLbl)
                         cmd, carEntityNumsNeeded = entityWrdLbl, 2
-                        carEntityNums = carEntityNums[-1]
+                        carEntityNums = [carEntityNums[-1]]
                     else:   # not carEntityNums:
                         assert False
                         # bad userIn-seg; throw previous collected info
