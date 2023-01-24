@@ -204,6 +204,11 @@ class Model(LightningModule):
         with idx2tknLbl_file.open('rb') as file:
             self.idx2tknLbl = pickle.load(file)
         if predictStatistics is False:
+            # tokenizer and df are needed for debugging ONLY by
+            # Utilities.DEBUG_tknLbls2entity_wrds_lbls()
+            self.tokenizer = tokenizer
+            self.dataset_meta = dataset_meta
+            self.df = pd.read_pickle(dataset_meta['dataset_panda'])
             return
 
         self.failed_dlgs_file = dirPath.joinpath('dialogs_failed.txt')
@@ -234,12 +239,13 @@ class Model(LightningModule):
         logits = self.classification_head(outputs.last_hidden_state)
         bch_nnOut_tknLblIds = torch.argmax(logits, dim=-1)
 
-        #bch_userIn_filtered_entityWrds, bch_nnOut_entityWrdLbls = (
-        #    Utilities.ASSERT_tknLbls2entity_wrds_lbls(
-        #        bch=batch,
-        #        bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
-        #        ids2tknLbls=self.idx2tknLbl,
-        #        tokenizer=self.tokenizer))
+        bch_userIn_filtered_entityWrds, bch_nnOut_entityWrdLbls = (
+            Utilities.DEBUG_tknLbls2entity_wrds_lbls(
+                bch=batch,
+                bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
+                ids2tknLbls=self.idx2tknLbl,
+                tokenizer=self.tokenizer,
+                df=self.df,))
 
         bch_userIn_filtered_entityWrds, bch_nnOut_entityWrdLbls = (
             Utilities.tknLbls2entity_wrds_lbls(
@@ -252,7 +258,7 @@ class Model(LightningModule):
             bch_userIn_filtered_entityWrds=bch_userIn_filtered_entityWrds,
             bch_entityWrdLbls=bch_nnOut_entityWrdLbls)
 
-        if not hasattr(self, 'tokenizer'):
+        if not hasattr(self, 'failed_dlgs_file'):
             # predictStatistics is False
             return
 
