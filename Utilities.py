@@ -305,18 +305,17 @@ def tknLbls2entity_wrds_lbls(
         bch: Dict[str, Any],
         bch_nnOut_tknLblIds: torch.Tensor,
         ids2tknLbls: List[str]) -> Tuple[List[List[str]], List[List[str]]]:
-    # purpose of this function is to check that word-labels are generated
-    # correctly
     bch_nnOut_entityWrdLbls = []
     bch_userIn_filtered_entityWrds = []
-    # tokens between two SEP belong to tokens of bch['userIn_filtered']
+    # tknIds between two SEP belong to tknIds of words in
+    # bch['userIn_filtered']
     nnIn_tknIds_beginEnd_idx = (
             bch['nnIn_tknIds']['input_ids'] == 102).nonzero()
 
     for bch_idx in range(bch_nnOut_tknLblIds.shape[0]):
         entityWrd, entityWrdLbl = None, None
         entityWrds, entityWrdLbls = [], []
-        multipleWord_entity = ""
+        multipleWord_entity: str = ""
         userIn_filtered_idx = -1
         for nnIn_tknIds_idx in range(
                 (nnIn_tknIds_beginEnd_idx[bch_idx * 2, 1] + 1).item(), (
@@ -350,16 +349,17 @@ def tknLbls2entity_wrds_lbls(
             entityWrds.append(multipleWord_entity)
         bch_nnOut_entityWrdLbls.append(entityWrdLbls)
         bch_userIn_filtered_entityWrds.append(entityWrds)
+        assert len(bch_userIn_filtered_entityWrds[bch_idx]) == len(
+                                              bch_nnOut_entityWrdLbls[bch_idx])
     return bch_userIn_filtered_entityWrds, bch_nnOut_entityWrdLbls
 
 
-def ASSERT_tknLbls2entity_wrds_lbls(
+def DEBUG_tknLbls2entity_wrds_lbls(
         bch: Dict[str, Any],
         bch_nnOut_tknLblIds: torch.Tensor,
-        ids2tknLbls: List[str], tokenizer) -> Tuple[List[List[str]], List[
+        ids2tknLbls: List[str], tokenizer, df) -> Tuple[List[List[str]], List[
                                                              List[str]]]:
-    # purpose of this function is to check that word-labels are generated
-    # correctly
+    import pandas as pd
     bch_nnOut_entityWrdLbls = []
     bch_userIn_filtered_entityWrds = []
     # tokens between two SEP belong to tokens of bch['userIn_filtered']
@@ -371,20 +371,20 @@ def ASSERT_tknLbls2entity_wrds_lbls(
                 'input_ids'][bch_idx].shape[0]
         entityWrd, entityWrdLbl = None, None
         entityWrds, entityWrdLbls = [], []
-        multipleWord_entity = ""
+        multipleWord_entity: str = ""
         userIn_filtered_idx = -1
 
-        assert_entityWrd, assert_entityWrdLbl = None, None
-        assert_nnIn_tkns = []
-        assert_nnOut_tknLbls = []
-        assert_tknLbls_True = []
+        DEBUG_entityWrd, DEBUG_entityWrdLbl = None, None
+        DEBUG_nnIn_tkns = []
+        DEBUG_nnOut_tknLbls = []
+        DEBUG_tknLbls_True = []
         for idx in range(bch_nnOut_tknLblIds[bch_idx].shape[0]):
             # this for-loop is for debugging-only
-            assert_nnIn_tkns.append(tokenizer.decode(bch['nnIn_tknIds'][
+            DEBUG_nnIn_tkns.append(tokenizer.decode(bch['nnIn_tknIds'][
                                     'input_ids'][bch_idx, idx]))
-            assert_nnOut_tknLbls.append(ids2tknLbls[bch_nnOut_tknLblIds[
+            DEBUG_nnOut_tknLbls.append(ids2tknLbls[bch_nnOut_tknLblIds[
                                            bch_idx, idx].item()])
-            assert_tknLbls_True.append(ids2tknLbls[bch['tknLblIds'][
+            DEBUG_tknLbls_True.append(ids2tknLbls[bch['tknLblIds'][
                                                     bch_idx, idx].item()])
 
         for nnIn_tknIds_idx in range(
@@ -415,16 +415,16 @@ def ASSERT_tknLbls2entity_wrds_lbls(
                         entityWrds.append(multipleWord_entity)
                     entityWrdLbls.append(entityWrdLbl)
                     multipleWord_entity = entityWrd
-                    assert_entityWrdLbl = entityWrdLbl
-                    assert_entityWrd = entityWrd
+                    DEBUG_entityWrdLbl = entityWrdLbl
+                    DEBUG_entityWrd = entityWrd
                 else:   # nnOut_tknLbl[0] is 'I'
                     assert multipleWord_entity
-                    assert assert_entityWrdLbl == entityWrdLbl
-                    assert assert_entityWrd == entityWrd
+                    assert DEBUG_entityWrdLbl == entityWrdLbl
+                    assert DEBUG_entityWrd == entityWrd
                     multipleWord_entity = f"{multipleWord_entity} {entityWrd}"
             else:
                 # nnOut_tknLbl is "T" if it is a token of word "O"; else it is
-                # "T-xxx(yyy)"
+                # "T-x(y)"
                 if nnOut_tknLbl != "T":
                     if nnOut_tknLbl[-1] == ')':
                         # error will occur if there is no opening-parenthesis
@@ -435,13 +435,20 @@ def ASSERT_tknLbls2entity_wrds_lbls(
                         entityWrd = bch['userIn_filtered'][bch_idx][
                                                            userIn_filtered_idx]
                         entityWrdLbl = nnOut_tknLbl[2:]
-                    assert assert_entityWrdLbl == entityWrdLbl
-                    assert assert_entityWrd == entityWrd
+                    # In 'I-model(cruiser)',  B_entityWrdLbl='model' and
+                    # DEBUG_entityWrd=cruiser; In 'T-x(y)' the model may not be
+                    # so precise as to guarantee that x=entityWrdLbl='model'
+                    # and y=entityWrd='cruiser', so it makes sense to not check
+                    # for these conditions
+                    assert DEBUG_entityWrdLbl == entityWrdLbl
+                    #assert DEBUG_entityWrd == entityWrd
         if multipleWord_entity:  # previous multipleWord_entity
             entityWrds.append(multipleWord_entity)
         assert len(entityWrdLbls) == len(entityWrds)
         bch_nnOut_entityWrdLbls.append(entityWrdLbls)
         bch_userIn_filtered_entityWrds.append(entityWrds)
+        assert len(bch_userIn_filtered_entityWrds[bch_idx]) == len(
+                                              bch_nnOut_entityWrdLbls[bch_idx])
     assert len(bch_userIn_filtered_entityWrds) == len(bch_nnOut_entityWrdLbls)
     return bch_userIn_filtered_entityWrds, bch_nnOut_entityWrdLbls
 
