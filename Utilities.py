@@ -374,6 +374,10 @@ def DEBUG_tknLbls2entity_wrds_lbls(
         multipleWord_entity: str = ""
         userIn_filtered_idx = -1
 
+        DEBUG_associate = []
+        DEBUG_associate.append((
+            (nnIn_tknIds_beginEnd_idx[bch_idx * 2, 1] + 1).item(),
+            (nnIn_tknIds_beginEnd_idx[(bch_idx * 2) + 1, 1]).item() - 1))
         DEBUG_entityWrd, DEBUG_entityWrdLbl = None, None
         DEBUG_nnIn_tkns = []
         DEBUG_nnOut_tknLbls = []
@@ -382,20 +386,31 @@ def DEBUG_tknLbls2entity_wrds_lbls(
             # this for-loop is for debugging-only
             DEBUG_nnIn_tkns.append(tokenizer.decode(bch['nnIn_tknIds'][
                                     'input_ids'][bch_idx, idx]))
-            DEBUG_nnOut_tknLbls.append(ids2tknLbls[bch_nnOut_tknLblIds[
-                                           bch_idx, idx].item()])
-            DEBUG_tknLbls_True.append(ids2tknLbls[bch['tknLblIds'][
-                                                    bch_idx, idx].item()])
+            DEBUG_nnOut_tknLbls.append(
+               ids2tknLbls[bch_nnOut_tknLblIds[bch_idx, idx].item()] if
+               bch_nnOut_tknLblIds[bch_idx, idx].item() != -100 else -100)
+            DEBUG_tknLbls_True.append(
+               ids2tknLbls[bch['tknLblIds'][bch_idx, idx].item()] if
+               bch['tknLblIds'][bch_idx, idx].item() != -100 else -100)
 
         for nnIn_tknIds_idx in range(
                 (nnIn_tknIds_beginEnd_idx[bch_idx * 2, 1] + 1).item(), (
                    nnIn_tknIds_beginEnd_idx[(bch_idx * 2) + 1, 1]).item()):
             nnOut_tknLbl = ids2tknLbls[bch_nnOut_tknLblIds[
                                        bch_idx, nnIn_tknIds_idx].item()]
+            DEBUG_nnIn_tkn = tokenizer.decode(bch['nnIn_tknIds'][
+                                    'input_ids'][bch_idx, nnIn_tknIds_idx])
+            DEBUG_tknLbl_True = ids2tknLbls[bch['tknLblIds'][
+                                            bch_idx, nnIn_tknIds_idx].item()]
             assert nnOut_tknLbl[0] == 'O' or nnOut_tknLbl[
                   0] == 'B' or nnOut_tknLbl[0] == 'I' or nnOut_tknLbl[0] == 'T'
             if nnOut_tknLbl[0] != 'T':  # first token of a word
                 userIn_filtered_idx += 1
+                DEBUG_userIn_filtered = bch['userIn_filtered'][
+                                                  bch_idx][userIn_filtered_idx]
+                DEBUG_associate.append(
+                        (nnIn_tknIds_idx, DEBUG_nnIn_tkn, nnOut_tknLbl,
+                            DEBUG_tknLbl_True, DEBUG_userIn_filtered))
                 if nnOut_tknLbl[0] == 'O':
                     if multipleWord_entity:  # previous multipleWord_entity
                         entityWrds.append(multipleWord_entity)
@@ -418,6 +433,7 @@ def DEBUG_tknLbls2entity_wrds_lbls(
                     DEBUG_entityWrdLbl = entityWrdLbl
                     DEBUG_entityWrd = entityWrd
                 else:   # nnOut_tknLbl[0] is 'I'
+                    assert nnOut_tknLbl[0] == 'I'
                     assert multipleWord_entity
                     assert DEBUG_entityWrdLbl == entityWrdLbl
                     assert DEBUG_entityWrd == entityWrd
@@ -425,6 +441,9 @@ def DEBUG_tknLbls2entity_wrds_lbls(
             else:
                 # nnOut_tknLbl is "T" if it is a token of word "O"; else it is
                 # "T-x(y)"
+                DEBUG_associate.append(
+                        (nnIn_tknIds_idx, DEBUG_nnIn_tkn, nnOut_tknLbl,
+                            DEBUG_tknLbl_True, DEBUG_userIn_filtered))
                 if nnOut_tknLbl != "T":
                     if nnOut_tknLbl[-1] == ')':
                         # error will occur if there is no opening-parenthesis
