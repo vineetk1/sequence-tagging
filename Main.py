@@ -207,7 +207,6 @@ def main():
     if user_dicts['misc']['predict']:
         model.prepare_for_predict(
             predictStatistics=user_dicts['misc']['predictStatistics'],
-            path_to_idx2tknLbl=user_dicts['data']['dataset_dirPath'],
             tokenizer=tokenizer,
             dataset_meta=dataset_metadata,
             dirPath=dirPath)
