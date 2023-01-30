@@ -304,7 +304,7 @@ def userIn_filter_splitWords(userIn: str) -> List[str]:
 def tknLbls2entity_wrds_lbls(
         bch: Dict[str, Any],
         bch_nnOut_tknLblIds: torch.Tensor,
-        ids2tknLbls: List[str]) -> Tuple[List[List[str]], List[List[str]]]:
+        id2tknLbl: List[str]) -> Tuple[List[List[str]], List[List[str]]]:
     bch_nnOut_entityWrdLbls = []
     bch_userIn_filtered_entityWrds = []
     # tknIds between two SEP belong to tknIds of words in
@@ -320,7 +320,7 @@ def tknLbls2entity_wrds_lbls(
         for nnIn_tknIds_idx in range(
                 (nnIn_tknIds_beginEnd_idx[bch_idx * 2, 1] + 1).item(), (
                    nnIn_tknIds_beginEnd_idx[(bch_idx * 2) + 1, 1]).item()):
-            nnOut_tknLbl = ids2tknLbls[bch_nnOut_tknLblIds[
+            nnOut_tknLbl = id2tknLbl[bch_nnOut_tknLblIds[
                                        bch_idx, nnIn_tknIds_idx].item()]
             if nnOut_tknLbl[0] != 'T':  # first token of a word
                 userIn_filtered_idx += 1
@@ -357,7 +357,7 @@ def tknLbls2entity_wrds_lbls(
 def DEBUG_tknLbls2entity_wrds_lbls(
         bch: Dict[str, Any],
         bch_nnOut_tknLblIds: torch.Tensor,
-        ids2tknLbls: List[str], tokenizer, df) -> Tuple[List[List[str]], List[
+        id2tknLbl: List[str], tokenizer, df) -> Tuple[List[List[str]], List[
                                                              List[str]]]:
     import pandas as pd
     bch_nnOut_entityWrdLbls = []
@@ -387,20 +387,20 @@ def DEBUG_tknLbls2entity_wrds_lbls(
             DEBUG_nnIn_tkns.append(tokenizer.decode(bch['nnIn_tknIds'][
                                     'input_ids'][bch_idx, idx]))
             DEBUG_nnOut_tknLbls.append(
-               ids2tknLbls[bch_nnOut_tknLblIds[bch_idx, idx].item()] if
+               id2tknLbl[bch_nnOut_tknLblIds[bch_idx, idx].item()] if
                bch_nnOut_tknLblIds[bch_idx, idx].item() != -100 else -100)
             DEBUG_tknLbls_True.append(
-               ids2tknLbls[bch['tknLblIds'][bch_idx, idx].item()] if
+               id2tknLbl[bch['tknLblIds'][bch_idx, idx].item()] if
                bch['tknLblIds'][bch_idx, idx].item() != -100 else -100)
 
         for nnIn_tknIds_idx in range(
-                (nnIn_tknIds_beginEnd_idx[bch_idx * 2, 1] + 1).item(), (
+                ((nnIn_tknIds_beginEnd_idx[bch_idx * 2, 1]) + 1).item(), (
                    nnIn_tknIds_beginEnd_idx[(bch_idx * 2) + 1, 1]).item()):
-            nnOut_tknLbl = ids2tknLbls[bch_nnOut_tknLblIds[
+            nnOut_tknLbl = id2tknLbl[bch_nnOut_tknLblIds[
                                        bch_idx, nnIn_tknIds_idx].item()]
             DEBUG_nnIn_tkn = tokenizer.decode(bch['nnIn_tknIds'][
                                     'input_ids'][bch_idx, nnIn_tknIds_idx])
-            DEBUG_tknLbl_True = ids2tknLbls[bch['tknLblIds'][
+            DEBUG_tknLbl_True = id2tknLbl[bch['tknLblIds'][
                                             bch_idx, nnIn_tknIds_idx].item()]
             assert nnOut_tknLbl[0] == 'O' or nnOut_tknLbl[
                   0] == 'B' or nnOut_tknLbl[0] == 'I' or nnOut_tknLbl[0] == 'T'
