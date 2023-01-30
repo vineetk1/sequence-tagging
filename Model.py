@@ -198,16 +198,8 @@ class Model(LightningModule):
             return optimizer
 
     def prepare_for_predict(self, predictStatistics: bool, tokenizer,
-                            path_to_idx2tknLbl: str, dataset_meta: Dict[str,
-                                                                        Any],
+                            dataset_meta: Dict[str, Any],
                             dirPath: pathlib.Path) -> None:
-        dirName = pathlib.Path(path_to_idx2tknLbl).resolve(strict=True)
-        idx2tknLbl_file = dirName.joinpath('dataset.meta')
-        if not idx2tknLbl_file.exists():
-            logg.critical('idx2tknLbl file does not exist')
-            exit()
-        with idx2tknLbl_file.open('rb') as file:
-            self.idx2tknLbl = pickle.load(file)
         if predictStatistics is False:
             # tokenizer and df are needed for debugging ONLY by
             # Utilities.DEBUG_tknLbls2entity_wrds_lbls()
@@ -216,10 +208,11 @@ class Model(LightningModule):
             self.df = pd.read_pickle(dataset_meta['dataset_panda'])
             return
 
-        self.failed_dlgs_file = dirPath.joinpath('dialogs_failed.txt')
-        self.failed_dlgs_file.touch()
-        if self.failed_dlgs_file.stat().st_size:
-            with self.failed_dlgs_file.open('a') as file:
+        self.failed_nnOut_tknLblIds = dirPath.joinpath(
+            'failed_nnOut_tknLblIds.txt')
+        self.failed_nnOut_tknLblIds.touch()
+        if self.failed_nnOut_tknLblIds.stat().st_size:
+            with self.failed_nnOut_tknLblIds.open('a') as file:
                 file.write('\n\n****resume from checkpoint****\n')
         self.test_results = dirPath.joinpath('test-results.txt')
         self.test_results.touch()
@@ -234,8 +227,8 @@ class Model(LightningModule):
         self.y_pred = []
         self.df = pd.read_pickle(dataset_meta['dataset_panda'])
 
-        self.num_of_failed_turns: int = 0
-        self.num_of_failed_token_labels: int = 0
+        self.count_failed_turns: int = 0
+        self.count_failed_nnOut_tknLblIds: int = 0
         #self.cntr = Counter()
         #self.max_turn_num = 0
 
@@ -248,7 +241,7 @@ class Model(LightningModule):
         #    Utilities.DEBUG_tknLbls2entity_wrds_lbls(
         #        bch=batch,
         #        bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
-        #        ids2tknLbls=self.idx2tknLbl,
+        #        id2tknLbl=self.dataset_meta['idx2tknLbl'],
         #        tokenizer=self.tokenizer,
         #        df=self.df,))
 
@@ -256,14 +249,14 @@ class Model(LightningModule):
             Utilities.tknLbls2entity_wrds_lbls(
                 bch=batch,
                 bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
-                ids2tknLbls=self.idx2tknLbl))
+                id2tknLbl=self.dataset_meta['idx2tknLbl']))
 
         bch_userOut: List[Dict[str, List[str]]] = Utilities.generate_userOut(
             bch_userOut=batch['prevTrnUserOut'],
             bch_userIn_filtered_entityWrds=bch_userIn_filtered_entityWrds,
             bch_entityWrdLbls=bch_nnOut_entityWrdLbls)
 
-        if not hasattr(self, 'failed_dlgs_file'):
+        if not hasattr(self, 'failed_nnOut_tknLblIds'):
             # predictStatistics is False
             return
 
@@ -299,9 +292,9 @@ class Model(LightningModule):
             with out.open("a") as results_file:
                 with redirect_stdout(stdout if out ==
                                      stdoutput else results_file):
-                    print(f'# of failed turns = {self.num_of_failed_turns}')
+                    print(f'# of failed turns = {self.count_failed_turns}')
                     strng = ('# of failed token-labels = '
-                             f'{self.num_of_failed_token_labels}')
+                             f'{self.count_failed_nnOut_tknLblIds}')
                     print(strng)
                     for k, v in self.dataset_meta.items():
                         print(k)
@@ -351,72 +344,107 @@ class Model(LightningModule):
         bch_nnOut_tknLblIds = torch.where(bch['tknLblIds'] == -100,
                                           bch['tknLblIds'],
                                           bch_nnOut_tknLblIds)
-        with self.failed_dlgs_file.open('a') as file:
-            prev_bch_idx = None
-            testSet_unseen_tokens = []
-            wrapper = textwrap.TextWrapper(width=80,
-                                           initial_indent="",
-                                           subsequent_indent=19 * " ")
+        with self.failed_nnOut_tknLblIds.open('a') as file:
+            prev_bch_idx: int = None
+            bch_idx: int = None
+            unseen_tkns_predictSet: List[str] = []
+            wrapper: textwrap.TextWrapper = textwrap.TextWrapper(
+                width=80, initial_indent="", subsequent_indent=23 * " ")
             for bch_idx, nnOut_tknLblId_idx in torch.ne(
                     bch['tknLblIds'], bch_nnOut_tknLblIds).nonzero():
                 # only FAILED bch_idx and nnOut_tknLblId_idx are considered
-                self.num_of_failed_token_labels += 1
-                nnIn_tkns: List[str] = self.tokenizer.convert_ids_to_tokens(
-                    bch['nnIn_tknIds']['input_ids'][bch_idx])
+                self.count_failed_nnOut_tknLblIds += 1
+                id2tknLbl = self.dataset_meta['idx2tknLbl']
 
-                tknLbl_True: str = self.dataset_meta['idx2tknLbl'][
-                    bch['tknLblIds'][bch_idx][nnOut_tknLblId_idx].item()]
-                nnOut_tknLbl: str = self.dataset_meta['idx2tknLbl'][
-                    bch_nnOut_tknLblIds[bch_idx][nnOut_tknLblId_idx].item()]
-
-                failed_token_label_out = (f'({nnIn_tkns[nnOut_tknLblId_idx]}, '
-                                          f"{tknLbl_True}, "
-                                          f"{nnOut_tknLbl})  ")
-
-                if bch_idx == prev_bch_idx:
-                    file.write(failed_token_label_out)
-                    continue
-                else:
-                    self.num_of_failed_turns += 1
-                    if testSet_unseen_tokens:
-                        strng = ('Test-set tokens not seen in train-set = '
-                                 f'{", ".join(testSet_unseen_tokens)}')
+                if prev_bch_idx is not None and bch_idx != prev_bch_idx:
+                    if unseen_tkns_predictSet:
+                        file.write(
+                            wrapper.fill(
+                                "Predict-set tkns not seen in train-set:"))
                         file.write("\n")
-                        file.write(wrapper.fill(strng))
-                        testSet_unseen_tokens = []
-                if ((bch['nnIn_tknIds']['input_ids'][bch_idx]
-                     [nnOut_tknLblId_idx].item())
-                        in self.dataset_meta['test-set unseen tokens']):
-                    testSet_unseen_tokens.append(nnIn_tkns[nnOut_tknLblId_idx])
-                dlg_id_out = f"dlg_id, trn_id = {bch['dlgTrnId'][bch_idx]}"
-                userIn_filtered_out = "Input words = " + " ".join(
-                    bch['userIn_filtered'][bch_idx])
-                nnIn_tkns_out = "Input tokens = " + " ".join(nnIn_tkns)
-                true_labels_out = "True labels = "
-                predicted_labels_out = "Predicted labels = "
-                for i in torch.arange(bch['tknLblIds'].shape[1]):
-                    if bch['tknLblIds'][bch_idx][i].item() != -100:
-                        true_labels_out = (
-                            true_labels_out + self.dataset_meta['idx2tknLbl'][
-                                bch['tknLblIds'][bch_idx][i].item()] + " ")
-                        predicted_labels_out = (
-                            predicted_labels_out +
-                            self.dataset_meta['idx2tknLbl'][
-                                bch_nnOut_tknLblIds[bch_idx][i].item()] + " ")
-                failed_token_label_heading_out = (
-                    'Failed token labels: (Input word, Input token, '
-                    'True label, Predicted label)')
-                file.write("\n\n")
-                for strng in (dlg_id_out, userIn_filtered_out, nnIn_tkns_out,
-                              true_labels_out, predicted_labels_out,
-                              failed_token_label_heading_out):
-                    file.write(wrapper.fill(strng))
+                        file.write(
+                            wrapper.fill(
+                                f"{' '.join(unseen_tkns_predictSet)}"))
+                        file.write("\n")
+                        unseen_tkns_predictSet.clear()
+
+                if bch_idx != prev_bch_idx:
+                    # print out: dlgId_trnId, userIn, userIn filtered wrds,
+                    # userIn filtered tkns, tknLbls_True, nnOut_tknLbls
+                    # tknIds between two SEP belong to tknIds of words in
+                    # bch['userIn_filtered']
+                    self.count_failed_turns += 1
+                    nnIn_tknIds_beginEnd_idx = (
+                        bch['nnIn_tknIds']['input_ids'] == 102).nonzero()
+                    index_of_first_SEP_plus1 = nnIn_tknIds_beginEnd_idx[
+                        bch_idx * 2, 1] + 1
+                    index_of_second_SEP = nnIn_tknIds_beginEnd_idx[(bch_idx *
+                                                                    2) + 1, 1]
+                    nnIn_tknIds: torch.Tensor = bch['nnIn_tknIds'][
+                        'input_ids'][bch_idx][index_of_first_SEP_plus1.item(
+                        ):index_of_second_SEP.item()]
+                    unseen_tkns_predictSet = [
+                        self.tokenizer.convert_ids_to_tokens(nnIn_tknId.item())
+                        for nnIn_tknId in nnIn_tknIds if nnIn_tknId.item() in
+                        self.dataset_meta['test-set unseen tokens']
+                    ]
+                    nnIn_tkns: List[str] = (
+                        self.tokenizer.convert_ids_to_tokens(nnIn_tknIds))
+                    tknLbls_True: List[str] = []
+                    nnOut_tknLbls: List[str] = []
+                    for nnIn_tknIds_idx in range(
+                            index_of_first_SEP_plus1.item(),
+                            index_of_second_SEP.item()):
+                        tknLbls_True.append(id2tknLbl[bch['tknLblIds'][
+                            bch_idx, nnIn_tknIds_idx].item()])
+                        nnOut_tknLbls.append(id2tknLbl[bch_nnOut_tknLblIds[
+                            bch_idx, nnIn_tknIds_idx].item()])
+                    file.write("\n\n")
+                    file.write(
+                        wrapper.fill(
+                            f"dlg_id, trn_id = {bch['dlgTrnId'][bch_idx]}"))
                     file.write("\n")
-                file.write(failed_token_label_out)
+                    file.write(
+                        wrapper.fill(
+                            f"userIn = {(self.df[(self.df['dlgId'] == bch['dlgTrnId'][bch_idx][0]) & (self.df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['userIn']).item()}"
+                        ))
+                    file.write("\n")
+                    file.write(
+                        wrapper.fill(
+                            f"userIn filtered wrds = {' '.join(bch['userIn_filtered'][bch_idx])}"
+                        ))
+                    file.write("\n")
+                    file.write(
+                        wrapper.fill(
+                            f"userIn filtered tkns = {' '.join(nnIn_tkns)}"))
+                    file.write("\n")
+                    file.write(
+                        wrapper.fill(
+                            f"tknLbls_True = {' '.join(tknLbls_True)}"))
+                    file.write("\n")
+                    file.write(
+                        wrapper.fill(
+                            f"nnOut_tknLbls = {' '.join(nnOut_tknLbls)}"))
+                    file.write("\n")
+                    file.write(wrapper.fill("Failed nnOut_tknLbls:"))
+                    file.write("\n")
+                    file.write(
+                        wrapper.fill(
+                            "(userIn filtered wrd, userIn filtered tkn, tknLbl_True, nnOut_tknLbl)"
+                        ))
+                    file.write("\n")
+
+                file.write(
+                    wrapper.fill(
+                        f"(userIn filtered wrd, {nnIn_tkns[(nnOut_tknLblId_idx - index_of_first_SEP_plus1).item()]}, {tknLbls_True[(nnOut_tknLblId_idx - index_of_first_SEP_plus1).item()]}, {nnOut_tknLbls[(nnOut_tknLblId_idx - index_of_first_SEP_plus1).item()]})  "
+                    ))
+                file.write("\n")
+
                 prev_bch_idx = bch_idx
 
-            if testSet_unseen_tokens:
-                strng = ('Test-set tokens not seen in train-set = '
-                         f'{", ".join(testSet_unseen_tokens)}')
+            if unseen_tkns_predictSet:
+                file.write(
+                    wrapper.fill("Predict-set tkns not seen in train-set:"))
                 file.write("\n")
-                file.write(wrapper.fill(strng))
+                file.write(wrapper.fill(f"{' '.join(unseen_tkns_predictSet)}"))
+                file.write("\n")
