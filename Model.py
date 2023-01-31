@@ -411,12 +411,12 @@ class Model(LightningModule):
                     file.write("\n")
                     file.write(
                         wrapper.fill(
-                            f"userIn filtered wrds = {' '.join(bch['userIn_filtered'][bch_idx])}"
+                            f"userIn_filtered wrds = {' '.join(bch['userIn_filtered'][bch_idx])}"
                         ))
                     file.write("\n")
                     file.write(
                         wrapper.fill(
-                            f"userIn filtered tkns = {' '.join(nnIn_tkns)}"))
+                            f"nnIn_tkns = {' '.join(nnIn_tkns)}"))
                     file.write("\n")
                     file.write(
                         wrapper.fill(
@@ -430,13 +430,13 @@ class Model(LightningModule):
                     file.write("\n")
                     file.write(
                         wrapper.fill(
-                            "(userIn filtered wrd, userIn filtered tkn, tknLbl_True, nnOut_tknLbl)"
+                            "(userIn_filtered wrd, nnIn_tkns, tknLbl_True, nnOut_tknLbl)"
                         ))
                     file.write("\n")
 
                 file.write(
                     wrapper.fill(
-                        f"(userIn filtered wrd, {nnIn_tkns[(nnOut_tknLblId_idx - index_of_first_SEP_plus1).item()]}, {tknLbls_True[(nnOut_tknLblId_idx - index_of_first_SEP_plus1).item()]}, {nnOut_tknLbls[(nnOut_tknLblId_idx - index_of_first_SEP_plus1).item()]})  "
+                        f"({bch['userIn_filtered'][bch_idx.item()][bch['map_tknIdx2wrdIdx'][bch_idx.item()][nnOut_tknLblId_idx.item()]]}, {nnIn_tkns[(nnOut_tknLblId_idx - index_of_first_SEP_plus1).item()]}, {tknLbls_True[(nnOut_tknLblId_idx - index_of_first_SEP_plus1).item()]}, {nnOut_tknLbls[(nnOut_tknLblId_idx - index_of_first_SEP_plus1).item()]})  "
                     ))
                 file.write("\n")
 
