@@ -33,7 +33,7 @@ class Data(LightningDataModule):
                          dataset_dirPath=dataset_dirPath)
 
     def split_dataset(self, dataset_dirPath: str, dataset_split: Dict[str,
-                                                                        int],
+                                                                      int],
                       train: bool, predict: bool) -> Dict[str, Any]:
         for dataset_split_key in ('train', 'val', 'test'):
             if dataset_split_key not in dataset_split or not isinstance(
@@ -121,6 +121,8 @@ class Data(LightningDataModule):
         bch_userIn_filtered: List[List[str]] = []
         bch_history: List[List[str]] = []
         bch_prevTrnUserOut: List[Dict[str, List[str]]] = []
+        map_tknIdx2wrdIdx: List[List[str]] = []
+
         for example in examples:
             bch_dlgTrnId.append((example[0], example[1]))
             bch_userIn_filtered.append(
@@ -137,6 +139,9 @@ class Data(LightningDataModule):
                                          return_token_type_ids=False,
                                          return_attention_mask=True,
                                          return_overflowing_tokens=False)
+
+        for idx in range(len(examples)):
+            map_tknIdx2wrdIdx.append(bch_nnIn_tknIds.word_ids(idx))
 
         # Stop if truncation is needed; Not in Predict
         if bch_nnIn_tknIds['input_ids'].shape[
@@ -160,6 +165,7 @@ class Data(LightningDataModule):
         return {
             'dlgTrnId': bch_dlgTrnId,
             'nnIn_tknIds': bch_nnIn_tknIds,
+            'map_tknIdx2wrdIdx': map_tknIdx2wrdIdx,
             'tknLblIds': bch_tknLblIds,  # used in Training
             # init_userOut = userOut_init(); bch_userOut =
             # [init_userOut for _ in range(len(examples))] Does NOT work
