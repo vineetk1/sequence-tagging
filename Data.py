@@ -163,17 +163,21 @@ class Data(LightningDataModule):
         ])
 
         return {
-            'dlgTrnId': bch_dlgTrnId,
-            'nnIn_tknIds': bch_nnIn_tknIds,
-            'map_tknIdx2wrdIdx': map_tknIdx2wrdIdx,
-            'tknLblIds': bch_tknLblIds,  # used in Training
+            'nnIn_tknIds': bch_nnIn_tknIds,         # Training, Predict,
+                                                    # Predict-Statistics
+            'tknLblIds': bch_tknLblIds,             # Training, Predict,
+                                                    # Predict-Statistics
+            'dlgTrnId': bch_dlgTrnId,               # Predict-Statistics
             # init_userOut = userOut_init(); bch_userOut =
             # [init_userOut for _ in range(len(examples))] Does NOT work
             # because each copy of dict points to same memory location; i.e.
             # writing a value to a key in a dict will write that value to all
             # dicts
-            'prevTrnUserOut': bch_prevTrnUserOut,  # used in Predict
-            'userIn_filtered': bch_userIn_filtered,  # used in Predict
+            'prevTrnUserOut': bch_prevTrnUserOut,    # Predict
+            'userIn_filtered': bch_userIn_filtered,  # Predict,
+                                                     # Predict-Statistics
+            'map_tknIdx2wrdIdx': map_tknIdx2wrdIdx,  # Predict
+                                                     # Predict-Statistics
         }
 
 
