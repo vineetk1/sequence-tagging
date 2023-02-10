@@ -15,6 +15,7 @@ from collections import Counter
 import math
 import Utilities
 import pickle
+from itertools import zip_longest
 
 import os
 # disable parallelism in Fast-Tokenizer since it clashes with multiprocessing
@@ -237,24 +238,20 @@ class Model(LightningModule):
         logits = self.classification_head(outputs.last_hidden_state)
         bch_nnOut_tknLblIds = torch.argmax(logits, dim=-1)
 
-        #bch_userIn_filtered_entityWrds, bch_nnOut_entityWrdLbls = (
-        #    Utilities.DEBUG_tknLbls2entity_wrds_lbls(
-        #        bch=batch,
-        #        bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
-        #        id2tknLbl=self.dataset_meta['idx2tknLbl'],
-        #        tokenizer=self.tokenizer,
-        #        df=self.df,))
-
         bch_userIn_filtered_entityWrds, bch_nnOut_entityWrdLbls = (
             Utilities.tknLbls2entity_wrds_lbls(
-                bch=batch,
+                bch_nnIn_tknIds=batch['nnIn_tknIds']['input_ids'],
+                bch_map_tknIdx2wrdIdx=batch['map_tknIdx2wrdIdx'],
+                bch_userIn_filtered=batch['userIn_filtered'],
                 bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
-                id2tknLbl=self.dataset_meta['idx2tknLbl']))
+                id2tknLbl=self.dataset_meta['idx2tknLbl'],
+                DEBUG_bch_tknLbls_True=batch['tknLblIds'],
+                DEBUG_tokenizer=self.tokenizer))
 
-        bch_userOut: List[Dict[str, List[str]]] = Utilities.generate_userOut(
-            bch_userOut=batch['prevTrnUserOut'],
-            bch_userIn_filtered_entityWrds=bch_userIn_filtered_entityWrds,
-            bch_entityWrdLbls=bch_nnOut_entityWrdLbls)
+        #bch_userOut: List[Dict[str, List[str]]] = (Utilities.generate_userOut(
+        #    bch_userOut=batch['prevTrnUserOut'],
+        #    bch_userIn_filtered_entityWrds=bch_userIn_filtered_entityWrds,
+        #    bch_entityWrdLbls=bch_nnOut_entityWrdLbls))
 
         if not hasattr(self, 'failed_nnOut_tknLblIds'):
             # predictStatistics is False
@@ -263,8 +260,11 @@ class Model(LightningModule):
         # gather statistics
 
         # write to file the info about FAILED nnOut_tknLblIds
-        self._failed_nnOut_tknLblIds(bch=batch,
-                                     bch_nnOut_tknLblIds=bch_nnOut_tknLblIds)
+        self._failed_nnOut_tknLblIds(
+            bch=batch,
+            bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
+            bch_userIn_filtered_entityWrds=bch_userIn_filtered_entityWrds,
+            bch_nnOut_entityWrdLbls=bch_nnOut_entityWrdLbls)
 
         # collect info to later calculate precision, recall, f1, etc.
         for prediction, actual in zip(bch_nnOut_tknLblIds.tolist(),
@@ -339,11 +339,48 @@ class Model(LightningModule):
                         f'{accuracy_score(self.y_true, self.y_pred): .2f}')
                     print(strng)
 
-    def _failed_nnOut_tknLblIds(self, bch: Dict[str, Any],
-                                bch_nnOut_tknLblIds: torch.Tensor) -> None:
+    def _failed_nnOut_tknLblIds(
+            self, bch: Dict[str, Any], bch_nnOut_tknLblIds: torch.Tensor,
+            bch_userIn_filtered_entityWrds: List[List[str]],
+            bch_nnOut_entityWrdLbls: List[List[str]]) -> None:
+        assert bch_nnOut_tknLblIds.shape[0] == len(bch_nnOut_entityWrdLbls)
         bch_nnOut_tknLblIds = torch.where(bch['tknLblIds'] == -100,
                                           bch['tknLblIds'],
                                           bch_nnOut_tknLblIds)
+        failed_bchIdxs_nnOutTknLblIdIdxs: List[List[int, int]] = torch.ne(bch['tknLblIds'], bch_nnOut_tknLblIds).nonzero().tolist()
+        failed_bchIdx = [failed_bchIdx_nnOutTknLblIdIdx[0] for failed_bchIdx_nnOutTknLblIdIdx in failed_bchIdxs_nnOutTknLblIdIdxs]
+
+        bch_entityWrdLbls_True: List[List[str]] = []
+        bch_failed_nnOut_entityWrdLbls: List[List[str]] = []
+        for bch_idx, (dlgId, trnId) in enumerate(bch['dlgTrnId']):
+            bch_entityWrdLbls_True.append([])
+            bch_failed_nnOut_entityWrdLbls.append([])
+            wrdLbls: List[str] = (self.df[(self.df['dlgId'] == dlgId) & (self.df['trnId'] == trnId)]['wrdLbls']).item()
+            for wrdLbl in wrdLbls:
+                if wrdLbl[0] == 'B' or wrdLbl[0] == 'I':
+                    if wrdLbl[-1] == ')':
+                        bch_entityWrdLbls_True[-1].append(wrdLbl[2: wrdLbl.index('(')])
+                    else:
+                        bch_entityWrdLbls_True[-1].append(wrdLbl[2:])
+            for entityWrdLbl_True, nnOut_entityWrdLbl in zip_longest(bch_entityWrdLbls_True[-1], (bch_nnOut_entityWrdLbls[bch_idx] if bch_nnOut_entityWrdLbls[bch_idx] is not None else [])):
+                if entityWrdLbl_True != nnOut_entityWrdLbl:
+                    bch_failed_nnOut_entityWrdLbls[-1].append(f"({entityWrdLbl_True}, {nnOut_entityWrdLbl})")
+        assert len(bch_entityWrdLbls_True) == len(bch_nnOut_entityWrdLbls)
+
+        # list must have inner-list with same bch_idx occuring consectively
+        failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls: List[List[int, int]] = []
+        for bch_idx in range(len(bch_entityWrdLbls_True)):
+            if bch_idx in failed_bchIdx:
+                for failed_bchIdx_nnOutTknLblIdIdx in failed_bchIdxs_nnOutTknLblIdIdxs:
+                    if failed_bchIdx_nnOutTknLblIdIdx[0] == bch_idx:
+                        failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls.append(failed_bchIdx_nnOutTknLblIdIdx)
+            else:
+                if bch_entityWrdLbls_True[bch_idx] != bch_nnOut_entityWrdLbls[bch_idx]:
+                    failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls.append([bch_idx, None])
+
+        if not failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls:
+            return
+
         with self.failed_nnOut_tknLblIds.open('a') as file:
             prev_bch_idx: int = None
             bch_idx: int = None
@@ -351,22 +388,23 @@ class Model(LightningModule):
             tknLbls_True: List[str] = []
             nnOut_tknLbls: List[str] = []
             wrapper: textwrap.TextWrapper = textwrap.TextWrapper(
-                width=80, initial_indent="", subsequent_indent=23 * " ")
-            for bch_idx, nnOut_tknLblId_idx in torch.ne(
-                    bch['tknLblIds'], bch_nnOut_tknLblIds).nonzero():
+                width=80, initial_indent="", subsequent_indent=21 * " ")
+            for bch_idx, nnOut_tknLblId_idx in failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls:
                 # only FAILED bch_idx and nnOut_tknLblId_idx are considered
                 self.count_failed_nnOut_tknLblIds += 1
                 id2tknLbl = self.dataset_meta['idx2tknLbl']
 
                 if prev_bch_idx is not None and bch_idx != prev_bch_idx:
-                    if unseen_tkns_predictSet:
-                        for strng in (
-                                "Predict-set tkns not seen in train-set:",
-                                f"{' '.join(unseen_tkns_predictSet)}",
-                        ):
-                            file.write(wrapper.fill(strng))
-                            file.write("\n")
-                        unseen_tkns_predictSet.clear()
+                    for strng in (
+                        f"entityWrdLbls_True = {' '.join(bch_entityWrdLbls_True[prev_bch_idx])}",
+                        f"nnOut_entityWrdLbls = {' '.join(bch_nnOut_entityWrdLbls[prev_bch_idx])}" if bch_nnOut_entityWrdLbls[prev_bch_idx] is not None else "nnOut_entityWrdLbls: None",
+                        f"Failed-nnOut_entityWrdLbls (entityWrdLbls_True, nnOut_entityWrdLbls): {', '.join(bch_failed_nnOut_entityWrdLbls[prev_bch_idx])}" if bch_failed_nnOut_entityWrdLbls[prev_bch_idx] else "Failed-nnOut_entityWrdLbls: None",
+                        f"userIn_filtered_entityWrds = {' '.join(bch_userIn_filtered_entityWrds[prev_bch_idx])}" if bch_userIn_filtered_entityWrds[prev_bch_idx] is not None else "userIn_filtered_entityWrds: None",
+                        f"Predict-set tkns not seen in train-set = {' '.join(unseen_tkns_predictSet)}" if unseen_tkns_predictSet else "Predict-set tkns not seen in train-set: None",
+                    ):
+                        file.write(wrapper.fill(strng))
+                        file.write("\n")
+                    unseen_tkns_predictSet.clear()
 
                 if bch_idx != prev_bch_idx:
                     # print out: dlgId_trnId, userIn, userIn_filtered wrds,
@@ -402,30 +440,33 @@ class Model(LightningModule):
                                                           nnIn_tknIds_idx]])
                     file.write("\n\n")
                     for strng in (
-                            f"dlg_id, trn_id = {bch['dlgTrnId'][bch_idx]}",
-                            f"userIn = {(self.df[(self.df['dlgId'] == bch['dlgTrnId'][bch_idx][0]) & (self.df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['userIn']).item()}",
-                            f"userIn_filtered wrds = {' '.join(bch['userIn_filtered'][bch_idx])}",
-                            f"nnIn_tkns = {' '.join(nnIn_tkns)}",
-                            f"tknLbls_True = {' '.join(tknLbls_True)}",
-                            f"nnOut_tknLbls = {' '.join(nnOut_tknLbls)}",
-                            "Failed nnOut_tknLbls:",
-                            "(userIn_filtered wrd, nnIn_tkns, tknLbl_True, nnOut_tknLbl)",
+                        f"dlg_id, trn_id = {bch['dlgTrnId'][bch_idx]}",
+                        f"userIn = {(self.df[(self.df['dlgId'] == bch['dlgTrnId'][bch_idx][0]) & (self.df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['userIn']).item()}",
+                        f"userIn_filtered = {' '.join(bch['userIn_filtered'][bch_idx])}",
+                        f"nnIn_tkns = {' '.join(nnIn_tkns)}",
+                        f"tknLbls_True = {' '.join(tknLbls_True)}",
+                        f"nnOut_tknLbls = {' '.join(nnOut_tknLbls)}",
+                        "Failed nnOut_tknLbls (userIn_filtered wrd, nnIn_tkn, tknLbl_True, nnOut_tknLbl):" if nnOut_tknLblId_idx is not None else "Failed nnOut_tknLbls: None",
                     ):
                         file.write(wrapper.fill(strng))
                         file.write("\n")
 
-                file.write(
-                    wrapper.fill(
-                        f"({bch['userIn_filtered'][bch_idx][bch['map_tknIdx2wrdIdx'][bch_idx][nnOut_tknLblId_idx]]}, {nnIn_tkns[nnOut_tknLblId_idx - index_of_first_SEP_plus1]}, {tknLbls_True[nnOut_tknLblId_idx - index_of_first_SEP_plus1]}, {nnOut_tknLbls[nnOut_tknLblId_idx - index_of_first_SEP_plus1]})  "
-                    ))
-                file.write("\n")
+                if nnOut_tknLblId_idx is not None:
+                    file.write(
+                        wrapper.fill(
+                            f"({bch['userIn_filtered'][bch_idx][bch['map_tknIdx2wrdIdx'][bch_idx][nnOut_tknLblId_idx]]}, {nnIn_tkns[nnOut_tknLblId_idx - index_of_first_SEP_plus1]}, {tknLbls_True[nnOut_tknLblId_idx - index_of_first_SEP_plus1]}, {nnOut_tknLbls[nnOut_tknLblId_idx - index_of_first_SEP_plus1]})  "
+                        ))
+                    file.write("\n")
 
                 prev_bch_idx = bch_idx
 
-            if unseen_tkns_predictSet:
-                for strng in (
-                        "Predict-set tkns not seen in train-set:",
-                        f"{' '.join(unseen_tkns_predictSet)}",
-                ):
-                    file.write(wrapper.fill(strng))
-                    file.write("\n")
+            assert bch_idx is not None
+            for strng in (
+                f"entityWrdLbls_True = {' '.join(bch_entityWrdLbls_True[bch_idx])}",
+                f"nnOut_entityWrdLbls = {' '.join(bch_nnOut_entityWrdLbls[bch_idx])}" if bch_nnOut_entityWrdLbls[bch_idx] is not None else "nnOut_entityWrdLbls: None",
+                f"Failed-nnOut_entityWrdLbls (entityWrdLbls_True, nnOut_entityWrdLbls): {', '.join(bch_failed_nnOut_entityWrdLbls[bch_idx])}" if bch_failed_nnOut_entityWrdLbls[bch_idx] else "Failed-nnOut_entityWrdLbls: None",
+                f"userIn_filtered_entityWrds = {' '.join(bch_userIn_filtered_entityWrds[bch_idx])}" if bch_userIn_filtered_entityWrds[bch_idx] is not None else "userIn_filtered_entityWrds: None",
+                f"Predict-set tkns not seen in train-set = {' '.join(unseen_tkns_predictSet)}" if unseen_tkns_predictSet else "Predict-set tkns not seen in train-set: None",
+            ):
+                file.write(wrapper.fill(strng))
+                file.write("\n")
