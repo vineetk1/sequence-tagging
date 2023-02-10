@@ -302,171 +302,131 @@ def userIn_filter_splitWords(userIn: str) -> List[str]:
 
 
 def tknLbls2entity_wrds_lbls(
-        bch: Dict[str, Any],
+        bch_nnIn_tknIds: torch.Tensor,
+        bch_map_tknIdx2wrdIdx: List[List[int]],
+        bch_userIn_filtered: List[List[str]],
         bch_nnOut_tknLblIds: torch.Tensor,
-        id2tknLbl: List[str]) -> Tuple[List[List[str]], List[List[str]]]:
-    bch_nnOut_entityWrdLbls = []
-    bch_userIn_filtered_entityWrds = []
+        id2tknLbl: List[str],
+        DEBUG_bch_tknLbls_True,
+        DEBUG_tokenizer,
+        ) -> Tuple[List[List[str]], List[List[str]]]:
+
+    # ***************remove DEBUG code starting from here*********************
+    D_bch_associate = []
+    D_nnIn_tknIds_idx_beginEnd: torch.Tensor = (bch_nnIn_tknIds == 102).nonzero()
+    for bch_idx in range(bch_nnOut_tknLblIds.shape[0]):
+        D_bch_associate.append([])
+        for D_nnIn_tknIds_idx in range(
+                (D_nnIn_tknIds_idx_beginEnd[bch_idx * 2, 1] + 1), (
+                   D_nnIn_tknIds_idx_beginEnd[(bch_idx * 2) + 1, 1])):
+            D_nnIn_tkn = DEBUG_tokenizer.convert_ids_to_tokens(bch_nnIn_tknIds[bch_idx][D_nnIn_tknIds_idx].item())
+            D_tknLbl_True = id2tknLbl[DEBUG_bch_tknLbls_True[bch_idx, D_nnIn_tknIds_idx]]
+            D_nnOut_tknLbl = id2tknLbl[bch_nnOut_tknLblIds[bch_idx, D_nnIn_tknIds_idx]]
+            D_userIn_filtered_wrd = bch_userIn_filtered[bch_idx][bch_map_tknIdx2wrdIdx[bch_idx][D_nnIn_tknIds_idx]]
+            D_bch_associate[-1].append((D_nnIn_tknIds_idx, D_userIn_filtered_wrd, D_nnIn_tkn, D_tknLbl_True, D_nnOut_tknLbl))
+    # ******************remove DEBUG code ending  here**********************
+    # NOTE: Remove all ASSERTS from Production code of this function
+    assert bch_nnOut_tknLblIds.shape == bch_nnIn_tknIds.shape
+
+    bch_nnOut_entityWrdLbls: List[List[str]] = []
+    bch_userIn_filtered_entityWrds: List[List[str]] = []
+    entityWrd: str = None
+    entityWrdLbl: str = None
+    userIn_filtered_idx: int = None
+    max_count_wrongPredictions_plus1: int = 2 + 1
+
     # tknIds between two SEP belong to tknIds of words in
     # bch['userIn_filtered']
-    nnIn_tknIds_beginEnd_idx = (
-            bch['nnIn_tknIds']['input_ids'] == 102).nonzero()
+    nnIn_tknIds_idx_beginEnd: torch.Tensor = (bch_nnIn_tknIds == 102).nonzero()
+    tknId_of_O: int = id2tknLbl.index("O")
 
     for bch_idx in range(bch_nnOut_tknLblIds.shape[0]):
-        entityWrd, entityWrdLbl = None, None
-        entityWrds, entityWrdLbls = [], []
         multipleWord_entity: str = ""
-        userIn_filtered_idx = -1
-        for nnIn_tknIds_idx in range(
-                (nnIn_tknIds_beginEnd_idx[bch_idx * 2, 1] + 1).item(), (
-                   nnIn_tknIds_beginEnd_idx[(bch_idx * 2) + 1, 1]).item()):
-            nnOut_tknLbl = id2tknLbl[bch_nnOut_tknLblIds[
-                                       bch_idx, nnIn_tknIds_idx].item()]
-            if nnOut_tknLbl[0] != 'T':  # first token of a word
-                userIn_filtered_idx += 1
-                if nnOut_tknLbl[0] == 'O':
-                    if multipleWord_entity:  # previous multipleWord_entity
-                        entityWrds.append(multipleWord_entity)
-                    multipleWord_entity = ""
-                    continue
-                if nnOut_tknLbl[-1] == ')':
-                    # there MUST be an opening-parenthesis, else error
-                    tknLbl_openParen_idx = nnOut_tknLbl.index('(')
-                    entityWrd = nnOut_tknLbl[tknLbl_openParen_idx+1: -1]
-                    entityWrdLbl = nnOut_tknLbl[2: tknLbl_openParen_idx]
-                else:
-                    entityWrd = bch['userIn_filtered'][bch_idx][
-                                                           userIn_filtered_idx]
-                    entityWrdLbl = nnOut_tknLbl[2:]
-                if nnOut_tknLbl[0] == 'B':
-                    if multipleWord_entity:  # previous multipleWord_entity
-                        entityWrds.append(multipleWord_entity)
-                    entityWrdLbls.append(entityWrdLbl)
-                    multipleWord_entity = entityWrd
-                else:   # nnOut_tknLbl[0] is 'I'
-                    multipleWord_entity = f"{multipleWord_entity} {entityWrd}"
-        if multipleWord_entity:  # previous multipleWord_entity
-            entityWrds.append(multipleWord_entity)
-        bch_nnOut_entityWrdLbls.append(entityWrdLbls)
-        bch_userIn_filtered_entityWrds.append(entityWrds)
-        assert len(bch_userIn_filtered_entityWrds[bch_idx]) == len(
-                                              bch_nnOut_entityWrdLbls[bch_idx])
-    return bch_userIn_filtered_entityWrds, bch_nnOut_entityWrdLbls
-
-
-def DEBUG_tknLbls2entity_wrds_lbls(
-        bch: Dict[str, Any],
-        bch_nnOut_tknLblIds: torch.Tensor,
-        id2tknLbl: List[str], tokenizer, df) -> Tuple[List[List[str]], List[
-                                                             List[str]]]:
-    import pandas as pd
-    bch_nnOut_entityWrdLbls = []
-    bch_userIn_filtered_entityWrds = []
-    # tokens between two SEP belong to tokens of bch['userIn_filtered']
-    nnIn_tknIds_beginEnd_idx = (
-            bch['nnIn_tknIds']['input_ids'] == 102).nonzero()
-
-    for bch_idx in range(bch_nnOut_tknLblIds.shape[0]):
-        assert bch_nnOut_tknLblIds[bch_idx].shape[0] == bch['nnIn_tknIds'][
-                'input_ids'][bch_idx].shape[0]
-        entityWrd, entityWrdLbl = None, None
-        entityWrds, entityWrdLbls = [], []
-        multipleWord_entity: str = ""
-        userIn_filtered_idx = -1
-
-        DEBUG_associate = []
-        DEBUG_associate.append((
-            (nnIn_tknIds_beginEnd_idx[bch_idx * 2, 1] + 1).item(),
-            (nnIn_tknIds_beginEnd_idx[(bch_idx * 2) + 1, 1]).item() - 1))
-        DEBUG_entityWrd, DEBUG_entityWrdLbl = None, None
-        DEBUG_nnIn_tkns = []
-        DEBUG_nnOut_tknLbls = []
-        DEBUG_tknLbls_True = []
-        for idx in range(bch_nnOut_tknLblIds[bch_idx].shape[0]):
-            # this for-loop is for debugging-only
-            DEBUG_nnIn_tkns.append(tokenizer.decode(bch['nnIn_tknIds'][
-                                    'input_ids'][bch_idx, idx]))
-            DEBUG_nnOut_tknLbls.append(
-               id2tknLbl[bch_nnOut_tknLblIds[bch_idx, idx].item()] if
-               bch_nnOut_tknLblIds[bch_idx, idx].item() != -100 else -100)
-            DEBUG_tknLbls_True.append(
-               id2tknLbl[bch['tknLblIds'][bch_idx, idx].item()] if
-               bch['tknLblIds'][bch_idx, idx].item() != -100 else -100)
+        prev_userIn_filtered_idx: int = None
+        prev_BIO: str = None
+        bch_nnOut_entityWrdLbls.append([])
+        bch_userIn_filtered_entityWrds.append([])
+        count_wrongPredictions: int = 0
 
         for nnIn_tknIds_idx in range(
-                ((nnIn_tknIds_beginEnd_idx[bch_idx * 2, 1]) + 1).item(), (
-                   nnIn_tknIds_beginEnd_idx[(bch_idx * 2) + 1, 1]).item()):
-            nnOut_tknLbl = id2tknLbl[bch_nnOut_tknLblIds[
-                                       bch_idx, nnIn_tknIds_idx].item()]
-            DEBUG_nnIn_tkn = tokenizer.decode(bch['nnIn_tknIds'][
-                                    'input_ids'][bch_idx, nnIn_tknIds_idx])
-            DEBUG_tknLbl_True = id2tknLbl[bch['tknLblIds'][
-                                            bch_idx, nnIn_tknIds_idx].item()]
-            assert nnOut_tknLbl[0] == 'O' or nnOut_tknLbl[
-                  0] == 'B' or nnOut_tknLbl[0] == 'I' or nnOut_tknLbl[0] == 'T'
-            if nnOut_tknLbl[0] != 'T':  # first token of a word
-                userIn_filtered_idx += 1
-                DEBUG_userIn_filtered = bch['userIn_filtered'][
-                                                  bch_idx][userIn_filtered_idx]
-                DEBUG_associate.append(
-                        (nnIn_tknIds_idx, DEBUG_nnIn_tkn, nnOut_tknLbl,
-                            DEBUG_tknLbl_True, DEBUG_userIn_filtered))
-                if nnOut_tknLbl[0] == 'O':
-                    if multipleWord_entity:  # previous multipleWord_entity
-                        entityWrds.append(multipleWord_entity)
+                (nnIn_tknIds_idx_beginEnd[bch_idx * 2, 1] + 1), (
+                   nnIn_tknIds_idx_beginEnd[(bch_idx * 2) + 1, 1])):
+            if (userIn_filtered_idx := bch_map_tknIdx2wrdIdx[bch_idx][
+                 nnIn_tknIds_idx]) == prev_userIn_filtered_idx:
+                continue    # ignore tknId that is not first-token-of-the-word
+            prev_userIn_filtered_idx = userIn_filtered_idx
+            if bch_nnOut_tknLblIds[bch_idx, nnIn_tknIds_idx] == tknId_of_O:
+                if multipleWord_entity:  # previous multipleWord_entity
+                    bch_userIn_filtered_entityWrds[-1].append(
+                                                        multipleWord_entity)
                     multipleWord_entity = ""
-                    continue
-                if nnOut_tknLbl[-1] == ')':
-                    # there MUST be an opening-parenthesis, else error
-                    tknLbl_openParen_idx = nnOut_tknLbl.index('(')
-                    entityWrd = nnOut_tknLbl[tknLbl_openParen_idx+1: -1]
-                    entityWrdLbl = nnOut_tknLbl[2: tknLbl_openParen_idx]
-                else:
-                    entityWrd = bch['userIn_filtered'][bch_idx][
-                                                           userIn_filtered_idx]
-                    entityWrdLbl = nnOut_tknLbl[2:]
-                if nnOut_tknLbl[0] == 'B':
-                    if multipleWord_entity:  # previous multipleWord_entity
-                        entityWrds.append(multipleWord_entity)
-                    entityWrdLbls.append(entityWrdLbl)
-                    multipleWord_entity = entityWrd
-                    DEBUG_entityWrdLbl = entityWrdLbl
-                    DEBUG_entityWrd = entityWrd
-                else:   # nnOut_tknLbl[0] is 'I'
-                    assert nnOut_tknLbl[0] == 'I'
-                    assert multipleWord_entity
-                    assert DEBUG_entityWrdLbl == entityWrdLbl
-                    assert DEBUG_entityWrd == entityWrd
-                    multipleWord_entity = f"{multipleWord_entity} {entityWrd}"
+                prev_BIO = "O"   # next tkn is "B" or "O"
+                continue    # ignore tknId of "O"
+
+            nnOut_tknLbl = id2tknLbl[bch_nnOut_tknLblIds[
+                                                     bch_idx, nnIn_tknIds_idx]]
+            if nnOut_tknLbl[-1] == ')':
+                # there MUST be an opening-parenthesis, else error
+                tknLbl_openParen_idx = nnOut_tknLbl.index('(')
+                entityWrd = nnOut_tknLbl[tknLbl_openParen_idx+1: -1]
+                entityWrdLbl = nnOut_tknLbl[2: tknLbl_openParen_idx]
             else:
-                # nnOut_tknLbl is "T" if it is a token of word "O"; else it is
-                # "T-x(y)"
-                DEBUG_associate.append(
-                        (nnIn_tknIds_idx, DEBUG_nnIn_tkn, nnOut_tknLbl,
-                            DEBUG_tknLbl_True, DEBUG_userIn_filtered))
-                if nnOut_tknLbl != "T":
-                    if nnOut_tknLbl[-1] == ')':
-                        # error will occur if there is no opening-parenthesis
-                        tknLbl_openParen_idx = nnOut_tknLbl.index('(')
-                        entityWrd = nnOut_tknLbl[tknLbl_openParen_idx+1: -1]
-                        entityWrdLbl = nnOut_tknLbl[2: tknLbl_openParen_idx]
+                entityWrd = bch_userIn_filtered[bch_idx][userIn_filtered_idx]
+                entityWrdLbl = nnOut_tknLbl[2:]
+            if nnOut_tknLbl[0] == 'B':
+                if multipleWord_entity:  # previous multipleWord_entity
+                    bch_userIn_filtered_entityWrds[-1].append(
+                                                       multipleWord_entity)
+                bch_nnOut_entityWrdLbls[-1].append(entityWrdLbl)
+                multipleWord_entity = entityWrd
+                prev_BIO = "B"    # next tkn is "B" or "I" or "O"
+            elif nnOut_tknLbl[0] == 'I':
+                if prev_BIO == "B" or prev_BIO == "I":
+                    assert multipleWord_entity
+                    if entityWrdLbl != bch_nnOut_entityWrdLbls[-1][-1]:
+                        # entityWrdLbl with next-BIO of “I” is different from
+                        # entityWrdLbl with prev_BIO of “B”
+                        multipleWord_entity = f"WRNG_{entityWrdLbl}-{multipleWord_entity}-{entityWrd}"
+                        if ((count_wrongPredictions := count_wrongPredictions +
+                           1) >= max_count_wrongPredictions_plus1):
+                            break
                     else:
-                        entityWrd = bch['userIn_filtered'][bch_idx][
-                                                           userIn_filtered_idx]
-                        entityWrdLbl = nnOut_tknLbl[2:]
-                    # In 'I-model(cruiser)',  B_entityWrdLbl='model' and
-                    # DEBUG_entityWrd=cruiser; In 'T-x(y)' the model may not be
-                    # so precise as to guarantee that x=entityWrdLbl='model'
-                    # and y=entityWrd='cruiser', so it makes sense to not check
-                    # for these conditions
-                    assert DEBUG_entityWrdLbl == entityWrdLbl
-                    #assert DEBUG_entityWrd == entityWrd
+                        multipleWord_entity = f"{multipleWord_entity} {entityWrd}"
+                    prev_BIO = "I"    # next tkn is "B" or "I" or "O"
+                elif prev_BIO == "O":
+                    # expected "B" or "O" but model predicts "I"; assume model is
+                    # right with prev_BIO but wrong now; so change from "I" to
+                    # "B"
+                    if multipleWord_entity:  # previous multipleWord_entity
+                        bch_userIn_filtered_entityWrds[-1].append(
+                                                           multipleWord_entity)
+                    bch_nnOut_entityWrdLbls[-1].append(f"Changed_ItoB-{entityWrdLbl}")
+                    multipleWord_entity = entityWrd
+                    prev_BIO = "B"    # next tkn is "B" or "I" or "O"
+                    if ((count_wrongPredictions := count_wrongPredictions + 1)
+                            >= max_count_wrongPredictions_plus1):
+                        break
+                else:   # prev_BIO == None
+                    # expected "B" or "O" at start-of-sentence but model
+                    # predicts "I"
+                    assert prev_BIO is None
+                    count_wrongPredictions = max_count_wrongPredictions_plus1
+                    break
+            else:
+                assert not nnOut_tknLbl == 'T'
+                count_wrongPredictions = max_count_wrongPredictions_plus1
+                break
         if multipleWord_entity:  # previous multipleWord_entity
-            entityWrds.append(multipleWord_entity)
-        assert len(entityWrdLbls) == len(entityWrds)
-        bch_nnOut_entityWrdLbls.append(entityWrdLbls)
-        bch_userIn_filtered_entityWrds.append(entityWrds)
-        assert len(bch_userIn_filtered_entityWrds[bch_idx]) == len(
+            bch_userIn_filtered_entityWrds[-1].append(multipleWord_entity)
+        if count_wrongPredictions >= max_count_wrongPredictions_plus1:
+            del bch_userIn_filtered_entityWrds[-1]
+            bch_userIn_filtered_entityWrds.append(None)
+            del bch_nnOut_entityWrdLbls[-1]
+            bch_nnOut_entityWrdLbls.append(None)
+            assert len(bch_userIn_filtered_entityWrds) == len(
+                                                    bch_nnOut_entityWrdLbls)
+        else:
+            assert len(bch_userIn_filtered_entityWrds[bch_idx]) == len(
                                               bch_nnOut_entityWrdLbls[bch_idx])
     assert len(bch_userIn_filtered_entityWrds) == len(bch_nnOut_entityWrdLbls)
     return bch_userIn_filtered_entityWrds, bch_nnOut_entityWrdLbls
@@ -490,6 +450,11 @@ def generate_userOut(
     # statements, can be removed
 
     for bch_idx in range(len(bch_entityWrdLbls)):
+        if bch_entityWrdLbls[bch_idx] is None:
+            # ******* do not change bch_userOut[bch_idx] so the user does not
+            # see any change on his end; however tell the user that the model
+            # cannot understand his text??? *****
+            continue
         assert len(bch_entityWrdLbls[bch_idx]) == len(
                                        bch_userIn_filtered_entityWrds[bch_idx])
         wrdLbl_idx = 0
