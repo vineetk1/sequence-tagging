@@ -5,7 +5,7 @@ Vineet Kumar, sioom.ai
 from pytorch_lightning import LightningModule
 import torch
 from logging import getLogger
-from typing import Dict, List, Any, Union, Tuple
+from typing import Dict, List, Any, Union, Tuple, Union
 import pathlib
 from importlib import import_module
 import copy
@@ -248,10 +248,10 @@ class Model(LightningModule):
                 DEBUG_bch_tknLbls_True=batch['tknLblIds'],
                 DEBUG_tokenizer=self.tokenizer))
 
-        #bch_userOut: List[Dict[str, List[str]]] = (Utilities.generate_userOut(
-        #    bch_userOut=batch['prevTrnUserOut'],
-        #    bch_userIn_filtered_entityWrds=bch_userIn_filtered_entityWrds,
-        #    bch_entityWrdLbls=bch_nnOut_entityWrdLbls))
+        bch_userOut: List[Dict[str, List[str]]] = (Utilities.generate_userOut(
+            bch_userOut=batch['prevTrnUserOut'],
+            bch_userIn_filtered_entityWrds=bch_userIn_filtered_entityWrds,
+            bch_entityWrdLbls=bch_nnOut_entityWrdLbls))
 
         if not hasattr(self, 'failed_nnOut_tknLblIds'):
             # predictStatistics is False
@@ -264,7 +264,8 @@ class Model(LightningModule):
             bch=batch,
             bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
             bch_userIn_filtered_entityWrds=bch_userIn_filtered_entityWrds,
-            bch_nnOut_entityWrdLbls=bch_nnOut_entityWrdLbls)
+            bch_nnOut_entityWrdLbls=bch_nnOut_entityWrdLbls,
+            bch_userOut=bch_userOut)
 
         # collect info to later calculate precision, recall, f1, etc.
         for prediction, actual in zip(bch_nnOut_tknLblIds.tolist(),
@@ -342,7 +343,8 @@ class Model(LightningModule):
     def _failed_nnOut_tknLblIds(
             self, bch: Dict[str, Any], bch_nnOut_tknLblIds: torch.Tensor,
             bch_userIn_filtered_entityWrds: List[List[str]],
-            bch_nnOut_entityWrdLbls: List[List[str]]) -> None:
+            bch_nnOut_entityWrdLbls: List[List[str]],
+            bch_userOut: List[Dict[str, List[str]]]) -> None:
         assert bch_nnOut_tknLblIds.shape[0] == len(bch_nnOut_entityWrdLbls)
         bch_nnOut_tknLblIds = torch.where(bch['tknLblIds'] == -100,
                                           bch['tknLblIds'],
@@ -367,18 +369,36 @@ class Model(LightningModule):
                     bch_failed_nnOut_entityWrdLbls[-1].append(f"({entityWrdLbl_True}, {nnOut_entityWrdLbl})")
         assert len(bch_entityWrdLbls_True) == len(bch_nnOut_entityWrdLbls)
 
+        bch_userOut_True: List[Dict[str, List[str]]] = []
+        bch_failed_nnOut_userOut: List[Union[Dict[str, List[str]], None]] = []
+        for bch_idx, (dlgId, trnId) in enumerate(bch['dlgTrnId']):
+            bch_userOut_True.append((self.df[(self.df['dlgId'] == dlgId) & (self.df['trnId'] == trnId)]['userOut']).item())
+            if bch_userOut[bch_idx] == bch_userOut_True[-1]:
+                bch_failed_nnOut_userOut.append(None)
+            else:
+                d: dict = Utilities.userOut_init()
+                for k in d:
+                    if bch_userOut[bch_idx][k] != bch_userOut_True[-1][k]:
+                        for item_True, item in zip_longest(bch_userOut_True[-1][k], bch_userOut[bch_idx][k]):
+                            if item != item_True:
+                                d[k].append((item_True, item))
+                bch_failed_nnOut_userOut.append(str(d))
+
         # list must have inner-list with same bch_idx occuring consectively
-        failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls: List[List[int, int]] = []
+        failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut: List[List[int, int]] = []
         for bch_idx in range(len(bch_entityWrdLbls_True)):
             if bch_idx in failed_bchIdx:
                 for failed_bchIdx_nnOutTknLblIdIdx in failed_bchIdxs_nnOutTknLblIdIdxs:
                     if failed_bchIdx_nnOutTknLblIdIdx[0] == bch_idx:
-                        failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls.append(failed_bchIdx_nnOutTknLblIdIdx)
+                        failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut.append(failed_bchIdx_nnOutTknLblIdIdx)
+            elif bch_failed_nnOut_entityWrdLbls[bch_idx]:
+                    failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut.append([bch_idx, None])
+            elif bch_failed_nnOut_userOut is not None:
+                    failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut.append([bch_idx, None])
             else:
-                if bch_entityWrdLbls_True[bch_idx] != bch_nnOut_entityWrdLbls[bch_idx]:
-                    failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls.append([bch_idx, None])
+                pass
 
-        if not failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls:
+        if not failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut:
             return
 
         with self.failed_nnOut_tknLblIds.open('a') as file:
@@ -389,7 +409,7 @@ class Model(LightningModule):
             nnOut_tknLbls: List[str] = []
             wrapper: textwrap.TextWrapper = textwrap.TextWrapper(
                 width=80, initial_indent="", subsequent_indent=21 * " ")
-            for bch_idx, nnOut_tknLblId_idx in failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls:
+            for bch_idx, nnOut_tknLblId_idx in failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut:
                 # only FAILED bch_idx and nnOut_tknLblId_idx are considered
                 self.count_failed_nnOut_tknLblIds += 1
                 id2tknLbl = self.dataset_meta['idx2tknLbl']
@@ -400,6 +420,9 @@ class Model(LightningModule):
                         f"nnOut_entityWrdLbls = {' '.join(bch_nnOut_entityWrdLbls[prev_bch_idx])}" if bch_nnOut_entityWrdLbls[prev_bch_idx] is not None else "nnOut_entityWrdLbls: None",
                         f"Failed-nnOut_entityWrdLbls (entityWrdLbls_True, nnOut_entityWrdLbls): {', '.join(bch_failed_nnOut_entityWrdLbls[prev_bch_idx])}" if bch_failed_nnOut_entityWrdLbls[prev_bch_idx] else "Failed-nnOut_entityWrdLbls: None",
                         f"userIn_filtered_entityWrds = {' '.join(bch_userIn_filtered_entityWrds[prev_bch_idx])}" if bch_userIn_filtered_entityWrds[prev_bch_idx] is not None else "userIn_filtered_entityWrds: None",
+                        f"userOut_True = {bch_userOut_True[prev_bch_idx]}",
+                        f"nnOut_userOut = {bch_userOut[prev_bch_idx]}",
+                        f"Failed-nnOut_userOut (userOut_True, nnOut_userOut): {bch_failed_nnOut_userOut[prev_bch_idx]}" if bch_failed_nnOut_userOut[prev_bch_idx] is not None else "Failed-nnOut_userOut: None",
                         f"Predict-set tkns not seen in train-set = {' '.join(unseen_tkns_predictSet)}" if unseen_tkns_predictSet else "Predict-set tkns not seen in train-set: None",
                     ):
                         file.write(wrapper.fill(strng))
@@ -466,6 +489,9 @@ class Model(LightningModule):
                 f"nnOut_entityWrdLbls = {' '.join(bch_nnOut_entityWrdLbls[bch_idx])}" if bch_nnOut_entityWrdLbls[bch_idx] is not None else "nnOut_entityWrdLbls: None",
                 f"Failed-nnOut_entityWrdLbls (entityWrdLbls_True, nnOut_entityWrdLbls): {', '.join(bch_failed_nnOut_entityWrdLbls[bch_idx])}" if bch_failed_nnOut_entityWrdLbls[bch_idx] else "Failed-nnOut_entityWrdLbls: None",
                 f"userIn_filtered_entityWrds = {' '.join(bch_userIn_filtered_entityWrds[bch_idx])}" if bch_userIn_filtered_entityWrds[bch_idx] is not None else "userIn_filtered_entityWrds: None",
+                f"userOut_True = {bch_userOut_True[prev_bch_idx]}",
+                f"nnOut_userOut = {bch_userOut[prev_bch_idx]}",
+                f"Failed-nnOut_userOut (userOut_True, nnOut_userOut): {bch_failed_nnOut_userOut[prev_bch_idx]}" if bch_failed_nnOut_userOut[prev_bch_idx] is not None else "Failed-nnOut_userOut: None",
                 f"Predict-set tkns not seen in train-set = {' '.join(unseen_tkns_predictSet)}" if unseen_tkns_predictSet else "Predict-set tkns not seen in train-set: None",
             ):
                 file.write(wrapper.fill(strng))
