@@ -5,7 +5,7 @@ Vineet Kumar, sioom.ai
 from pytorch_lightning import LightningModule
 import torch
 from logging import getLogger
-from typing import Dict, List, Any, Union, Tuple, Union
+from typing import Dict, List, Any, Union, Tuple
 import pathlib
 from importlib import import_module
 import copy
@@ -224,8 +224,8 @@ class Model(LightningModule):
         self.tokenizer = tokenizer
         self.dataset_meta = dataset_meta
         self.dirPath = dirPath
-        self.y_true = []
-        self.y_pred = []
+        self.y_true: List[List[str]] = []
+        self.y_pred: List[List[str]] = []
         self.df = pd.read_pickle(dataset_meta['dataset_panda'])
 
         self.count_failed_turns: int = 0
@@ -259,7 +259,8 @@ class Model(LightningModule):
 
         # gather statistics
 
-        # write to file the info about FAILED nnOut_tknLblIds
+        # write to file the info about FAILED nnOut_tknLblIds; also keep counts
+        # for self.count_failed_turns and self.count_failed_nnOut_tknLblIds
         self._failed_nnOut_tknLblIds(
             bch=batch,
             bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
@@ -267,21 +268,10 @@ class Model(LightningModule):
             bch_nnOut_entityWrdLbls=bch_nnOut_entityWrdLbls,
             bch_userOut=bch_userOut)
 
-        # collect info to later calculate precision, recall, f1, etc.
-        for prediction, actual in zip(bch_nnOut_tknLblIds.tolist(),
-                                      batch['tknLblIds'].tolist()):
-            y_true = []
-            y_pred = []
-            for predicted_token_label_num, actual_token_label_num in zip(
-                    prediction, actual):
-                if actual_token_label_num != -100:
-                    y_true.append(self.dataset_meta['idx2tknLbl']
-                                  [actual_token_label_num])
-                    y_pred.append(self.dataset_meta['idx2tknLbl']
-                                  [predicted_token_label_num])
-            self.y_true.append(y_true)
-            self.y_pred.append(y_pred)
-            assert len(y_true) == len(y_pred)
+        # append new info to self.y_true and self.y_pred; on_predict_end()
+        # uses them to calculate precision, recall, f1, etc.
+        self._prepare_metric(bch=batch,
+                             bch_nnOut_tknLblIds=bch_nnOut_tknLblIds)
 
     def on_predict_end(self) -> None:
         # Print
@@ -342,92 +332,150 @@ class Model(LightningModule):
 
     def _failed_nnOut_tknLblIds(
             self, bch: Dict[str, Any], bch_nnOut_tknLblIds: torch.Tensor,
-            bch_userIn_filtered_entityWrds: List[List[str]],
-            bch_nnOut_entityWrdLbls: List[List[str]],
+            bch_userIn_filtered_entityWrds: List[Union[List[str], None]],
+            bch_nnOut_entityWrdLbls: List[Union[List[str], None]],
             bch_userOut: List[Dict[str, List[str]]]) -> None:
         assert bch_nnOut_tknLblIds.shape[0] == len(bch_nnOut_entityWrdLbls)
         bch_nnOut_tknLblIds = torch.where(bch['tknLblIds'] == -100,
                                           bch['tknLblIds'],
                                           bch_nnOut_tknLblIds)
-        failed_bchIdxs_nnOutTknLblIdIdxs: List[List[int, int]] = torch.ne(bch['tknLblIds'], bch_nnOut_tknLblIds).nonzero().tolist()
-        failed_bchIdx = [failed_bchIdx_nnOutTknLblIdIdx[0] for failed_bchIdx_nnOutTknLblIdIdx in failed_bchIdxs_nnOutTknLblIdIdxs]
+        failed_bchIdxs_nnOutTknLblIdIdxs: List[List[int, int]] = torch.ne(
+            bch['tknLblIds'], bch_nnOut_tknLblIds).nonzero().tolist()
+        failed_bchIdx: List[int] = [
+            failed_bchIdx_nnOutTknLblIdIdx[0] for
+            failed_bchIdx_nnOutTknLblIdIdx in failed_bchIdxs_nnOutTknLblIdIdxs
+        ]
 
         bch_entityWrdLbls_True: List[List[str]] = []
         bch_failed_nnOut_entityWrdLbls: List[List[str]] = []
         for bch_idx, (dlgId, trnId) in enumerate(bch['dlgTrnId']):
             bch_entityWrdLbls_True.append([])
             bch_failed_nnOut_entityWrdLbls.append([])
-            wrdLbls: List[str] = (self.df[(self.df['dlgId'] == dlgId) & (self.df['trnId'] == trnId)]['wrdLbls']).item()
-            for wrdLbl in wrdLbls:
-                if wrdLbl[0] == 'B' or wrdLbl[0] == 'I':
-                    if wrdLbl[-1] == ')':
-                        bch_entityWrdLbls_True[-1].append(wrdLbl[2: wrdLbl.index('(')])
+            wrdLbls_True: List[str] = (
+                self.df[(self.df['dlgId'] == dlgId)
+                        & (self.df['trnId'] == trnId)]['wrdLbls']).item()
+            for wrdLbl_True in wrdLbls_True:
+                if wrdLbl_True[0] == 'B' or wrdLbl_True[0] == 'I':
+                    if wrdLbl_True[-1] == ')':
+                        bch_entityWrdLbls_True[-1].append(
+                            wrdLbl_True[2:wrdLbl_True.index('(')])
                     else:
-                        bch_entityWrdLbls_True[-1].append(wrdLbl[2:])
-            for entityWrdLbl_True, nnOut_entityWrdLbl in zip_longest(bch_entityWrdLbls_True[-1], (bch_nnOut_entityWrdLbls[bch_idx] if bch_nnOut_entityWrdLbls[bch_idx] is not None else [])):
+                        bch_entityWrdLbls_True[-1].append(wrdLbl_True[2:])
+            for entityWrdLbl_True, nnOut_entityWrdLbl in zip_longest(
+                    bch_entityWrdLbls_True[-1],
+                (bch_nnOut_entityWrdLbls[bch_idx]
+                 if bch_nnOut_entityWrdLbls[bch_idx] is not None else [])):
                 if entityWrdLbl_True != nnOut_entityWrdLbl:
-                    bch_failed_nnOut_entityWrdLbls[-1].append(f"({entityWrdLbl_True}, {nnOut_entityWrdLbl})")
+                    bch_failed_nnOut_entityWrdLbls[-1].append(
+                        f"({entityWrdLbl_True}, {nnOut_entityWrdLbl})")
         assert len(bch_entityWrdLbls_True) == len(bch_nnOut_entityWrdLbls)
 
         bch_userOut_True: List[Dict[str, List[str]]] = []
         bch_failed_nnOut_userOut: List[Union[Dict[str, List[str]], None]] = []
         for bch_idx, (dlgId, trnId) in enumerate(bch['dlgTrnId']):
-            bch_userOut_True.append((self.df[(self.df['dlgId'] == dlgId) & (self.df['trnId'] == trnId)]['userOut']).item())
+            bch_userOut_True.append(
+                (self.df[(self.df['dlgId'] == dlgId)
+                         & (self.df['trnId'] == trnId)]['userOut']).item())
             if bch_userOut[bch_idx] == bch_userOut_True[-1]:
                 bch_failed_nnOut_userOut.append(None)
             else:
                 d: dict = Utilities.userOut_init()
                 for k in d:
                     if bch_userOut[bch_idx][k] != bch_userOut_True[-1][k]:
-                        for item_True, item in zip_longest(bch_userOut_True[-1][k], bch_userOut[bch_idx][k]):
+                        for item_True, item in zip_longest(
+                                bch_userOut_True[-1][k],
+                                bch_userOut[bch_idx][k]):
                             if item != item_True:
                                 d[k].append((item_True, item))
                 bch_failed_nnOut_userOut.append(str(d))
 
-        # list must have inner-list with same bch_idx occuring consectively
-        failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut: List[List[int, int]] = []
+        # inner-lists must have same bch_idx occuring consectively
+        failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut: List[List[
+            int, int]] = []
         for bch_idx in range(len(bch_entityWrdLbls_True)):
             if bch_idx in failed_bchIdx:
-                for failed_bchIdx_nnOutTknLblIdIdx in failed_bchIdxs_nnOutTknLblIdIdxs:
+                for failed_bchIdx_nnOutTknLblIdIdx in (
+                        failed_bchIdxs_nnOutTknLblIdIdxs):
                     if failed_bchIdx_nnOutTknLblIdIdx[0] == bch_idx:
-                        failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut.append(failed_bchIdx_nnOutTknLblIdIdx)
+                        failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut.append(
+                            failed_bchIdx_nnOutTknLblIdIdx)
             elif bch_failed_nnOut_entityWrdLbls[bch_idx]:
-                    failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut.append([bch_idx, None])
-            elif bch_failed_nnOut_userOut is not None:
-                    failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut.append([bch_idx, None])
+                failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut.append(
+                    [bch_idx, None])
+            elif bch_failed_nnOut_userOut[bch_idx] is not None:
+                failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut.append(
+                    [bch_idx, None])
             else:
                 pass
 
         if not failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut:
             return
 
+        bch_nnIn_tkns: List[List[str]] = []
+        bch_unseen_tkns_predictSet: List[List[str]] = []
+        bch_tknLbls_True: List[List[str]] = []
+        bch_nnOut_tknLbls: List[List[str]] = []
+        nnIn_tknIds_beginEnd_idx = (
+            bch['nnIn_tknIds']['input_ids'] == 102).nonzero()
+        for bch_idx in range(len(bch_nnOut_entityWrdLbls)):
+            bch_nnIn_tkns.append([])
+            bch_unseen_tkns_predictSet.append([])
+            bch_tknLbls_True.append([])
+            bch_nnOut_tknLbls.append([])
+            index_of_first_SEP_plus1 = nnIn_tknIds_beginEnd_idx[bch_idx * 2,
+                                                                1] + 1
+            index_of_second_SEP = nnIn_tknIds_beginEnd_idx[(bch_idx * 2) + 1,
+                                                           1]
+            for nnIn_tknIds_idx in range(index_of_first_SEP_plus1,
+                                         index_of_second_SEP):
+                nnIn_tknId: int = (bch['nnIn_tknIds']['input_ids'][bch_idx]
+                                   [nnIn_tknIds_idx]).item()
+                bch_nnIn_tkns[-1].append(
+                    self.tokenizer.convert_ids_to_tokens(nnIn_tknId))
+                if nnIn_tknId in self.dataset_meta['test-set unseen tokens']:
+                    bch_unseen_tkns_predictSet[-1].append(
+                        bch_nnIn_tkns[-1][-1])
+                bch_tknLbls_True[-1].append(self.dataset_meta['idx2tknLbl'][
+                    bch['tknLblIds'][bch_idx, nnIn_tknIds_idx]])
+                bch_nnOut_tknLbls[-1].append(self.dataset_meta['idx2tknLbl'][
+                    bch_nnOut_tknLblIds[bch_idx, nnIn_tknIds_idx]])
+
         with self.failed_nnOut_tknLblIds.open('a') as file:
             prev_bch_idx: int = None
             bch_idx: int = None
-            unseen_tkns_predictSet: List[str] = []
-            tknLbls_True: List[str] = []
-            nnOut_tknLbls: List[str] = []
             wrapper: textwrap.TextWrapper = textwrap.TextWrapper(
                 width=80, initial_indent="", subsequent_indent=21 * " ")
-            for bch_idx, nnOut_tknLblId_idx in failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut:
+            for bch_idx, nnOut_tknLblId_idx in (
+                    failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut):
                 # only FAILED bch_idx and nnOut_tknLblId_idx are considered
                 self.count_failed_nnOut_tknLblIds += 1
-                id2tknLbl = self.dataset_meta['idx2tknLbl']
+                index_of_first_SEP_plus1 = nnIn_tknIds_beginEnd_idx[bch_idx *
+                                                                    2, 1] + 1
 
                 if prev_bch_idx is not None and bch_idx != prev_bch_idx:
                     for strng in (
-                        f"entityWrdLbls_True = {' '.join(bch_entityWrdLbls_True[prev_bch_idx])}",
-                        f"nnOut_entityWrdLbls = {' '.join(bch_nnOut_entityWrdLbls[prev_bch_idx])}" if bch_nnOut_entityWrdLbls[prev_bch_idx] is not None else "nnOut_entityWrdLbls: None",
-                        f"Failed-nnOut_entityWrdLbls (entityWrdLbls_True, nnOut_entityWrdLbls): {', '.join(bch_failed_nnOut_entityWrdLbls[prev_bch_idx])}" if bch_failed_nnOut_entityWrdLbls[prev_bch_idx] else "Failed-nnOut_entityWrdLbls: None",
-                        f"userIn_filtered_entityWrds = {' '.join(bch_userIn_filtered_entityWrds[prev_bch_idx])}" if bch_userIn_filtered_entityWrds[prev_bch_idx] is not None else "userIn_filtered_entityWrds: None",
-                        f"userOut_True = {bch_userOut_True[prev_bch_idx]}",
-                        f"nnOut_userOut = {bch_userOut[prev_bch_idx]}",
-                        f"Failed-nnOut_userOut (userOut_True, nnOut_userOut): {bch_failed_nnOut_userOut[prev_bch_idx]}" if bch_failed_nnOut_userOut[prev_bch_idx] is not None else "Failed-nnOut_userOut: None",
-                        f"Predict-set tkns not seen in train-set = {' '.join(unseen_tkns_predictSet)}" if unseen_tkns_predictSet else "Predict-set tkns not seen in train-set: None",
+                            f"entityWrdLbls_True = {' '.join(bch_entityWrdLbls_True[prev_bch_idx])}",
+                            f"nnOut_entityWrdLbls = {' '.join(bch_nnOut_entityWrdLbls[prev_bch_idx])}"
+                            if bch_nnOut_entityWrdLbls[prev_bch_idx]
+                            is not None else "nnOut_entityWrdLbls: None",
+                            f"Failed-nnOut_entityWrdLbls (entityWrdLbls_True, nnOut_entityWrdLbls): {', '.join(bch_failed_nnOut_entityWrdLbls[prev_bch_idx])}"
+                            if bch_failed_nnOut_entityWrdLbls[prev_bch_idx]
+                            else "Failed-nnOut_entityWrdLbls: None",
+                            f"userIn_filtered_entityWrds = {' '.join(bch_userIn_filtered_entityWrds[prev_bch_idx])}"
+                            if bch_userIn_filtered_entityWrds[prev_bch_idx]
+                            is not None else
+                            "userIn_filtered_entityWrds: None",
+                            f"userOut_True = {bch_userOut_True[prev_bch_idx]}",
+                            f"nnOut_userOut = {bch_userOut[prev_bch_idx]}",
+                            f"Failed-nnOut_userOut (userOut_True, nnOut_userOut): {bch_failed_nnOut_userOut[prev_bch_idx]}"
+                            if bch_failed_nnOut_userOut[prev_bch_idx]
+                            is not None else "Failed-nnOut_userOut: None",
+                            f"Predict-set tkns not seen in train-set = {', '.join(bch_unseen_tkns_predictSet[bch_idx])}"
+                            if bch_unseen_tkns_predictSet[bch_idx] else
+                            "Predict-set tkns not seen in train-set: None",
                     ):
                         file.write(wrapper.fill(strng))
                         file.write("\n")
-                    unseen_tkns_predictSet.clear()
 
                 if bch_idx != prev_bch_idx:
                     # print out: dlgId_trnId, userIn, userIn_filtered wrds,
@@ -435,41 +483,17 @@ class Model(LightningModule):
                     # tknIds between two SEP belong to tknIds of words in
                     # bch['userIn_filtered']
                     self.count_failed_turns += 1
-                    nnIn_tknIds_beginEnd_idx = (
-                        bch['nnIn_tknIds']['input_ids'] == 102).nonzero()
-                    index_of_first_SEP_plus1 = nnIn_tknIds_beginEnd_idx[
-                        bch_idx * 2, 1] + 1
-                    index_of_second_SEP = nnIn_tknIds_beginEnd_idx[(bch_idx *
-                                                                    2) + 1, 1]
-                    nnIn_tknIds: torch.Tensor = bch['nnIn_tknIds'][
-                        'input_ids'][bch_idx][
-                            index_of_first_SEP_plus1:index_of_second_SEP]
-                    unseen_tkns_predictSet = [
-                        self.tokenizer.convert_ids_to_tokens(nnIn_tknId)
-                        for nnIn_tknId in nnIn_tknIds if nnIn_tknId in
-                        self.dataset_meta['test-set unseen tokens']
-                    ]
-                    nnIn_tkns: List[str] = (
-                        self.tokenizer.convert_ids_to_tokens(nnIn_tknIds))
-                    tknLbls_True.clear()
-                    nnOut_tknLbls.clear()
-                    for nnIn_tknIds_idx in range(index_of_first_SEP_plus1,
-                                                 index_of_second_SEP):
-                        tknLbls_True.append(
-                            id2tknLbl[bch['tknLblIds'][bch_idx,
-                                                       nnIn_tknIds_idx]])
-                        nnOut_tknLbls.append(
-                            id2tknLbl[bch_nnOut_tknLblIds[bch_idx,
-                                                          nnIn_tknIds_idx]])
                     file.write("\n\n")
                     for strng in (
-                        f"dlg_id, trn_id = {bch['dlgTrnId'][bch_idx]}",
-                        f"userIn = {(self.df[(self.df['dlgId'] == bch['dlgTrnId'][bch_idx][0]) & (self.df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['userIn']).item()}",
-                        f"userIn_filtered = {' '.join(bch['userIn_filtered'][bch_idx])}",
-                        f"nnIn_tkns = {' '.join(nnIn_tkns)}",
-                        f"tknLbls_True = {' '.join(tknLbls_True)}",
-                        f"nnOut_tknLbls = {' '.join(nnOut_tknLbls)}",
-                        "Failed nnOut_tknLbls (userIn_filtered wrd, nnIn_tkn, tknLbl_True, nnOut_tknLbl):" if nnOut_tknLblId_idx is not None else "Failed nnOut_tknLbls: None",
+                            f"dlg_id, trn_id = {bch['dlgTrnId'][bch_idx]}",
+                            f"userIn = {(self.df[(self.df['dlgId'] == bch['dlgTrnId'][bch_idx][0]) & (self.df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['userIn']).item()}",
+                            f"userIn_filtered = {' '.join(bch['userIn_filtered'][bch_idx])}",
+                            f"nnIn_tkns = {' '.join(bch_nnIn_tkns[bch_idx])}",
+                            f"tknLbls_True = {' '.join(bch_tknLbls_True[bch_idx])}",
+                            f"nnOut_tknLbls = {' '.join(bch_nnOut_tknLbls[bch_idx])}",
+                            "Failed nnOut_tknLbls (userIn_filtered, nnIn_tkn, tknLbl_True, nnOut_tknLbl):"
+                            if nnOut_tknLblId_idx is not None else
+                            "Failed nnOut_tknLbls: None",
                     ):
                         file.write(wrapper.fill(strng))
                         file.write("\n")
@@ -477,7 +501,7 @@ class Model(LightningModule):
                 if nnOut_tknLblId_idx is not None:
                     file.write(
                         wrapper.fill(
-                            f"({bch['userIn_filtered'][bch_idx][bch['map_tknIdx2wrdIdx'][bch_idx][nnOut_tknLblId_idx]]}, {nnIn_tkns[nnOut_tknLblId_idx - index_of_first_SEP_plus1]}, {tknLbls_True[nnOut_tknLblId_idx - index_of_first_SEP_plus1]}, {nnOut_tknLbls[nnOut_tknLblId_idx - index_of_first_SEP_plus1]})  "
+                            f"{bch['userIn_filtered'][bch_idx][bch['map_tknIdx2wrdIdx'][bch_idx][nnOut_tknLblId_idx]]}, {bch_nnIn_tkns[bch_idx][nnOut_tknLblId_idx - index_of_first_SEP_plus1]}, {bch_tknLbls_True[bch_idx][nnOut_tknLblId_idx - index_of_first_SEP_plus1]}, {bch_nnOut_tknLbls[bch_idx][nnOut_tknLblId_idx - index_of_first_SEP_plus1]}  "
                         ))
                     file.write("\n")
 
@@ -485,14 +509,64 @@ class Model(LightningModule):
 
             assert bch_idx is not None
             for strng in (
-                f"entityWrdLbls_True = {' '.join(bch_entityWrdLbls_True[bch_idx])}",
-                f"nnOut_entityWrdLbls = {' '.join(bch_nnOut_entityWrdLbls[bch_idx])}" if bch_nnOut_entityWrdLbls[bch_idx] is not None else "nnOut_entityWrdLbls: None",
-                f"Failed-nnOut_entityWrdLbls (entityWrdLbls_True, nnOut_entityWrdLbls): {', '.join(bch_failed_nnOut_entityWrdLbls[bch_idx])}" if bch_failed_nnOut_entityWrdLbls[bch_idx] else "Failed-nnOut_entityWrdLbls: None",
-                f"userIn_filtered_entityWrds = {' '.join(bch_userIn_filtered_entityWrds[bch_idx])}" if bch_userIn_filtered_entityWrds[bch_idx] is not None else "userIn_filtered_entityWrds: None",
-                f"userOut_True = {bch_userOut_True[prev_bch_idx]}",
-                f"nnOut_userOut = {bch_userOut[prev_bch_idx]}",
-                f"Failed-nnOut_userOut (userOut_True, nnOut_userOut): {bch_failed_nnOut_userOut[prev_bch_idx]}" if bch_failed_nnOut_userOut[prev_bch_idx] is not None else "Failed-nnOut_userOut: None",
-                f"Predict-set tkns not seen in train-set = {' '.join(unseen_tkns_predictSet)}" if unseen_tkns_predictSet else "Predict-set tkns not seen in train-set: None",
+                    f"entityWrdLbls_True = {' '.join(bch_entityWrdLbls_True[bch_idx])}",
+                    f"nnOut_entityWrdLbls = {' '.join(bch_nnOut_entityWrdLbls[bch_idx])}"
+                    if bch_nnOut_entityWrdLbls[bch_idx] is not None else
+                    "nnOut_entityWrdLbls: None",
+                    f"Failed-nnOut_entityWrdLbls (entityWrdLbls_True, nnOut_entityWrdLbls): {', '.join(bch_failed_nnOut_entityWrdLbls[bch_idx])}"
+                    if bch_failed_nnOut_entityWrdLbls[bch_idx] else
+                    "Failed-nnOut_entityWrdLbls: None",
+                    f"userIn_filtered_entityWrds = {' '.join(bch_userIn_filtered_entityWrds[bch_idx])}"
+                    if bch_userIn_filtered_entityWrds[bch_idx] is not None else
+                    "userIn_filtered_entityWrds: None",
+                    f"userOut_True = {bch_userOut_True[prev_bch_idx]}",
+                    f"nnOut_userOut = {bch_userOut[prev_bch_idx]}",
+                    f"Failed-nnOut_userOut (userOut_True, nnOut_userOut): {bch_failed_nnOut_userOut[prev_bch_idx]}"
+                    if bch_failed_nnOut_userOut[prev_bch_idx] is not None else
+                    "Failed-nnOut_userOut: None",
+                    f"Predict-set tkns not seen in train-set = {' '.join(bch_unseen_tkns_predictSet[bch_idx])}"
+                    if bch_unseen_tkns_predictSet[bch_idx] else
+                    "Predict-set tkns not seen in train-set: None",
             ):
                 file.write(wrapper.fill(strng))
                 file.write("\n")
+
+    def _prepare_metric(self, bch: Dict[str, Any],
+                        bch_nnOut_tknLblIds: torch.Tensor) -> None:
+        assert bch_nnOut_tknLblIds.shape[0] == bch['tknLblIds'].shape[0]
+        # tknIds between two SEP belong to tknIds of words in
+        # bch['userIn_filtered']
+        nnIn_tknIds_idx_beginEnd: torch.Tensor = (
+            bch['nnIn_tknIds']['input_ids'] == 102).nonzero()
+        for bch_idx in range(bch_nnOut_tknLblIds.shape[0]):
+            self.y_true.append([])
+            self.y_pred.append([])
+            prev_firstTknOfWrd_idx: int = None
+            for nnIn_tknIds_idx in range(
+                (nnIn_tknIds_idx_beginEnd[bch_idx * 2, 1] + 1),
+                (nnIn_tknIds_idx_beginEnd[(bch_idx * 2) + 1, 1])):
+                if (firstTknOfWrd_idx :=
+                        bch['map_tknIdx2wrdIdx'][bch_idx][nnIn_tknIds_idx]
+                    ) == prev_firstTknOfWrd_idx:
+                    continue  # ignore tknId that is not first-token-of-word
+                prev_firstTknOfWrd_idx = firstTknOfWrd_idx
+                nnOut_tknLbl_True = self.dataset_meta['idx2tknLbl'][
+                    bch['tknLblIds'][bch_idx, nnIn_tknIds_idx]]
+                #assert nnOut_tknLbl_True != "T"
+                assert nnOut_tknLbl_True[0] != "T"
+                self.y_true[-1].append(nnOut_tknLbl_True)
+                nnOut_tknLbl = self.dataset_meta['idx2tknLbl'][
+                    bch_nnOut_tknLblIds[bch_idx, nnIn_tknIds_idx]]
+                #if nnOut_tknLbl == "T":
+                if nnOut_tknLbl[0] == "T":
+                    # "T" is not allowed in the metric, only BIO is allowed;
+                    # the prediction for first-token-in-word must not be "T";
+                    # change nnOut_tknLbl so it is not nnOut_tknLbl_True; then
+                    # nnOut_tknLbl will be considered a wrong prediction
+                    if nnOut_tknLbl_True[0] == "O":
+                        nnOut_tknLbl = f"B{nnOut_tknLbl[1:]}"
+                    else:
+                        nnOut_tknLbl = "O"
+                self.y_pred[-1].append(nnOut_tknLbl)
+            assert len(self.y_true[-1]) == len(self.y_pred[-1])
+        assert len(self.y_true) == len(self.y_pred)
