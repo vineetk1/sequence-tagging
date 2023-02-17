@@ -5,7 +5,7 @@ Vineet Kumar, sioom.ai
 from pytorch_lightning import LightningModule
 import torch
 from logging import getLogger
-from typing import Dict, List, Any, Union, Tuple
+from typing import Dict, List, Any, Union, Tuple, Set
 import pathlib
 from importlib import import_module
 import copy
@@ -226,12 +226,22 @@ class Model(LightningModule):
         self.dirPath = dirPath
         self.y_true: List[List[str]] = []
         self.y_pred: List[List[str]] = []
-        self.df = pd.read_pickle(dataset_meta['dataset_panda'])
+        self.df = pd.read_pickle(
+            dataset_meta['pandas data-frame file location'])
 
+        # number of turns in the Predict dataset
+        self.count_total_turns: int = 0
+        # number of turns that failed
         self.count_failed_turns: int = 0
+        # number of nnOut_tknLblId that failed; many can fail in the same turn
         self.count_failed_nnOut_tknLblIds: int = 0
-        #self.cntr = Counter()
-        #self.max_turn_num = 0
+        # number of turns in which nnOut_entityWrdLbls failed; only one can
+        # fail in a turn
+        self.count_failedTurns_nnOut_entityWrdLbl: int = 0
+        # number of turns in which nnOut_userOut failed; only one can
+        # fail in a turn
+        self.count_failedTurns_nnOut_userOut: int = 0
+        self.counter_failed_nnOut_tknLblIds = Counter()
 
     def predict_step(self, batch: Dict[str, Any], batch_idx: int) -> Any:
         outputs = self.bertModel(**batch['nnIn_tknIds'])
@@ -283,17 +293,55 @@ class Model(LightningModule):
             with out.open("a") as results_file:
                 with redirect_stdout(stdout if out ==
                                      stdoutput else results_file):
-                    print(f'# of failed turns = {self.count_failed_turns}')
-                    strng = ('# of failed token-labels = '
-                             f'{self.count_failed_nnOut_tknLblIds}')
+                    turns = (f'# of turns = {self.count_total_turns}')
+                    failed_turns = (
+                        f'# of failed turns = {self.count_failed_turns}')
+                    failed_nnOut_tknLblIds = (
+                        '# of failed nnOut_tknLblIds = '
+                        f'{self.count_failed_nnOut_tknLblIds}')
+                    failedTurns_nnOut_entityWrdLbl = (
+                        '# of turns of failed nnOut_entityWrdLbl = '
+                        f'{self.count_failedTurns_nnOut_entityWrdLbl}')
+                    failedTurns_nnOut_userOut = (
+                        '# of turns of failed nnOut_userOut = '
+                        f'{self.count_failedTurns_nnOut_userOut}')
+                    for strng in (
+                            turns,
+                            failed_turns,
+                            failed_nnOut_tknLblIds,
+                            failedTurns_nnOut_entityWrdLbl,
+                            failedTurns_nnOut_userOut,
+                    ):
+                        print(strng)
+
+                    strng = ('failed nnOut_tknLblIds '
+                             '(tknLbl_True, nnOut_tknLbl: # of times) =')
                     print(strng)
+                    if self.counter_failed_nnOut_tknLblIds:
+                        for k, v in self.counter_failed_nnOut_tknLblIds.items(
+                        ):
+                            print(
+                                textwrap.fill(f'{k}: {v}',
+                                              width=80,
+                                              initial_indent=4 * " ",
+                                              subsequent_indent=5 * " "))
+                        print('')  # empty line
+                    else:
+                        print('None')
+
+                    relevant_keys_of_dataset_meta = [
+                        'bch sizes', 'dataset splits', 'dataset lengths',
+                        'pandas data-frame file location'
+                    ]
                     for k, v in self.dataset_meta.items():
-                        print(k)
-                        print(
-                            textwrap.fill(f'{v}',
-                                          width=80,
-                                          initial_indent=4 * " ",
-                                          subsequent_indent=5 * " "))
+                        if k in relevant_keys_of_dataset_meta:
+                            print(k)
+                            print(
+                                textwrap.fill(f'{v}',
+                                              width=80,
+                                              initial_indent=4 * " ",
+                                              subsequent_indent=5 * " "))
+                    print('')  # empty line
 
                     from seqeval.scheme import IOB2
                     from seqeval.metrics import accuracy_score
@@ -336,21 +384,26 @@ class Model(LightningModule):
             bch_nnOut_entityWrdLbls: List[Union[List[str], None]],
             bch_userOut: List[Dict[str, List[str]]]) -> None:
         assert bch_nnOut_tknLblIds.shape[0] == len(bch_nnOut_entityWrdLbls)
+        self.count_total_turns += len(bch_nnOut_entityWrdLbls)
         bch_nnOut_tknLblIds = torch.where(bch['tknLblIds'] == -100,
                                           bch['tknLblIds'],
                                           bch_nnOut_tknLblIds)
         failed_bchIdxs_nnOutTknLblIdIdxs: List[List[int, int]] = torch.ne(
             bch['tknLblIds'], bch_nnOut_tknLblIds).nonzero().tolist()
-        failed_bchIdx: List[int] = [
-            failed_bchIdx_nnOutTknLblIdIdx[0] for
-            failed_bchIdx_nnOutTknLblIdIdx in failed_bchIdxs_nnOutTknLblIdIdxs
-        ]
+        self.count_failed_nnOut_tknLblIds += len(
+            failed_bchIdxs_nnOutTknLblIdIdxs)
+        failed_bchIdxs: Set[int] = {
+            failed_bchIdx_nnOutTknLblIdIdx[0]
+            for failed_bchIdx_nnOutTknLblIdIdx in
+            failed_bchIdxs_nnOutTknLblIdIdxs
+        }
 
         bch_entityWrdLbls_True: List[List[str]] = []
         bch_failed_nnOut_entityWrdLbls: List[List[str]] = []
         for bch_idx, (dlgId, trnId) in enumerate(bch['dlgTrnId']):
             bch_entityWrdLbls_True.append([])
             bch_failed_nnOut_entityWrdLbls.append([])
+            # ******Finally, must be able to retrieve entityWrdLbls_True instead of wrdLbls_True*****
             wrdLbls_True: List[str] = (
                 self.df[(self.df['dlgId'] == dlgId)
                         & (self.df['trnId'] == trnId)]['wrdLbls']).item()
@@ -361,13 +414,15 @@ class Model(LightningModule):
                             wrdLbl_True[2:wrdLbl_True.index('(')])
                     else:
                         bch_entityWrdLbls_True[-1].append(wrdLbl_True[2:])
-            for entityWrdLbl_True, nnOut_entityWrdLbl in zip_longest(
-                    bch_entityWrdLbls_True[-1],
-                (bch_nnOut_entityWrdLbls[bch_idx]
-                 if bch_nnOut_entityWrdLbls[bch_idx] is not None else [])):
-                if entityWrdLbl_True != nnOut_entityWrdLbl:
-                    bch_failed_nnOut_entityWrdLbls[-1].append(
-                        f"({entityWrdLbl_True}, {nnOut_entityWrdLbl})")
+            if bch_nnOut_entityWrdLbls[bch_idx] != bch_entityWrdLbls_True[-1]:
+                self.count_failedTurns_nnOut_entityWrdLbl += 1
+                for entityWrdLbl_True, nnOut_entityWrdLbl in zip_longest(
+                        bch_entityWrdLbls_True[-1],
+                    (bch_nnOut_entityWrdLbls[bch_idx]
+                     if bch_nnOut_entityWrdLbls[bch_idx] is not None else [])):
+                    if entityWrdLbl_True != nnOut_entityWrdLbl:
+                        bch_failed_nnOut_entityWrdLbls[-1].append(
+                            f"({entityWrdLbl_True}, {nnOut_entityWrdLbl})")
         assert len(bch_entityWrdLbls_True) == len(bch_nnOut_entityWrdLbls)
 
         bch_userOut_True: List[Dict[str, List[str]]] = []
@@ -379,6 +434,7 @@ class Model(LightningModule):
             if bch_userOut[bch_idx] == bch_userOut_True[-1]:
                 bch_failed_nnOut_userOut.append(None)
             else:
+                self.count_failedTurns_nnOut_userOut += 1
                 d: dict = Utilities.userOut_init()
                 for k in d:
                     if bch_userOut[bch_idx][k] != bch_userOut_True[-1][k]:
@@ -393,7 +449,7 @@ class Model(LightningModule):
         failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut: List[List[
             int, int]] = []
         for bch_idx in range(len(bch_entityWrdLbls_True)):
-            if bch_idx in failed_bchIdx:
+            if bch_idx in failed_bchIdxs:
                 for failed_bchIdx_nnOutTknLblIdIdx in (
                         failed_bchIdxs_nnOutTknLblIdIdxs):
                     if failed_bchIdx_nnOutTknLblIdIdx[0] == bch_idx:
@@ -410,6 +466,11 @@ class Model(LightningModule):
 
         if not failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut:
             return
+        self.count_failed_turns += len({
+            failed_bchIdx_nnOutTknLblIdIdx_entityWrdLbl_userOut[0]
+            for failed_bchIdx_nnOutTknLblIdIdx_entityWrdLbl_userOut in
+            failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut
+        })
 
         bch_nnIn_tkns: List[List[str]] = []
         bch_unseen_tkns_predictSet: List[List[str]] = []
@@ -448,7 +509,6 @@ class Model(LightningModule):
             for bch_idx, nnOut_tknLblId_idx in (
                     failed_bchIdxs_nnOutTknLblIdIdxs_entityWrdLbls_userOut):
                 # only FAILED bch_idx and nnOut_tknLblId_idx are considered
-                self.count_failed_nnOut_tknLblIds += 1
                 index_of_first_SEP_plus1 = nnIn_tknIds_beginEnd_idx[bch_idx *
                                                                     2, 1] + 1
 
@@ -482,7 +542,6 @@ class Model(LightningModule):
                     # nnIn_tkns, tknLbls_True, and nnOut_tknLbls;
                     # tknIds between two SEP belong to tknIds of words in
                     # bch['userIn_filtered']
-                    self.count_failed_turns += 1
                     file.write("\n\n")
                     for strng in (
                             f"dlg_id, trn_id = {bch['dlgTrnId'][bch_idx]}",
@@ -499,6 +558,8 @@ class Model(LightningModule):
                         file.write("\n")
 
                 if nnOut_tknLblId_idx is not None:
+                    self.counter_failed_nnOut_tknLblIds[
+                        f"{bch_tknLbls_True[bch_idx][nnOut_tknLblId_idx - index_of_first_SEP_plus1]}, {bch_nnOut_tknLbls[bch_idx][nnOut_tknLblId_idx - index_of_first_SEP_plus1]}"] += 1
                     file.write(
                         wrapper.fill(
                             f"{bch['userIn_filtered'][bch_idx][bch['map_tknIdx2wrdIdx'][bch_idx][nnOut_tknLblId_idx]]}, {bch_nnIn_tkns[bch_idx][nnOut_tknLblId_idx - index_of_first_SEP_plus1]}, {bch_tknLbls_True[bch_idx][nnOut_tknLblId_idx - index_of_first_SEP_plus1]}, {bch_nnOut_tknLbls[bch_idx][nnOut_tknLblId_idx - index_of_first_SEP_plus1]}  "
@@ -507,6 +568,10 @@ class Model(LightningModule):
 
                 prev_bch_idx = bch_idx
 
+            assert self.count_failed_nnOut_tknLblIds == sum([
+                value
+                for value in self.counter_failed_nnOut_tknLblIds.values()
+            ])
             assert bch_idx is not None
             for strng in (
                     f"entityWrdLbls_True = {' '.join(bch_entityWrdLbls_True[bch_idx])}",
