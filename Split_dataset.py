@@ -24,14 +24,14 @@ def split_dataset(
 
     # retrieve data files
     dataset_dirPath = pathlib.Path(dataset_dirPath).resolve(strict=True)
-    dataset_file = dataset_dirPath.joinpath('dataset.df')
+    dataframe_file = dataset_dirPath.joinpath('dataset.df')
     dataset_meta_file = dataset_dirPath.joinpath('dataset.meta')
-    if (not dataset_file.exists()) or (not dataset_meta_file.exists()):
+    if (not dataframe_file.exists()) or (not dataset_meta_file.exists()):
         strng = ('Either one or both of following files do not exist: '
-                 '{dataset_file}, {dataset_meta_file}')
+                 '{dataframe_file}, {dataset_meta_file}')
         logg.critical(strng)
         exit()
-    df = pd.read_pickle(dataset_file)
+    df = pd.read_pickle(dataframe_file)
     with dataset_meta_file.open('rb') as dmF:
         idx2tknLbl = pickle.load(dmF)
 
@@ -110,7 +110,7 @@ def split_dataset(
         'val token-labels -> number:count': trainValTest_tokenLabels_count[1],
         'test token-labels -> number:count': trainValTest_tokenLabels_count[2],
         'test-set unseen tokens': testSet_unseen_tkns,
-        'dataset_panda': dataset_file
+        'pandas data-frame file location': dataframe_file
     }
 
     return dataset_metadata, train_data, val_data, test_data
