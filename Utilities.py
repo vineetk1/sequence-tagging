@@ -3,7 +3,7 @@ Vineet Kumar, sioom.ai
 '''
 
 from logging import getLogger
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Tuple, Any, Union
 import string
 from enum import Enum
 import torch
@@ -309,7 +309,7 @@ def tknLbls2entity_wrds_lbls(
         id2tknLbl: List[str],
         DEBUG_bch_tknLbls_True,
         DEBUG_tokenizer,
-        ) -> Tuple[List[List[str]], List[List[str]]]:
+        ) -> Tuple[List[Union[List[str], None]], List[Union[List[str], None]]]:
 
     # ***************remove DEBUG code starting from here*********************
     D_bch_associate = []
@@ -384,6 +384,8 @@ def tknLbls2entity_wrds_lbls(
                 if prev_BIO == "B" or prev_BIO == "I":
                     assert multipleWord_entity
                     if entityWrdLbl != bch_nnOut_entityWrdLbls[-1][-1]:
+                        count_wrongPredictions = max_count_wrongPredictions_plus1
+                        break
                         # entityWrdLbl with next-BIO of “I” is different from
                         # entityWrdLbl with prev_BIO of “B”
                         multipleWord_entity = f"WRNG_{entityWrdLbl}-{multipleWord_entity}-{entityWrd}"
@@ -394,6 +396,8 @@ def tknLbls2entity_wrds_lbls(
                         multipleWord_entity = f"{multipleWord_entity} {entityWrd}"
                     prev_BIO = "I"    # next tkn is "B" or "I" or "O"
                 elif prev_BIO == "O":
+                    count_wrongPredictions = max_count_wrongPredictions_plus1
+                    break
                     # expected "B" or "O" but model predicts "I"; assume model is
                     # right with prev_BIO but wrong now; so change from "I" to
                     # "B"
