@@ -34,7 +34,7 @@ parameters for python-dictionary 'data'
 ***Either keep this dict empty or specifiy All key-values
 Dataset for Predict is the same as test-set
 - 
-{'dataset_path': 'data/kaggle/usa_cars/USA_cars_datasets.csv', 'batch_size': {'train': 4, 'val': 16, 'test': 32, 'predict': 128}, 'dataset_split': {'train': 65, 'val': 15, 'test': 20}} 
+{'dataset_dirPath': 'datasets/1', 'batch_size': {'train': 4, 'val': 16, 'test': 32, 'predict': 128}, 'dataset_split': {'train': 65, 'val': 15, 'test': 20}} 
 
 
 parameters for python-dictionary 'trainer'
