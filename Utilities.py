@@ -301,7 +301,7 @@ def userIn_filter_splitWords(userIn: str) -> List[str]:
     return userIn_filter_split
 
 
-def tknLbls2entity_wrds_lbls(
+def tknLblIds2entity_wrds_lbls(
         bch_nnIn_tknIds: torch.Tensor,
         bch_map_tknIdx2wrdIdx: List[List[int]],
         bch_userIn_filtered: List[List[str]],
