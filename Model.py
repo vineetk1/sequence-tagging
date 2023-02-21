@@ -200,8 +200,6 @@ class Model(LightningModule):
                             dataset_meta: Dict[str, Any],
                             dirPath: pathlib.Path) -> None:
         if predictStatistics is False:
-            # tokenizer and df are needed for debugging ONLY by
-            # Utilities.DEBUG_tknLbls2entity_wrds_lbls()
             self.tokenizer = tokenizer
             self.dataset_meta: Dict[str, Any] = dataset_meta
             self.df: pd.DataFrame = pd.read_pickle(
@@ -250,7 +248,7 @@ class Model(LightningModule):
         bch_nnOut_tknLblIds = torch.argmax(logits, dim=-1)
 
         bch_userIn_filtered_entityWrds, bch_nnOut_entityWrdLbls = (
-            Utilities.tknLbls2entity_wrds_lbls(
+            Utilities.tknLblIds2entity_wrds_lbls(
                 bch_nnIn_tknIds=batch['nnIn_tknIds']['input_ids'],
                 bch_map_tknIdx2wrdIdx=batch['map_tknIdx2wrdIdx'],
                 bch_userIn_filtered=batch['userIn_filtered'],
