@@ -3,7 +3,7 @@ Vineet Kumar, sioom.ai
 '''
 
 from logging import getLogger
-from typing import List, Dict, Tuple, Any, Union
+from typing import List, Dict, Tuple, Union
 import string
 from enum import Enum
 import torch
@@ -384,7 +384,8 @@ def tknLblIds2entity_wrds_lbls(
                 if prev_BIO == "B" or prev_BIO == "I":
                     assert multipleWord_entity
                     if entityWrdLbl != bch_nnOut_entityWrdLbls[-1][-1]:
-                        count_wrongPredictions = max_count_wrongPredictions_plus1
+                        count_wrongPredictions = (
+                                max_count_wrongPredictions_plus1)
                         break
                         # entityWrdLbl with next-BIO of “I” is different from
                         # entityWrdLbl with prev_BIO of “B”
@@ -398,9 +399,9 @@ def tknLblIds2entity_wrds_lbls(
                 elif prev_BIO == "O":
                     count_wrongPredictions = max_count_wrongPredictions_plus1
                     break
-                    # expected "B" or "O" but model predicts "I"; assume model is
-                    # right with prev_BIO but wrong now; so change from "I" to
-                    # "B"
+                    # expected "B" or "O" but model predicts "I"; assume model
+                    # is right with prev_BIO but wrong now; so change from "I"
+                    # to "B"
                     if multipleWord_entity:  # previous multipleWord_entity
                         bch_userIn_filtered_entityWrds[-1].append(
                                                            multipleWord_entity)
@@ -498,7 +499,8 @@ def generate_userOut(
                     carEntityNumsLbl = entityWrdLbl
                 case 'units_price' | 'units_mileage':
                     if not unit or (
-                      unit in syntheticData.other_labels_words[entityWrdLbl]):
+                            unit in syntheticData.
+                            wrds_for_nonCar_entityWrdLbl[entityWrdLbl]):
                         unit = entityWrd
                         if cmd and len(carEntityNums) >= carEntityNumsNeeded:
                             transition(bch_userOut[bch_idx], cmd, unit,
@@ -508,7 +510,7 @@ def generate_userOut(
                             carEntityNumsLbl = ""
                     else:
                         # unit not in
-                        # syntheticData.other_labels_words[entityWrdLbl])
+                        # syntheticData.wrds_for_nonCar_entityWrdLbl[entityWrdLbl])
                         if not (carEntityNumsLbl and carEntityNums):
                             assert False
                         if carEntityNumsLbl and carEntityNums:
