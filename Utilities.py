@@ -307,7 +307,7 @@ def tknLblIds2entity_wrds_lbls(
         bch_userIn_filtered: List[List[str]],
         bch_nnOut_tknLblIds: torch.Tensor,
         id2tknLbl: List[str],
-        DEBUG_bch_tknLbls_True,
+        DEBUG_bch_tknLblIds_True,
         DEBUG_tokenizer,
         ) -> Tuple[List[Union[List[str], None]], List[Union[List[str], None]]]:
 
@@ -320,7 +320,7 @@ def tknLblIds2entity_wrds_lbls(
                 (D_nnIn_tknIds_idx_beginEnd[bch_idx * 2, 1] + 1), (
                    D_nnIn_tknIds_idx_beginEnd[(bch_idx * 2) + 1, 1])):
             D_nnIn_tkn = DEBUG_tokenizer.convert_ids_to_tokens(bch_nnIn_tknIds[bch_idx][D_nnIn_tknIds_idx].item())
-            D_tknLbl_True = id2tknLbl[DEBUG_bch_tknLbls_True[bch_idx, D_nnIn_tknIds_idx]]
+            D_tknLbl_True = id2tknLbl[DEBUG_bch_tknLblIds_True[bch_idx, D_nnIn_tknIds_idx]]
             D_nnOut_tknLbl = id2tknLbl[bch_nnOut_tknLblIds[bch_idx, D_nnIn_tknIds_idx]]
             D_userIn_filtered_wrd = bch_userIn_filtered[bch_idx][bch_map_tknIdx2wrdIdx[bch_idx][D_nnIn_tknIds_idx]]
             D_bch_associate[-1].append((D_nnIn_tknIds_idx, D_userIn_filtered_wrd, D_nnIn_tkn, D_tknLbl_True, D_nnOut_tknLbl))
