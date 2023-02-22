@@ -254,7 +254,7 @@ class Model(LightningModule):
                 bch_userIn_filtered=batch['userIn_filtered'],
                 bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
                 id2tknLbl=self.dataset_meta['idx2tknLbl'],
-                DEBUG_bch_tknLbls_True=batch['tknLblIds'],
+                DEBUG_bch_tknLblIds_True=batch['tknLblIds'],
                 DEBUG_tokenizer=self.tokenizer))
 
         bch_userOut: List[Dict[str, List[str]]] = (Utilities.generate_userOut(
