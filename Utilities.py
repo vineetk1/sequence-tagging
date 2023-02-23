@@ -439,9 +439,9 @@ def tknLblIds2entity_wrds_lbls(
 
 def userOut_init():
     userOut = {}
-    for car_entityWrdLbl in syntheticData.groupOf_car_entityWrdLbls:
-        # dict keys in same order as syntheticData.groupOf_car_entityWrdLbls
-        userOut[car_entityWrdLbl] = []
+    for carEntityWrdLbl in syntheticData.groupOf_carEntityWrdLbls:
+        # dict keys in same order as syntheticData.groupOf_carEntityWrdLbls
+        userOut[carEntityWrdLbl] = []
     return userOut
 
 
@@ -473,7 +473,7 @@ def generate_userOut(
             match entityWrdLbl := bch_entityWrdLbls[bch_idx][wrdLbl_idx]:
                 case entityWrdLbl if (
                         entityWrdLbl in syntheticData.
-                        groupOf_car_entityWrdLbls_with_nonNum_entityWrds):
+                        groupOf_carEntityWrdLbls_with_nonNum_entityWrds):
                     if carEntityNumsLbl:
                         if not carEntityNums:
                             assert False
@@ -486,7 +486,7 @@ def generate_userOut(
                     bch_userOut[bch_idx][entityWrdLbl].append(entityWrd)
                 case entityWrdLbl if ((
                         entityWrdLbl in syntheticData.
-                        groupOf_car_entityWrdLbls_with_Num_entityWrds)):
+                        groupOf_carEntityWrdLbls_with_Num_entityWrds)):
                     if carEntityNumsLbl and carEntityNumsLbl != entityWrdLbl:
                         if not carEntityNums:
                             assert False
@@ -634,12 +634,12 @@ def generate_userOut(
                             for key in bch_userOut[bch_idx].keys():
                                 bch_userOut[bch_idx][key].clear()
                         case entityWrdLbl if (entityWrdLbl in syntheticData.
-                                              groupOf_car_entityWrdLbls):
+                                              groupOf_carEntityWrdLbls):
                             # remove brand                 delete brands
                             assert (entityWrd in syntheticData.
-                                    groupOf_car_entityWrdLbls) or (
+                                    groupOf_carEntityWrdLbls) or (
                                             entityWrd[:-1] in syntheticData.
-                                            groupOf_car_entityWrdLbls)
+                                            groupOf_carEntityWrdLbls)
                             bch_userOut[bch_idx][entityWrdLbl].clear()
                         case _:
                             assert False
