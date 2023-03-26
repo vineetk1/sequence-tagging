@@ -7,8 +7,8 @@ import torch
 from torch.utils.data import Dataset, RandomSampler, DataLoader
 from logging import getLogger
 from typing import List, Dict, Any, Tuple
-from Generate_dataset import generate_dataset
-from Split_dataset import split_dataset
+from generate_dataset.Generate_dataset import generate_dataset
+from Prepare_dataset_for_trainValTest import prepare_dataset_for_trainValTest
 import Utilities
 
 logg = getLogger(__name__)
@@ -28,22 +28,22 @@ class Data(LightningDataModule):
         # Trainer('auto_scale_bch_size': True...) requires self.bch_size
         self.bch_size = bch_size['train']
 
-    def generate_data_labels(self, dataset_dirPath: str) -> None:
-        generate_dataset(tokenize=self.tokenizer,
-                         dataset_dirPath=dataset_dirPath)
-
-    def split_dataset(self, dataset_dirPath: str, dataset_split: Dict[str,
-                                                                      int],
-                      train: bool, predict: bool) -> Dict[str, Any]:
+    def generate_dataset(self, dataset_dirPath: str,
+                         dataset_split: Dict[str, int]) -> None:
         for dataset_split_key in ('train', 'val', 'test'):
             if dataset_split_key not in dataset_split or not isinstance(
                     dataset_split[dataset_split_key], int):
                 dataset_split[dataset_split_key] = 0
-        dataset_metadata, train_data, val_data, test_data = split_dataset(
-            tokenizer=self.tokenizer,
-            dataset_dirPath=dataset_dirPath,
-            splits=dataset_split,
-            bch_sizes=self.bch_sizes)
+        generate_dataset(tokenizer=self.tokenizer,
+                         dataset_dirPath=dataset_dirPath,
+                         dataset_split=dataset_split)
+
+    def prep_dataset_for_trainValTest(self, dataset_dirPath: str, train: bool,
+                                      predict: bool) -> Dict[str, Any]:
+        dataset_metadata, train_data, val_data, test_data = (
+            prepare_dataset_for_trainValTest(tokenizer=self.tokenizer,
+                                             dataset_dirPath=dataset_dirPath,
+                                             bch_sizes=self.bch_sizes))
         if train:
             assert (train_data is not None and val_data is not None
                     and test_data is not None)
@@ -127,7 +127,7 @@ class Data(LightningDataModule):
             bch_dlgTrnId.append((example[0], example[1]))
             bch_userIn_filtered.append(
                 Utilities.userIn_filter_splitWords(example[2]))
-            bch_history.append(Utilities.userOut2history(example[3]))
+            bch_history.append(Utilities.prevTrnUserOut2history(example[3]))
             bch_prevTrnUserOut.append(example[3])
 
         bch_nnIn_tknIds = self.tokenizer(text=bch_history,
@@ -163,21 +163,21 @@ class Data(LightningDataModule):
         ])
 
         return {
-            'nnIn_tknIds': bch_nnIn_tknIds,         # Training, Predict,
-                                                    # Predict-Statistics
-            'tknLblIds': bch_tknLblIds,             # Training, Predict,
-                                                    # Predict-Statistics
-            'dlgTrnId': bch_dlgTrnId,               # Predict-Statistics
+            'nnIn_tknIds': bch_nnIn_tknIds,  # Training, Predict,
+            # Predict-Statistics
+            'tknLblIds': bch_tknLblIds,  # Training, Predict,
+            # Predict-Statistics
+            'dlgTrnId': bch_dlgTrnId,  # Predict-Statistics
             # init_userOut = userOut_init(); bch_userOut =
             # [init_userOut for _ in range(len(examples))] Does NOT work
             # because each copy of dict points to same memory location; i.e.
             # writing a value to a key in a dict will write that value to all
             # dicts
-            'prevTrnUserOut': bch_prevTrnUserOut,    # Predict
+            'prevTrnUserOut': bch_prevTrnUserOut,  # Predict
             'userIn_filtered': bch_userIn_filtered,  # Predict,
-                                                     # Predict-Statistics
+            # Predict-Statistics
             'map_tknIdx2wrdIdx': map_tknIdx2wrdIdx,  # Predict
-                                                     # Predict-Statistics
+            # Predict-Statistics
         }
 
 
