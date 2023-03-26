@@ -212,11 +212,16 @@ class Model(LightningModule):
         if self.failed_nnOut_tknLblIds_file.stat().st_size:
             with self.failed_nnOut_tknLblIds_file.open('a') as file:
                 file.write('\n\n****resume from checkpoint****\n')
-        self.passed_nnOut_tknLblIds_file: pathlib.Path = dirPath.joinpath(
-            'passed_nnOut_tknLblIds.txt')
-        self.passed_nnOut_tknLblIds_file.touch()
-        if self.passed_nnOut_tknLblIds_file.stat().st_size:
-            with self.passed_nnOut_tknLblIds_file.open('a') as file:
+        self.failed_nnOut_entityLblsUserOut_file: pathlib.Path = dirPath.joinpath(
+            'failed_nnOut_entityLblsUserOut.txt')
+        self.failed_nnOut_entityLblsUserOut_file.touch()
+        if self.failed_nnOut_entityLblsUserOut_file.stat().st_size:
+            with self.failed_nnOut_entityLblsUserOut_file.open('a') as file:
+                file.write('\n\n****resume from checkpoint****\n')
+        self.passed_file: pathlib.Path = dirPath.joinpath('passed_file.txt')
+        self.passed_file.touch()
+        if self.passed_file.stat().st_size:
+            with self.passed_file.open('a') as file:
                 file.write('\n\n****resume from checkpoint****\n')
         self.test_results: pathlib.Path = dirPath.joinpath('test-results.txt')
         self.test_results.touch()
@@ -290,7 +295,9 @@ class Model(LightningModule):
                 tokenizer=self.tokenizer,
                 dataset_meta=self.dataset_meta,
                 failed_nnOut_tknLblIds_file=self.failed_nnOut_tknLblIds_file,
-                passed_nnOut_tknLblIds_file=self.passed_nnOut_tknLblIds_file,
+                failed_nnOut_entityLblsUserOut_file=(
+                    self.failed_nnOut_entityLblsUserOut_file),
+                passed_file=self.passed_file,
               ))
         self.count_total_turns += count_total_turns
         self.count_failed_turns += count_failed_turns
