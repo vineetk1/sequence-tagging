@@ -105,12 +105,12 @@ def main():
     data = Data(tokenizer=tokenizer,
                 bch_size=user_dicts['data']['batch_size']
                 if 'batch_size' in user_dicts['data'] else {})
-    data.generate_data_labels(
-        dataset_dirPath=user_dicts['data']['dataset_dirPath'])
-    dataset_metadata = data.split_dataset(
+    data.generate_dataset(
         dataset_dirPath=user_dicts['data']['dataset_dirPath'],
         dataset_split=user_dicts['data']['dataset_split']
-        if 'dataset_split' in user_dicts['data'] else {},
+        if 'dataset_split' in user_dicts['data'] else {})
+    dataset_metadata = data.prep_dataset_for_trainValTest(
+        dataset_dirPath=user_dicts['data']['dataset_dirPath'],
         train=user_dicts['misc']['train'],
         predict=user_dicts['misc']['predict'])
 
@@ -120,7 +120,7 @@ def main():
             checkpoint_path=user_dicts['ld_resume_chkpt']['ld_chkpt'])
     else:
         model = Model(model_init=user_dicts['model_init'],
-                      num_classes=len(dataset_metadata['idx2tknLbl']),
+                      num_classes=len(dataset_metadata['tknLblId2tknLbl']),
                       tokenLabels_NumberCount=dataset_metadata[
                           'train token-labels -> number:count'])
     # bch_size is only provided to turn-off Lightning Warning;
