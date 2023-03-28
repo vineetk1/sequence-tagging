@@ -30,6 +30,7 @@ def failed_nnOut_tknLblIds(
 ) -> Tuple[int, int, int, int, int, Dict[str, int]]:
     count_total_turns: int = 0
     count_failed_nnOut_tknLblIds: int = 0
+    count_failedTurns_nnOut_tknLblIds: int = 0
     count_failedTurns_nnOut_entityLbl: int = 0
     count_failedTurns_nnOut_userOut: int = 0
     count_failed_turns: int = 0
@@ -47,9 +48,11 @@ def failed_nnOut_tknLblIds(
         failed_bchIdx_nnOutTknLblIdIdx[0]
         for failed_bchIdx_nnOutTknLblIdIdx in failed_bchIdxs_nnOutTknLblIdIdxs
     }
+    count_failedTurns_nnOut_tknLblIds += len(failed_bchIdxs)
 
     bch_entityLbls_True: List[List[str]] = []
     bch_failed_nnOut_entityLbls: List[List[str]] = []
+    bch_idx: int
     for bch_idx, (dlgId, trnId) in enumerate(bch['dlgTrnId']):
         bch_failed_nnOut_entityLbls.append([])
         bch_entityLbls_True.append(
@@ -85,37 +88,6 @@ def failed_nnOut_tknLblIds(
                             d[k].append((item_True, item))
             bch_failed_nnOut_userOut.append(str(d))
 
-    # inner-lists must have same bch_idx occuring consectively
-    failed_bchIdxs_nnOutTknLblIdIdxs_entityLbls_userOut: List[List[int,
-                                                                   int]] = []
-    for bch_idx in range(len(bch_entityLbls_True)):
-        if bch_idx in failed_bchIdxs:
-            for failed_bchIdx_nnOutTknLblIdIdx in (
-                    failed_bchIdxs_nnOutTknLblIdIdxs):
-                if failed_bchIdx_nnOutTknLblIdIdx[0] == bch_idx:
-                    failed_bchIdxs_nnOutTknLblIdIdxs_entityLbls_userOut.append(
-                        failed_bchIdx_nnOutTknLblIdIdx)
-        elif bch_failed_nnOut_entityLbls[bch_idx]:
-            failed_bchIdxs_nnOutTknLblIdIdxs_entityLbls_userOut.append(
-                [bch_idx, None])
-        elif bch_failed_nnOut_userOut[bch_idx] is not None:
-            failed_bchIdxs_nnOutTknLblIdIdxs_entityLbls_userOut.append(
-                [bch_idx, None])
-        else:
-            failed_bchIdxs_nnOutTknLblIdIdxs_entityLbls_userOut.append(
-                [None, None])
-
-    if not failed_bchIdxs_nnOutTknLblIdIdxs_entityLbls_userOut:
-        return (count_total_turns, count_failed_nnOut_tknLblIds,
-                count_failedTurns_nnOut_entityLbl,
-                count_failedTurns_nnOut_userOut, count_failed_turns,
-                counter_failed_nnOut_tknLblIds)
-    count_failed_turns += len({
-        failed_bchIdx_nnOutTknLblIdIdx_entityLbl_userOut[0]
-        for failed_bchIdx_nnOutTknLblIdIdx_entityLbl_userOut in
-        failed_bchIdxs_nnOutTknLblIdIdxs_entityLbls_userOut
-    })
-
     bch_nnIn_tkns: List[List[str]] = []
     bch_unseen_tkns_predictSet: List[List[str]] = []
     bch_tknLbls_True: List[List[str]] = []
@@ -145,58 +117,67 @@ def failed_nnOut_tknLblIds(
     with failed_nnOut_tknLblIds_file.open(
             'a') as file_failed, failed_nnOut_entityLblsUserOut_file.open(
                 'a') as file_halfFailed, passed_file.open('a') as file_passed:
-        prev_bch_idx: int = None
-        bch_idx: int = None
-        file: Dict[str, pathlib.Path] = {"pick": None}
+
+        # append[bch_idx, print_preamble, failed_nnOutTknLblIdIdx,
+        # print_nnOutEntityLblUserOut, file_name]
+        # nnOutTknLblIdIdxs failed for some bch_idxs
+        failed_items: List[List[int, bool, int, bool, str]] = []
+        for idx in range(len(failed_bchIdxs_nnOutTknLblIdIdxs)):
+            if idx == 0:
+                failed_items.append([
+                    failed_bchIdxs_nnOutTknLblIdIdxs[idx][0], True,
+                    failed_bchIdxs_nnOutTknLblIdIdxs[idx][1], False,
+                    file_failed
+                ])
+            elif failed_bchIdxs_nnOutTknLblIdIdxs[idx][
+                    0] != failed_bchIdxs_nnOutTknLblIdIdxs[idx - 1][0]:
+                failed_items[-1][3] = True
+                failed_items.append([
+                    failed_bchIdxs_nnOutTknLblIdIdxs[idx][0], True,
+                    failed_bchIdxs_nnOutTknLblIdIdxs[idx][1], False,
+                    file_failed
+                ])
+            else:
+                failed_items.append([
+                    failed_bchIdxs_nnOutTknLblIdIdxs[idx][0], False,
+                    failed_bchIdxs_nnOutTknLblIdIdxs[idx][1], False,
+                    file_failed
+                ])
+        if failed_items:
+            failed_items[-1][3] = True
+        count_failed_turns += len({
+            failed_bchIdx_nnOutTknLblIdIdx[0]
+            for failed_bchIdx_nnOutTknLblIdIdx in
+            failed_bchIdxs_nnOutTknLblIdIdxs
+        })
+        # nnOutTknLblIdIdxs passed for some bch_idxs but
+        # nnOut_entityLbls or nnOut_userOut could have failed
+        for bch_idx in range(len(bch_entityLbls_True)):
+            if bch_idx not in failed_bchIdxs:
+                if bch_failed_nnOut_entityLbls[bch_idx] or (
+                        bch_failed_nnOut_userOut[bch_idx] is not None):
+                    failed_items.append(
+                        [bch_idx, True, None, True, file_halfFailed])
+                    count_failed_turns += 1
+                else:
+                    failed_items.append(
+                        [bch_idx, True, None, True, file_passed])
+
+        print_to_file: Dict[str, pathlib.Path] = {"file": None}
         wrapper: textwrap.TextWrapper = textwrap.TextWrapper(
             width=80, initial_indent="", subsequent_indent=21 * " ")
-        for bch_idx, nnOut_tknLblId_idx in (
-                failed_bchIdxs_nnOutTknLblIdIdxs_entityLbls_userOut):
-            if bch_idx is None and nnOut_tknLblId_idx is None:
-                file["pick"] = file_passed
-                if prev_bch_idx is not None:
-                    bch_idx = prev_bch_idx + 1
-                else:
-                    bch_idx = 0
-            elif bch_idx is not None and nnOut_tknLblId_idx is None:
-                file["pick"] = file_halfFailed
-            elif bch_idx is not None and nnOut_tknLblId_idx is not None:
-                file["pick"] = file_failed
-            else:
-                assert False
+
+        for bch_idx, print_preamble, failed_nnOutTknLblIdIdx,\
+                print_nnOutEntityLblUserOut,\
+                print_to_file["file"] in failed_items:
             index_of_first_SEP_plus1 = nnIn_tknIds_beginEnd_idx[bch_idx * 2,
                                                                 1] + 1
-
-            if prev_bch_idx is not None and bch_idx != prev_bch_idx:
-                for strng in (
-                        f"entityLbls_True = {' '.join(bch_entityLbls_True[prev_bch_idx])}",
-                        f"nnOut_entityLbls = {' '.join(bch_nnOut_entityLbls[prev_bch_idx])}"
-                        if bch_nnOut_entityLbls[prev_bch_idx] is not None else
-                        "nnOut_entityLbls: None",
-                        f"Failed-nnOut_entityLbls (entityLbls_True, nnOut_entityLbls): {', '.join(bch_failed_nnOut_entityLbls[prev_bch_idx])}"
-                        if bch_failed_nnOut_entityLbls[prev_bch_idx] else
-                        "Failed-nnOut_entityLbls: None",
-                        f"userIn_filtered_entityWrds = {' '.join(bch_userIn_filtered_entityWrds[prev_bch_idx])}"
-                        if bch_userIn_filtered_entityWrds[prev_bch_idx]
-                        is not None else "userIn_filtered_entityWrds: None",
-                        f"userOut_True = {bch_userOut_True[prev_bch_idx]}",
-                        f"nnOut_userOut = {bch_userOut[prev_bch_idx]}",
-                        f"Failed-nnOut_userOut (userOut_True, nnOut_userOut): {bch_failed_nnOut_userOut[prev_bch_idx]}"
-                        if bch_failed_nnOut_userOut[prev_bch_idx] is not None
-                        else "Failed-nnOut_userOut: None",
-                        f"Predict-set tkns not seen in train-set = {', '.join(bch_unseen_tkns_predictSet[bch_idx])}"
-                        if bch_unseen_tkns_predictSet[bch_idx] else
-                        "Predict-set tkns not seen in train-set: None",
-                ):
-                    file["pick"].write(wrapper.fill(strng))
-                    file["pick"].write("\n")
-
-            if bch_idx != prev_bch_idx:
+            if print_preamble:
                 # print out: dlgId_trnId, userIn, userIn_filtered wrds,
                 # nnIn_tkns, tknLbls_True, and nnOut_tknLbls;
                 # tknIds between two SEP belong to tknIds of words in
                 # bch['userIn_filtered']
-                file["pick"].write("\n\n")
+                print_to_file["file"].write("\n\n")
                 for strng in (
                         f"dlg_id, trn_id = {bch['dlgTrnId'][bch_idx]}",
                         f"userIn = {(df[(df['dlgId'] == bch['dlgTrnId'][bch_idx][0]) & (df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['userIn']).item()}",
@@ -205,50 +186,49 @@ def failed_nnOut_tknLblIds(
                         f"tknLbls_True = {' '.join(bch_tknLbls_True[bch_idx])}",
                         f"nnOut_tknLbls = {' '.join(bch_nnOut_tknLbls[bch_idx])}",
                         "Failed nnOut_tknLbls (userIn_filtered, nnIn_tkn, tknLbl_True, nnOut_tknLbl):"
-                        if nnOut_tknLblId_idx is not None else
+                        if failed_nnOutTknLblIdIdx is not None else
                         "Failed nnOut_tknLbls: None",
                 ):
-                    file["pick"].write(wrapper.fill(strng))
-                    file["pick"].write("\n")
+                    print_to_file["file"].write(wrapper.fill(strng))
+                    print_to_file["file"].write("\n")
 
-            if nnOut_tknLblId_idx is not None:
+            if failed_nnOutTknLblIdIdx is not None:
                 counter_failed_nnOut_tknLblIds[
-                    f"{bch_tknLbls_True[bch_idx][nnOut_tknLblId_idx - index_of_first_SEP_plus1]}, {bch_nnOut_tknLbls[bch_idx][nnOut_tknLblId_idx - index_of_first_SEP_plus1]}"] += 1
-                file["pick"].write(
+                    f"{bch_tknLbls_True[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}, {bch_nnOut_tknLbls[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}"] += 1
+                print_to_file["file"].write(
                     wrapper.fill(
-                        f"{bch['userIn_filtered'][bch_idx][bch['map_tknIdx2wrdIdx'][bch_idx][nnOut_tknLblId_idx]]}, {bch_nnIn_tkns[bch_idx][nnOut_tknLblId_idx - index_of_first_SEP_plus1]}, {bch_tknLbls_True[bch_idx][nnOut_tknLblId_idx - index_of_first_SEP_plus1]}, {bch_nnOut_tknLbls[bch_idx][nnOut_tknLblId_idx - index_of_first_SEP_plus1]}  "
+                        f"{bch['userIn_filtered'][bch_idx][bch['map_tknIdx2wrdIdx'][bch_idx][failed_nnOutTknLblIdIdx]]}, {bch_nnIn_tkns[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}, {bch_tknLbls_True[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}, {bch_nnOut_tknLbls[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}  "
                     ))
-                file["pick"].write("\n")
+                print_to_file["file"].write("\n")
 
-            prev_bch_idx = bch_idx
+            if print_nnOutEntityLblUserOut:
+                for strng in (
+                        f"entityLbls_True = {' '.join(bch_entityLbls_True[bch_idx])}",
+                        f"nnOut_entityLbls = {' '.join(bch_nnOut_entityLbls[bch_idx])}"
+                        if bch_nnOut_entityLbls[bch_idx] else "nnOut_entityLbls: None",
+                        f"Failed-nnOut_entityLbls (entityLbls_True, nnOut_entityLbls): {', '.join(bch_failed_nnOut_entityLbls[bch_idx])}"
+                        if bch_failed_nnOut_entityLbls[bch_idx] else
+                        "Failed-nnOut_entityLbls: None",
+                        f"userIn_filtered_entityWrds = {' '.join(bch_userIn_filtered_entityWrds[bch_idx])}"
+                        if bch_userIn_filtered_entityWrds[bch_idx] else "userIn_filtered_entityWrds: None",
+                        f"userOut_True = {bch_userOut_True[bch_idx]}",
+                        f"nnOut_userOut = {bch_userOut[bch_idx]}",
+                        f"Failed-nnOut_userOut (userOut_True, nnOut_userOut): {bch_failed_nnOut_userOut[bch_idx]}"
+                        if bch_failed_nnOut_userOut[bch_idx] is not None else
+                        "Failed-nnOut_userOut: None",
+                        f"Predict-set tkns not seen in train-set = {', '.join(bch_unseen_tkns_predictSet[bch_idx])}"
+                        if bch_unseen_tkns_predictSet[bch_idx] else
+                        "Predict-set tkns not seen in train-set: None",
+                ):
+                    print_to_file["file"].write(wrapper.fill(strng))
+                    print_to_file["file"].write("\n")
 
         assert count_failed_nnOut_tknLblIds == sum(
             [value for value in counter_failed_nnOut_tknLblIds.values()])
         assert bch_idx is not None
-        for strng in (
-                f"entityLbls_True = {' '.join(bch_entityLbls_True[bch_idx])}",
-                f"nnOut_entityLbls = {' '.join(bch_nnOut_entityLbls[bch_idx])}"
-                if bch_nnOut_entityLbls[bch_idx] is not None else
-                "nnOut_entityLbls: None",
-                f"Failed-nnOut_entityLbls (entityLbls_True, nnOut_entityLbls): {', '.join(bch_failed_nnOut_entityLbls[bch_idx])}"
-                if bch_failed_nnOut_entityLbls[bch_idx] else
-                "Failed-nnOut_entityLbls: None",
-                f"userIn_filtered_entityWrds = {' '.join(bch_userIn_filtered_entityWrds[bch_idx])}"
-                if bch_userIn_filtered_entityWrds[bch_idx] is not None else
-                "userIn_filtered_entityWrds: None",
-                f"userOut_True = {bch_userOut_True[prev_bch_idx]}",
-                f"nnOut_userOut = {bch_userOut[prev_bch_idx]}",
-                f"Failed-nnOut_userOut (userOut_True, nnOut_userOut): {bch_failed_nnOut_userOut[prev_bch_idx]}"
-                if bch_failed_nnOut_userOut[prev_bch_idx] is not None else
-                "Failed-nnOut_userOut: None",
-                f"Predict-set tkns not seen in train-set = {' '.join(bch_unseen_tkns_predictSet[bch_idx])}"
-                if bch_unseen_tkns_predictSet[bch_idx] else
-                "Predict-set tkns not seen in train-set: None",
-        ):
-            file["pick"].write(wrapper.fill(strng))
-            file["pick"].write("\n")
 
     return (count_total_turns, count_failed_nnOut_tknLblIds,
+            count_failedTurns_nnOut_tknLblIds,
             count_failedTurns_nnOut_entityLbl, count_failedTurns_nnOut_userOut,
             count_failed_turns, counter_failed_nnOut_tknLblIds)
 
@@ -306,6 +286,7 @@ def print_statistics(
     count_total_turns: int,
     count_failed_turns: int,
     count_failed_nnOut_tknLblIds: int,
+    count_failedTurns_nnOut_tknLblIds: int,
     count_failedTurns_nnOut_entityLbl: int,
     count_failedTurns_nnOut_userOut: int,
     counter_failed_nnOut_tknLblIds: Dict[str, int],
@@ -324,6 +305,9 @@ def print_statistics(
                 failed_turns = (f'# of failed turns = {count_failed_turns}')
                 failed_nnOut_tknLblIds = ('# of failed nnOut_tknLblIds = '
                                           f'{count_failed_nnOut_tknLblIds}')
+                failedTurns_nnOut_tknLblIds = (
+                    '# of turns of failed nnOut_tknLblIds = '
+                    f'{count_failedTurns_nnOut_tknLblIds}')
                 failedTurns_nnOut_entityLbl = (
                     '# of turns of failed nnOut_entityLbl = '
                     f'{count_failedTurns_nnOut_entityLbl}')
@@ -334,6 +318,7 @@ def print_statistics(
                         turns,
                         failed_turns,
                         failed_nnOut_tknLblIds,
+                        failedTurns_nnOut_tknLblIds,
                         failedTurns_nnOut_entityLbl,
                         failedTurns_nnOut_userOut,
                 ):
