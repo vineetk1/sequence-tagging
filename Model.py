@@ -243,6 +243,9 @@ class Model(LightningModule):
         self.count_failed_turns: int = 0
         # number of nnOut_tknLblId that failed; many can fail in the same turn
         self.count_failed_nnOut_tknLblIds: int = 0
+        # number of turns in which nnOut_tknLblIds: failed; only one can
+        # fail in a turn
+        self.count_failedTurns_nnOut_tknLblIds: int = 0
         # number of turns in which nnOut_entityWrdLbls failed; only one can
         # fail in a turn
         self.count_failedTurns_nnOut_entityLbl: int = 0
@@ -282,6 +285,7 @@ class Model(LightningModule):
         # write do file the info about FAILED nnOut_tknLblIds. etc.; keep count
         count_total_turns,\
             count_failed_nnOut_tknLblIds,\
+            count_failedTurns_nnOut_tknLblIds,\
             count_failedTurns_nnOut_entityLbl,\
             count_failedTurns_nnOut_userOut, count_failed_turns,\
             counter_failed_nnOut_tknLblIds = (
@@ -302,6 +306,8 @@ class Model(LightningModule):
         self.count_total_turns += count_total_turns
         self.count_failed_turns += count_failed_turns
         self.count_failed_nnOut_tknLblIds += count_failed_nnOut_tknLblIds
+        self.count_failedTurns_nnOut_tknLblIds += (
+            count_failedTurns_nnOut_tknLblIds)
         self.count_failedTurns_nnOut_entityLbl += (
             count_failedTurns_nnOut_entityLbl)
         self.count_failedTurns_nnOut_userOut += count_failedTurns_nnOut_userOut
@@ -319,7 +325,7 @@ class Model(LightningModule):
         self.y_pred.extend(y_pred)
 
     def on_predict_end(self) -> None:
-        if not hasattr(self, 'failed_nnOut_tknLblIds'):
+        if not hasattr(self, 'failed_nnOut_tknLblIds_file'):
             # predictStatistics is False
             return
 
@@ -329,6 +335,8 @@ class Model(LightningModule):
             count_total_turns=self.count_total_turns,
             count_failed_turns=self.count_failed_turns,
             count_failed_nnOut_tknLblIds=self.count_failed_nnOut_tknLblIds,
+            count_failedTurns_nnOut_tknLblIds=(
+                self.count_failedTurns_nnOut_tknLblIds),
             count_failedTurns_nnOut_entityLbl=(
                 self.count_failedTurns_nnOut_entityLbl),
             count_failedTurns_nnOut_userOut=(
