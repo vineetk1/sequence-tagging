@@ -118,20 +118,20 @@ class Data(LightningDataModule):
     def _bert_collater(self,
                        examples: List[List[List[Any]]]) -> Dict[str, Any]:
         bch_dlgTrnId: List[Tuple[int, int]] = []
-        bch_userIn_filtered: List[List[str]] = []
+        bch_userIn_filtered_wrds: List[List[str]] = []
         bch_history: List[List[str]] = []
         bch_prevTrnUserOut: List[Dict[str, List[str]]] = []
         map_tknIdx2wrdIdx: List[List[str]] = []
 
         for example in examples:
             bch_dlgTrnId.append((example[0], example[1]))
-            bch_userIn_filtered.append(
+            bch_userIn_filtered_wrds.append(
                 Utilities.userIn_filter_splitWords(example[2]))
             bch_history.append(Utilities.prevTrnUserOut2history(example[3]))
             bch_prevTrnUserOut.append(example[3])
 
         bch_nnIn_tknIds = self.tokenizer(text=bch_history,
-                                         text_pair=bch_userIn_filtered,
+                                         text_pair=bch_userIn_filtered_wrds,
                                          is_split_into_words=True,
                                          padding=True,
                                          truncation='do_not_truncate',
@@ -163,21 +163,17 @@ class Data(LightningDataModule):
         ])
 
         return {
-            'nnIn_tknIds': bch_nnIn_tknIds,  # Training, Predict,
-            # Predict-Statistics
-            'tknLblIds': bch_tknLblIds,  # Training, Predict,
-            # Predict-Statistics
-            'dlgTrnId': bch_dlgTrnId,  # Predict-Statistics
+            'nnIn_tknIds': bch_nnIn_tknIds,
+            'tknLblIds': bch_tknLblIds,
+            'dlgTrnId': bch_dlgTrnId,
             # init_userOut = userOut_init(); bch_userOut =
             # [init_userOut for _ in range(len(examples))] Does NOT work
             # because each copy of dict points to same memory location; i.e.
             # writing a value to a key in a dict will write that value to all
             # dicts
-            'prevTrnUserOut': bch_prevTrnUserOut,  # Predict
-            'userIn_filtered': bch_userIn_filtered,  # Predict,
-            # Predict-Statistics
-            'map_tknIdx2wrdIdx': map_tknIdx2wrdIdx,  # Predict
-            # Predict-Statistics
+            'prevTrnUserOut': bch_prevTrnUserOut,
+            'userIn_filtered_wrds': bch_userIn_filtered_wrds,
+            'map_tknIdx2wrdIdx': map_tknIdx2wrdIdx,
         }
 
 
