@@ -265,7 +265,7 @@ class Model(LightningModule):
             Utilities.tknLblIds2entity_wrds_lbls(
                 bch_nnIn_tknIds=batch['nnIn_tknIds']['input_ids'],
                 bch_map_tknIdx2wrdIdx=batch['map_tknIdx2wrdIdx'],
-                bch_userIn_filtered_wrds=batch['userIn_filtered'],
+                bch_userIn_filtered_wrds=batch['userIn_filtered_wrds'],
                 bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
                 tknLblId2tknLbl=self.dataset_meta['tknLblId2tknLbl'],
                 DEBUG_bch_tknLblIds_True=batch['tknLblIds'],
@@ -273,6 +273,8 @@ class Model(LightningModule):
 
         bch_nnOut_userOut: List[Dict[str, List[str]]] = (
             Utilities.generate_userOut(
+                # ***NOTE bch_prevTrnUserOut should come from previous turn's
+                # bch_nnOut_userOut 
                 bch_prevTrnUserOut=batch['prevTrnUserOut'],
                 bch_nnOut_userIn_filtered_entityWrds=(
                     bch_nnOut_userIn_filtered_entityWrds),
