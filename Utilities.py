@@ -357,7 +357,7 @@ def tknLblIds2entity_wrds_lbls(
     max_count_wrongPredictions_plus1: int = 2 + 1
 
     # tknIds between two SEP belong to tknIds of words in
-    # bch['userIn_filtered']
+    # bch['userIn_filtered_wrds']
     nnIn_tknIds_idx_beginEnd: torch.Tensor = (bch_nnIn_tknIds == 102).nonzero()
     tknLblId_of_O: int = tknLblId2tknLbl.index("O")
 
