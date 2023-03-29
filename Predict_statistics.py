@@ -18,9 +18,9 @@ logg = getLogger(__name__)
 def failed_nnOut_tknLblIds(
     bch: Dict[str, Any],
     bch_nnOut_tknLblIds: torch.Tensor,
-    bch_userIn_filtered_entityWrds: List[Union[List[str], None]],
+    bch_nnOut_userIn_filtered_entityWrds: List[Union[List[str], None]],
     bch_nnOut_entityLbls: List[Union[List[str], None]],
-    bch_userOut: List[Dict[str, List[str]]],
+    bch_nnOut_userOut: List[Dict[str, List[str]]],
     df: pd.DataFrame,
     tokenizer,
     dataset_meta: Dict[str, Any],
@@ -75,15 +75,15 @@ def failed_nnOut_tknLblIds(
         bch_userOut_True.append(
             (df[(df['dlgId'] == dlgId)
                 & (df['trnId'] == trnId)]['userOut']).item())
-        if bch_userOut[bch_idx] == bch_userOut_True[-1]:
+        if bch_nnOut_userOut[bch_idx] == bch_userOut_True[-1]:
             bch_failed_nnOut_userOut.append(None)
         else:
             count_failedTurns_nnOut_userOut += 1
             d: dict = userOut_init()
             for k in bch_userOut_True[-1]:
-                if bch_userOut[bch_idx][k] != bch_userOut_True[-1][k]:
+                if bch_nnOut_userOut[bch_idx][k] != bch_userOut_True[-1][k]:
                     for item_True, item in zip_longest(
-                            bch_userOut_True[-1][k], bch_userOut[bch_idx][k]):
+                            bch_userOut_True[-1][k], bch_nnOut_userOut[bch_idx][k]):
                         if item != item_True:
                             d[k].append((item_True, item))
             bch_failed_nnOut_userOut.append(str(d))
@@ -181,11 +181,11 @@ def failed_nnOut_tknLblIds(
                 for strng in (
                         f"dlg_id, trn_id = {bch['dlgTrnId'][bch_idx]}",
                         f"userIn = {(df[(df['dlgId'] == bch['dlgTrnId'][bch_idx][0]) & (df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['userIn']).item()}",
-                        f"userIn_filtered = {' '.join(bch['userIn_filtered'][bch_idx])}",
+                        f"userIn_filtered_wrds = {' '.join(bch['userIn_filtered'][bch_idx])}",
                         f"nnIn_tkns = {' '.join(bch_nnIn_tkns[bch_idx])}",
                         f"tknLbls_True = {' '.join(bch_tknLbls_True[bch_idx])}",
                         f"nnOut_tknLbls = {' '.join(bch_nnOut_tknLbls[bch_idx])}",
-                        "Failed nnOut_tknLbls (userIn_filtered, nnIn_tkn, tknLbl_True, nnOut_tknLbl):"
+                        "Failed nnOut_tknLbls (userIn_filtered.., nnIn_tkn, tknLbl_True, nnOut_tknLbl):"
                         if failed_nnOutTknLblIdIdx is not None else
                         "Failed nnOut_tknLbls: None",
                 ):
@@ -209,10 +209,10 @@ def failed_nnOut_tknLblIds(
                         f"Failed-nnOut_entityLbls (entityLbls_True, nnOut_entityLbls): {', '.join(bch_failed_nnOut_entityLbls[bch_idx])}"
                         if bch_failed_nnOut_entityLbls[bch_idx] else
                         "Failed-nnOut_entityLbls: None",
-                        f"userIn_filtered_entityWrds = {' '.join(bch_userIn_filtered_entityWrds[bch_idx])}"
-                        if bch_userIn_filtered_entityWrds[bch_idx] else "userIn_filtered_entityWrds: None",
+                        f"userIn_filtered_entityWrds = {' '.join(bch_nnOut_userIn_filtered_entityWrds[bch_idx])}"
+                        if bch_nnOut_userIn_filtered_entityWrds[bch_idx] else "userIn_filtered_entityWrds: None",
                         f"userOut_True = {bch_userOut_True[bch_idx]}",
-                        f"nnOut_userOut = {bch_userOut[bch_idx]}",
+                        f"nnOut_userOut = {bch_nnOut_userOut[bch_idx]}",
                         f"Failed-nnOut_userOut (userOut_True, nnOut_userOut): {bch_failed_nnOut_userOut[bch_idx]}"
                         if bch_failed_nnOut_userOut[bch_idx] is not None else
                         "Failed-nnOut_userOut: None",
