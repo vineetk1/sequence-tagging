@@ -50,9 +50,15 @@ def failed_nnOut_tknLblIds(
     }
     count_failedTurns_nnOut_tknLblIds += len(failed_bchIdxs)
 
+    bch_userIn_filtered_entityWrds_True: List[List[str]] = []
+    bch_idx: int
+    for bch_idx, (dlgId, trnId) in enumerate(bch['dlgTrnId']):
+        bch_userIn_filtered_entityWrds_True.append(
+            df[(df['dlgId'] == dlgId)
+               & (df['trnId'] == trnId)]['userIn_filtered_entityWrds'].item())
+
     bch_entityLbls_True: List[List[str]] = []
     bch_failed_nnOut_entityLbls: List[List[str]] = []
-    bch_idx: int
     for bch_idx, (dlgId, trnId) in enumerate(bch['dlgTrnId']):
         bch_failed_nnOut_entityLbls.append([])
         bch_entityLbls_True.append(
@@ -83,7 +89,8 @@ def failed_nnOut_tknLblIds(
             for k in bch_userOut_True[-1]:
                 if bch_nnOut_userOut[bch_idx][k] != bch_userOut_True[-1][k]:
                     for item_True, item in zip_longest(
-                            bch_userOut_True[-1][k], bch_nnOut_userOut[bch_idx][k]):
+                            bch_userOut_True[-1][k],
+                            bch_nnOut_userOut[bch_idx][k]):
                         if item != item_True:
                             d[k].append((item_True, item))
             bch_failed_nnOut_userOut.append(str(d))
@@ -176,12 +183,12 @@ def failed_nnOut_tknLblIds(
                 # print out: dlgId_trnId, userIn, userIn_filtered wrds,
                 # nnIn_tkns, tknLbls_True, and nnOut_tknLbls;
                 # tknIds between two SEP belong to tknIds of words in
-                # bch['userIn_filtered']
+                # bch['userIn_filtered_wrds']
                 print_to_file["file"].write("\n\n")
                 for strng in (
                         f"dlg_id, trn_id = {bch['dlgTrnId'][bch_idx]}",
                         f"userIn = {(df[(df['dlgId'] == bch['dlgTrnId'][bch_idx][0]) & (df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['userIn']).item()}",
-                        f"userIn_filtered_wrds = {' '.join(bch['userIn_filtered'][bch_idx])}",
+                        f"userIn_filtered_wrds = {' '.join(bch['userIn_filtered_wrds'][bch_idx])}",
                         f"nnIn_tkns = {' '.join(bch_nnIn_tkns[bch_idx])}",
                         f"tknLbls_True = {' '.join(bch_tknLbls_True[bch_idx])}",
                         f"nnOut_tknLbls = {' '.join(bch_nnOut_tknLbls[bch_idx])}",
@@ -197,20 +204,23 @@ def failed_nnOut_tknLblIds(
                     f"{bch_tknLbls_True[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}, {bch_nnOut_tknLbls[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}"] += 1
                 print_to_file["file"].write(
                     wrapper.fill(
-                        f"{bch['userIn_filtered'][bch_idx][bch['map_tknIdx2wrdIdx'][bch_idx][failed_nnOutTknLblIdIdx]]}, {bch_nnIn_tkns[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}, {bch_tknLbls_True[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}, {bch_nnOut_tknLbls[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}  "
+                        f"{bch['userIn_filtered_wrds'][bch_idx][bch['map_tknIdx2wrdIdx'][bch_idx][failed_nnOutTknLblIdIdx]]}, {bch_nnIn_tkns[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}, {bch_tknLbls_True[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}, {bch_nnOut_tknLbls[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}  "
                     ))
                 print_to_file["file"].write("\n")
 
             if print_nnOutEntityLblUserOut:
                 for strng in (
+                        f"userIn_filtered_entityWrds_True = {' '.join(bch_userIn_filtered_entityWrds_True[bch_idx])}",
+                        f"nnOut_userIn_filtered_entityWrds = {' '.join(bch_nnOut_userIn_filtered_entityWrds[bch_idx])}"
+                        if bch_nnOut_userIn_filtered_entityWrds[bch_idx] else
+                        "nnOut_userIn_filtered_entityWrds: None",
                         f"entityLbls_True = {' '.join(bch_entityLbls_True[bch_idx])}",
                         f"nnOut_entityLbls = {' '.join(bch_nnOut_entityLbls[bch_idx])}"
-                        if bch_nnOut_entityLbls[bch_idx] else "nnOut_entityLbls: None",
+                        if bch_nnOut_entityLbls[bch_idx] else
+                        "nnOut_entityLbls: None",
                         f"Failed-nnOut_entityLbls (entityLbls_True, nnOut_entityLbls): {', '.join(bch_failed_nnOut_entityLbls[bch_idx])}"
                         if bch_failed_nnOut_entityLbls[bch_idx] else
                         "Failed-nnOut_entityLbls: None",
-                        f"userIn_filtered_entityWrds = {' '.join(bch_nnOut_userIn_filtered_entityWrds[bch_idx])}"
-                        if bch_nnOut_userIn_filtered_entityWrds[bch_idx] else "userIn_filtered_entityWrds: None",
                         f"userOut_True = {bch_userOut_True[bch_idx]}",
                         f"nnOut_userOut = {bch_nnOut_userOut[bch_idx]}",
                         f"Failed-nnOut_userOut (userOut_True, nnOut_userOut): {bch_failed_nnOut_userOut[bch_idx]}"
@@ -242,7 +252,7 @@ def prepare_metric(
     y_pred: List[List[str]] = []
     assert bch_nnOut_tknLblIds.shape[0] == bch['tknLblIds'].shape[0]
     # tknIds between two SEP belong to tknIds of words in
-    # bch['userIn_filtered']
+    # bch['userIn_filtered_wrds']
     nnIn_tknIds_idx_beginEnd: torch.Tensor = (
         bch['nnIn_tknIds']['input_ids'] == 102).nonzero()
     for bch_idx in range(bch_nnOut_tknLblIds.shape[0]):
