@@ -246,7 +246,7 @@ class Model(LightningModule):
         # number of turns in which nnOut_tknLblIds: failed; only one can
         # fail in a turn
         self.count_failedTurns_nnOut_tknLblIds: int = 0
-        # number of turns in which nnOut_entityWrdLbls failed; only one can
+        # number of turns in which nnOut_entityLbls failed; only one can
         # fail in a turn
         self.count_failedTurns_nnOut_entityLbl: int = 0
         # number of turns in which nnOut_userOut failed; only one can
@@ -261,20 +261,22 @@ class Model(LightningModule):
         logits = self.classification_head(outputs.last_hidden_state)
         bch_nnOut_tknLblIds = torch.argmax(logits, dim=-1)
 
-        bch_userIn_filtered_entityWrds, bch_nnOut_entityLbls = (
+        bch_nnOut_userIn_filtered_entityWrds, bch_nnOut_entityLbls = (
             Utilities.tknLblIds2entity_wrds_lbls(
                 bch_nnIn_tknIds=batch['nnIn_tknIds']['input_ids'],
                 bch_map_tknIdx2wrdIdx=batch['map_tknIdx2wrdIdx'],
-                bch_userIn_filtered=batch['userIn_filtered'],
+                bch_userIn_filtered_wrds=batch['userIn_filtered'],
                 bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
                 tknLblId2tknLbl=self.dataset_meta['tknLblId2tknLbl'],
                 DEBUG_bch_tknLblIds_True=batch['tknLblIds'],
                 DEBUG_tokenizer=self.tokenizer))
 
-        bch_userOut: List[Dict[str, List[str]]] = (Utilities.generate_userOut(
-            bch_prevTrnUserOut=batch['prevTrnUserOut'],
-            bch_userIn_filtered_entityWrds=bch_userIn_filtered_entityWrds,
-            bch_entityWrdLbls=bch_nnOut_entityLbls))
+        bch_nnOut_userOut: List[Dict[str, List[str]]] = (
+            Utilities.generate_userOut(
+                bch_prevTrnUserOut=batch['prevTrnUserOut'],
+                bch_nnOut_userIn_filtered_entityWrds=(
+                    bch_nnOut_userIn_filtered_entityWrds),
+                bch_nnOut_entityLbls=bch_nnOut_entityLbls))
 
         if not hasattr(self, 'failed_nnOut_tknLblIds_file'):
             # predictStatistics is False
@@ -292,9 +294,10 @@ class Model(LightningModule):
               Predict_statistics.failed_nnOut_tknLblIds(
                 bch=batch,
                 bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
-                bch_userIn_filtered_entityWrds=bch_userIn_filtered_entityWrds,
+                bch_nnOut_userIn_filtered_entityWrds=(
+                                         bch_nnOut_userIn_filtered_entityWrds),
                 bch_nnOut_entityLbls=bch_nnOut_entityLbls,
-                bch_userOut=bch_userOut,
+                bch_nnOut_userOut=bch_nnOut_userOut,
                 df=self.df,
                 tokenizer=self.tokenizer,
                 dataset_meta=self.dataset_meta,
