@@ -94,7 +94,6 @@ def main():
         dirPath = dataset_dirPath.joinpath(tb_subDir).resolve(strict=False)
         dirPath.mkdir(parents=True, exist_ok=True)
 
-    # prepare and split dataset
     from transformers import BertTokenizerFast
     tokenizer = BertTokenizerFast.from_pretrained(
         user_dicts['model_init']['model_type'])
