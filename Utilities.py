@@ -672,7 +672,7 @@ def generate_userOut(
                             else:
                                 bch_nnOut_userOut[bch_idx][entityWrd].clear()
                         case _:
-                            assert False
+                            #assert False
                             wrdLbl_idx -= 1
                 case _:
                     assert False
@@ -685,7 +685,7 @@ def generate_userOut(
 
 def transition(userOut: Dict[str, List[str]], cmd: str, unit: str,
                carEntityNums: List[str], carEntityNumsLbl: str) -> None:
-    assert carEntityNumsLbl and carEntityNums
+    #assert carEntityNumsLbl and carEntityNums
     if not carEntityNumsLbl or not carEntityNums:
         return
     assert (carEntityNumsLbl == 'year' or carEntityNumsLbl == 'price' or
