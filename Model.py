@@ -34,21 +34,39 @@ class Model(LightningModule):
         # Trainer('auto_lr_find': True,...) requires self.lr
 
         if model_init['model'] == "bert":
+            # Dropouts are used ONLY during Training; dropouts are disabled by
+            # Lightning during validation or testing or Predicting
+
             from transformers import BertModel
-            self.num_classes = num_classes
             self.bertModel = BertModel.from_pretrained(
-                model_init['model_type'], add_pooling_layer=False)
+                model_init['model_type'],
+                add_pooling_layer=False,
+                hidden_dropout_prob=model_init['hidden_dropout_prob'] if
+                (('hidden_dropout_prob' in model_init) and
+                 (isinstance(model_init['hidden_dropout_prob'], float))) else
+                0.1,
+                attention_probs_dropout_prob=model_init[
+                    'attention_probs_dropout_prob'] if
+                (('attention_probs_dropout_prob' in model_init) and
+                 (isinstance(model_init['attention_probs_dropout_prob'],
+                             float))) else 0.1,
+            )
+
             self.classification_head_dropout = torch.nn.Dropout(
                 model_init['classification_head_dropout'] if
                 (('classification_head_dropout' in model_init) and
                  (isinstance(model_init['classification_head_dropout'], float))
-                 ) else (self.bertModel.config.hidden_dropout_prob))
+                 ) else 0.1)
+
+            self.num_classes = num_classes
             self.classification_head = torch.nn.Linear(
                 self.bertModel.config.hidden_size, self.num_classes)
+
             stdv = 1. / math.sqrt(self.classification_head.weight.size(1))
             self.classification_head.weight.data.uniform_(-stdv, stdv)
             if self.classification_head.bias is not None:
                 self.classification_head.bias.data.uniform_(-stdv, stdv)
+
             if 'loss_func_class_weights' in model_init and isinstance(
                     model_init['loss_func_class_weights'], bool):
                 weights = torch.tensor([
@@ -274,7 +292,7 @@ class Model(LightningModule):
         bch_nnOut_userOut: List[Dict[str, List[str]]] = (
             Utilities.generate_userOut(
                 # ***NOTE bch_prevTrnUserOut should come from previous turn's
-                # bch_nnOut_userOut 
+                # bch_nnOut_userOut
                 bch_prevTrnUserOut=batch['prevTrnUserOut'],
                 bch_nnOut_userIn_filtered_entityWrds=(
                     bch_nnOut_userIn_filtered_entityWrds),
