@@ -221,6 +221,7 @@ def failed_nnOut_tknLblIds(
                         f"Failed-nnOut_entityLbls (entityLbls_True, nnOut_entityLbls): {', '.join(bch_failed_nnOut_entityLbls[bch_idx])}"
                         if bch_failed_nnOut_entityLbls[bch_idx] else
                         "Failed-nnOut_entityLbls: None",
+                        f"prevTrnUserOut_True = {(df[(df['dlgId'] == bch['dlgTrnId'][bch_idx][0]) & (df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['prevTrnUserOut']).item()}",
                         f"userOut_True = {bch_userOut_True[bch_idx]}",
                         f"nnOut_userOut = {bch_nnOut_userOut[bch_idx]}",
                         f"Failed-nnOut_userOut (userOut_True, nnOut_userOut): {bch_failed_nnOut_userOut[bch_idx]}"
