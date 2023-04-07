@@ -30,6 +30,7 @@ class Data(LightningDataModule):
 
     def generate_dataset(self, dataset_dirPath: str,
                          dataset_split: Dict[str, int]) -> None:
+        # dataset_split is not used anymore
         for dataset_split_key in ('train', 'val', 'test'):
             if dataset_split_key not in dataset_split or not isinstance(
                     dataset_split[dataset_split_key], int):
