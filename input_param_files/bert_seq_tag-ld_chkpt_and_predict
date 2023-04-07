@@ -19,8 +19,8 @@ python3 Main.py input_param_files/bert_seq_tag-ld_chkpt_and_predict
 
 parameters for python-dictionary 'misc'. ***Must specify the contents of this dict***
 -
-{'train': False, 'predict': True, 'predictStatistics': True}
-#{'train': False, 'predict': True, 'predictStatistics': False}
+{'predict': True, 'predictStatistics': True}
+#{'predict': True, 'predictStatistics': False}
 
 
 parameters for python-dictionary 'optz_sched'. ***This dict is not used***
@@ -29,10 +29,10 @@ parameters for python-dictionary 'optz_sched'. ***This dict is not used***
 
 
 parameters for python-dictionary 'data'. 
-***Either keep this dict empty or specifiy All key-values, even though only Predict batch_size is changed
+***Either keep this dict empty or specifiy All key-values
 Dataset for Predict is the same as test-set
 - 
-{'dataset_dirPath': 'datasets/1', 'batch_size': {'train': 4, 'val': 16, 'test': 32, 'predict': 512}, 'dataset_split': {'train': 65, 'val': 15, 'test': 20}} 
+{'dataset_dirPath': 'datasets/temp3', 'batch_size': {'predict': 3}} 
 
 
 parameters for python-dictionary 'trainer'. 
@@ -41,11 +41,13 @@ parameters for python-dictionary 'trainer'.
 
 
 parameters for python-dictionary 'model_init'. Contents of this dict are replaced by corresponding checkpoint dict 
+Dropouts are used ONLY during Training; dropouts are disabled by Lightning during validation or testing or Predicting
 - 
 {}
 
 
 parameters for python-dictionary 'ld_resume_chkpt'. ***Must specify the contents of this dict***
+checkpoint must be in same directory-path as 'dataset_dirPath'
 - 
-{'ld_chkpt': '/home/vin/sequence-tagging/datasets/1/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/version_0/checkpoints/optz=Adam,lr=1e-06,lr_sched=ReduceLROnPlateau,mode=min,patience=2,factor=0.5,epoch=887-val_loss=0.03660.ckpt'}
-#{'ld_chkpt': '/home/vin/sequence-tagging/tensorboard_logs/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/version_13/checkpoints/optz=Adam,lr=1e-06,lr_sched=ReduceLROnPlateau,mode=min,patience=2,factor=0.5,epoch=526-val_loss=0.05984.ckpt'}
+{'ld_chkpt': '/home/vin/sequence-tagging/datasets/3/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/last.ckpt'}
+#{'ld_chkpt': '/home/vin/sequence-tagging/datasets/3/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/version_0/checkpoints/optz=Adam,lr=1e-06,lr_sched=ReduceLROnPlateau,mode=min,patience=2,factor=0.5,epoch=5605-val_loss=0.22026.ckpt'}
