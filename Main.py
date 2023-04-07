@@ -106,6 +106,7 @@ def main():
                 if 'batch_size' in user_dicts['data'] else {})
     data.generate_dataset(
         dataset_dirPath=user_dicts['data']['dataset_dirPath'],
+        # dataset_split is not used anymore
         dataset_split=user_dicts['data']['dataset_split']
         if 'dataset_split' in user_dicts['data'] else {})
     dataset_metadata = data.prep_dataset_for_trainValTest(
@@ -134,17 +135,34 @@ def main():
                                       name="",
                                       version=dirPath.name)
     else:
-        new_version_num = max((int(dir.name.replace('version_', ''))
-                               for dir in dirPath.glob('version_*')),
-                              default=-1) + 1
-        tb_logger = TensorBoardLogger(save_dir=dirPath,
-                                      name="",
-                                      version=new_version_num)
-        dirPath = dirPath.joinpath('version_' + f'{new_version_num}')
-        dirPath.mkdir(parents=True, exist_ok=True)
-    paramFile = dirPath.joinpath('hyperparameters_used.yaml')
-    paramFile.touch()
-    paramFile.write_text(dump(user_dicts))
+        if user_dicts['misc'][
+                'predict'] and not user_dicts['misc']['predictStatistics']:
+            assert not user_dicts['misc']['train']
+        elif user_dicts['misc']['train']:
+            assert not user_dicts['misc']['predict']
+            assert not user_dicts['misc']['predictStatistics']
+            new_version_num = max((int(dir.name.replace('ckpts_v', ''))
+                                   for dir in dirPath.glob('ckpts_v*')),
+                                  default=-1) + 1
+            tb_logger = TensorBoardLogger(save_dir=dirPath,
+                                          name="",
+                                          version=f'ckpts_v{new_version_num}')
+            dirPath = dirPath.joinpath(f'ckpts_v{new_version_num}')
+            dirPath.mkdir(parents=True, exist_ok=True)
+        elif user_dicts['misc']['predict'] and user_dicts['misc'][
+                'predictStatistics']:
+            assert not user_dicts['misc']['train']
+            new_version_num = max((int(dir.name.replace('pred_v', ''))
+                                   for dir in dirPath.glob('pred_v*')),
+                                  default=-1) + 1
+            dirPath = dirPath.joinpath(f'pred_v{new_version_num}')
+            dirPath.mkdir(parents=True, exist_ok=True)
+        else:
+            assert False
+    if not user_dicts['misc']['predict']:
+        paramFile = dirPath.joinpath('hyperparameters_used.yaml')
+        paramFile.touch()
+        paramFile.write_text(dump(user_dicts))
 
     # setup Callbacks and Trainer
     if user_dicts['misc']['train']:
@@ -178,7 +196,7 @@ def main():
                           ],
                           **user_dicts['trainer'])
     elif user_dicts['misc']['predict']:
-        trainer = Trainer(logger=tb_logger,
+        trainer = Trainer(logger=False,
                           num_sanity_val_steps=0,
                           log_every_n_steps=100,
                           enable_checkpointing=False,
