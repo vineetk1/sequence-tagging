@@ -16,17 +16,17 @@ python3 Main.py input_param_files/bert_seq_tag
 
 parameters for python-dictionary 'misc'
 -
-{'save_top_k': 2, 'train': True, 'predict': False, 'predictStatistics': False}
+{'save_top_k': 2, 'train': True}
 
 
 parameters for python-dictionary 'optz_sched'
 - 
-{'optz': 'Adam', 'optz_params': {'lr': 1e-6}, 'lr_sched': 'ReduceLROnPlateau', 'lr_sched_params': {'mode': 'min', 'patience': 2, 'factor': 5e-1}} 
-
+{'optz': 'Adam', 'optz_params': {'lr': 1e-5}, 'lr_sched': 'ReduceLROnPlateau', 'lr_sched_params': {'mode': 'min', 'patience': 3, 'factor': 5e-1}} 
 
 parameters for python-dictionary 'data'
+# NOTE: dataset_split is ignored
 - 
-{'dataset_dirPath': 'datasets/1', 'batch_size': {'train': 4, 'val': 16, 'test': 32, 'predict': 32}, 'dataset_split': {'train': 65, 'val': 15, 'test': 20}} 
+{'dataset_dirPath': 'datasets/3', 'batch_size': {'train': 4, 'val': 16, 'test': 32}} 
 
 
 parameters for python-dictionary 'trainer'
@@ -34,15 +34,18 @@ Does Not work: 'auto_lr_find': True,  'auto_scale_batch_size': True
 Works:         'auto_lr_find': True,  'auto_scale_batch_size': False
 Works:         'auto_lr_find': False, 'auto_scale_batch_size': True
 - 
-{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 1, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'gradient_clip_val': 0.5}
+{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 10000, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'gradient_clip_val': 0.5}
 #{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 5, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'stochastic_weight_avg': True, 'gradient_clip_val': 0.5}
 #{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 1, 'auto_lr_find': False, 'auto_scale_batch_size': True}
 #{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 1, 'auto_lr_find': True, 'auto_scale_batch_size': False}
 
 
 parameters for python-dictionary 'model_init'
+Dropouts are used ONLY during Training; dropouts are disabled by Lightning during validation or testing or Predicting
 - 
-{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert', 'tokenizer_init': {'tokenizer.model_max_length': 20, 'tokenizer.truncation_side':'left'}}
+{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert'}
+#{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert', 'hidden_dropout_prob': 0.2, 'attention_probs_dropout_prob': 0.3, 'classification_head_dropout': 0.4}
+#{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert', 'classification_head_dropout': 0.3, 'tokenizer_init': {'tokenizer.model_max_length': 20, 'tokenizer.truncation_side':'left'}}
 #{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert', 'classification_head_dropout': 0.1, 'loss_func_class_weights': True}
 
 
