@@ -102,8 +102,8 @@ def main():
     # for the  max length of input to the model
     # tokenizer.model_max_length = 100
     data = Data(tokenizer=tokenizer,
-                bch_size=user_dicts['data']['batch_size']
-                if 'batch_size' in user_dicts['data'] else {})
+                bch_sizes=user_dicts['data']['batch_sizes']
+                if 'batch_sizes' in user_dicts['data'] else {})
     data.generate_dataset(
         dataset_dirPath=user_dicts['data']['dataset_dirPath'],
         # dataset_split is not used anymore
@@ -121,13 +121,13 @@ def main():
     else:
         model = Model(model_init=user_dicts['model_init'],
                       num_classes=len(dataset_metadata['tknLblId2tknLbl']),
-                      tokenLabels_NumberCount=dataset_metadata[
-                          'train token-labels -> number:count'])
-    # bch_size is only provided to turn-off Lightning Warning;
-    # resume_from_checkpoint can provide a different bch_size which will
-    # conflict with this bch_size
+                      tknLblIds_NumberCount=dataset_metadata[
+                          'train tknLbls -> number:count'])
+    # bch_sizes is only provided to turn-off Lightning Warning;
+    # resume_from_checkpoint can provide a different bch_sizes which will
+    # conflict with this bch_sizes
     model.params(optz_sched_params=user_dicts['optz_sched'],
-                 bch_size=dataset_metadata['bch sizes'])
+                 bch_sizes=dataset_metadata['bch sizes'])
 
     # create a directory to store all types of results
     if 'resume_from_checkpoint' in user_dicts['ld_resume_chkpt']:
