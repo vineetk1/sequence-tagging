@@ -616,6 +616,9 @@ def generate_userOut(
                             cmd, carEntityNumsNeeded = entityLbl, 2
                             carEntityNums = [carEntityNums[-1]]
                         else:   # len(carEntityNums) <= carEntityNumsNeeded
+                            if entityWrd == "to" and cmd == 'range1':
+                                wrdLbl_idx += 1
+                                continue
                             # bad userIn-seg; throw previous collected info
                             # plus this one
                             cmd, carEntityNumsNeeded, unit = "", None, ""
