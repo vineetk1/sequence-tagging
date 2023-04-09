@@ -26,7 +26,7 @@ logg = getLogger(__name__)
 class Model(LightningModule):
 
     def __init__(self, model_init: dict, num_classes: int,
-                 tokenLabels_NumberCount: dict):
+                 tknLblIds_NumberCount: dict):
         super().__init__()
         # save parameters for future use of "loading a model from
         # checkpoint"
@@ -69,8 +69,12 @@ class Model(LightningModule):
 
             if 'loss_func_class_weights' in model_init and isinstance(
                     model_init['loss_func_class_weights'], bool):
+                assert self.num_classes == len(tknLblIds_NumberCount)
+                assert 0 not in tknLblIds_NumberCount.values()
+                # weights with ascending tknLblIds (i.e. classes) without
+                # tknLblId=-100 because its Loss is ignored by PyTorch
                 weights = torch.tensor([
-                    tokenLabels_NumberCount[number]
+                    tknLblIds_NumberCount[number]
                     for number in range(self.num_classes)
                 ])
                 weights = weights / weights.sum()
@@ -81,8 +85,8 @@ class Model(LightningModule):
                 self.loss_fct = torch.nn.CrossEntropyLoss()
 
     def params(self, optz_sched_params: Dict[str, Any],
-               bch_size: Dict[str, int]) -> None:
-        self.bch_size = bch_size  # needed to turn off lightning warning
+               bch_sizes: Dict[str, int]) -> None:
+        self.bch_sizes = bch_sizes  # needed to turn off lightning warning
         self.optz_sched_params = optz_sched_params
         # Trainer('auto_lr_find': True...) requires self.lr
         self.lr = optz_sched_params['optz_params']['lr'] if (
@@ -101,7 +105,7 @@ class Model(LightningModule):
                  on_step=False,
                  on_epoch=True,
                  prog_bar=True,
-                 batch_size=self.bch_size['train'],
+                 batch_size=self.bch_sizes['train'],
                  logger=False)
         return tr_loss
 
@@ -124,7 +128,7 @@ class Model(LightningModule):
             on_epoch=True,  # checkpoint-callback monitors epoch
             # val_loss, so on_epoch Must be True
             prog_bar=True,
-            batch_size=self.bch_size['val'],
+            batch_size=self.bch_sizes['val'],
             logger=False)
         return v_loss
 
@@ -143,7 +147,7 @@ class Model(LightningModule):
                  on_step=False,
                  on_epoch=True,
                  prog_bar=True,
-                 batch_size=self.bch_size['test'],
+                 batch_size=self.bch_sizes['test'],
                  logger=True)
         return ts_loss
 
@@ -221,7 +225,7 @@ class Model(LightningModule):
             self.tokenizer = tokenizer
             self.dataset_meta: Dict[str, Any] = dataset_meta
             self.df: pd.DataFrame = pd.read_pickle(
-                dataset_meta['pandas predict data-frame file location'])
+                dataset_meta['pandas predict-dataframe file location'])
             return
 
         self.failed_nnOut_tknLblIds_file: pathlib.Path = dirPath.joinpath(
@@ -253,7 +257,7 @@ class Model(LightningModule):
         self.y_true: List[List[str]] = []
         self.y_pred: List[List[str]] = []
         self.df: pd.DataFrame = pd.read_pickle(
-            dataset_meta['pandas predict data-frame file location'])
+            dataset_meta['pandas predict-dataframe file location'])
 
         # number of turns in the Predict dataset
         self.count_total_turns: int = 0
