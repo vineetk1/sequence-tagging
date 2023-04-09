@@ -350,8 +350,8 @@ def print_statistics(
                     print('None')
 
                 relevant_keys_of_dataset_meta = [
-                    'bch sizes', 'dataset lengths',
-                    'pandas predict data-frame file location'
+                    'bch sizes', 'dataframes lengths',
+                    'pandas predict-dataframe file location'
                 ]
                 for k, v in dataset_meta.items():
                     if k in relevant_keys_of_dataset_meta:
