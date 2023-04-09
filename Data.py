@@ -16,17 +16,17 @@ logg = getLogger(__name__)
 
 class Data(LightningDataModule):
 
-    def __init__(self, tokenizer, bch_size: dict):
+    def __init__(self, tokenizer, bch_sizes: Dict[str, int]):
         super().__init__()
         self.tokenizer = tokenizer
         for bch_size_key in ('train', 'val', 'test', 'predict'):
-            if bch_size_key not in bch_size or not isinstance(
-                    bch_size[bch_size_key],
-                    int) or bch_size[bch_size_key] == 0:
-                bch_size[bch_size_key] = 1
-        self.bch_sizes = bch_size
+            if bch_size_key not in bch_sizes or not isinstance(
+                    bch_sizes[bch_size_key],
+                    int) or bch_sizes[bch_size_key] == 0:
+                bch_sizes[bch_size_key] = 1
+        self.bch_sizes = bch_sizes
         # Trainer('auto_scale_bch_size': True...) requires self.bch_size
-        self.bch_size = bch_size['train']
+        self.bch_size = bch_sizes['train']  # self.bch_size vs self.bch_sizes
 
     def generate_dataset(self, dataset_dirPath: str,
                          dataset_split: Dict[str, int]) -> None:
@@ -37,14 +37,14 @@ class Data(LightningDataModule):
                 dataset_split[dataset_split_key] = 0
         generate_dataset(tokenizer=self.tokenizer,
                          dataset_dirPath=dataset_dirPath,
+                         bch_sizes=self.bch_sizes,
                          dataset_split=dataset_split)
 
     def prep_dataset_for_trainValTest(self, dataset_dirPath: str, train: bool,
                                       predict: bool) -> Dict[str, Any]:
         dataset_metadata, train_data, val_data, test_data = (
             prepare_dataset_for_trainValTest(tokenizer=self.tokenizer,
-                                             dataset_dirPath=dataset_dirPath,
-                                             bch_sizes=self.bch_sizes))
+                                             dataset_dirPath=dataset_dirPath))
         if train:
             assert (train_data is not None and val_data is not None
                     and test_data is not None)
@@ -63,7 +63,7 @@ class Data(LightningDataModule):
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
             self.train_data,
-            batch_size=self.bch_size,
+            batch_size=self.bch_size,   # self.bch_size vs self.bch_sizes
             shuffle=False,
             sampler=RandomSampler(self.train_data),
             batch_sampler=None,
