@@ -11,16 +11,16 @@ import pickle
 logg = getLogger(__name__)
 
 
-def prepare_dataset_for_trainValTest(
-    tokenizer, dataset_dirPath: str
+def prepare_dataframes_for_trainValTest(
+    tokenizer, dataframes_dirPath: str
 ) -> Tuple[Dict[str, Any], List[List[List[Any]]], List[List[List[Any]]],
            List[List[List[Any]]]]:
 
-    dataset_dirPath = Path(dataset_dirPath).resolve(strict=True)
-    df_train_file = dataset_dirPath.joinpath('train.df')
-    df_val_file = dataset_dirPath.joinpath('val.df')
-    df_test_file = dataset_dirPath.joinpath('test.df')
-    df_metadata_file = dataset_dirPath.joinpath('df_metadata')
+    dataframes_dirPath = Path(dataframes_dirPath).resolve(strict=True)
+    df_train_file = dataframes_dirPath.joinpath('train.df')
+    df_val_file = dataframes_dirPath.joinpath('val.df')
+    df_test_file = dataframes_dirPath.joinpath('test.df')
+    df_metadata_file = dataframes_dirPath.joinpath('df_metadata')
     if not (df_train_file.exists() and df_val_file.exists()
             and df_test_file.exists() and df_metadata_file.exists()):
         strng = ('Either one or more of following files do not exist: '
