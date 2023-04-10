@@ -219,13 +219,13 @@ class Model(LightningModule):
             return optimizer
 
     def prepare_for_predict(self, predictStatistics: bool, tokenizer,
-                            dataset_meta: Dict[str, Any],
+                            dataframes_meta: Dict[str, Any],
                             dirPath: pathlib.Path) -> None:
         if predictStatistics is False:
             self.tokenizer = tokenizer
-            self.dataset_meta: Dict[str, Any] = dataset_meta
+            self.dataframes_meta: Dict[str, Any] = dataframes_meta
             self.df: pd.DataFrame = pd.read_pickle(
-                dataset_meta['pandas predict-dataframe file location'])
+                dataframes_meta['pandas predict-dataframe file location'])
             return
 
         self.failed_nnOut_tknLblIds_file: pathlib.Path = dirPath.joinpath(
@@ -234,8 +234,8 @@ class Model(LightningModule):
         if self.failed_nnOut_tknLblIds_file.stat().st_size:
             with self.failed_nnOut_tknLblIds_file.open('a') as file:
                 file.write('\n\n****resume from checkpoint****\n')
-        self.failed_nnOut_entityLblsUserOut_file: pathlib.Path = dirPath.joinpath(
-            'failed_nnOut_entityLblsUserOut.txt')
+        self.failed_nnOut_entityLblsUserOut_file: pathlib.Path = (
+            dirPath.joinpath('failed_nnOut_entityLblsUserOut.txt'))
         self.failed_nnOut_entityLblsUserOut_file.touch()
         if self.failed_nnOut_entityLblsUserOut_file.stat().st_size:
             with self.failed_nnOut_entityLblsUserOut_file.open('a') as file:
@@ -252,14 +252,14 @@ class Model(LightningModule):
                 file.write('\n\n****resume from checkpoint****\n')
 
         self.tokenizer = tokenizer
-        self.dataset_meta: Dict[str, Any] = dataset_meta
+        self.dataframes_meta: Dict[str, Any] = dataframes_meta
         self.dirPath: pathlib.Path = dirPath
         self.y_true: List[List[str]] = []
         self.y_pred: List[List[str]] = []
         self.df: pd.DataFrame = pd.read_pickle(
-            dataset_meta['pandas predict-dataframe file location'])
+            dataframes_meta['pandas predict-dataframe file location'])
 
-        # number of turns in the Predict dataset
+        # number of turns in the Predict dataframe
         self.count_total_turns: int = 0
         # number of turns that failed
         self.count_failed_turns: int = 0
@@ -289,7 +289,7 @@ class Model(LightningModule):
                 bch_map_tknIdx2wrdIdx=batch['map_tknIdx2wrdIdx'],
                 bch_userIn_filtered_wrds=batch['userIn_filtered_wrds'],
                 bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
-                tknLblId2tknLbl=self.dataset_meta['tknLblId2tknLbl'],
+                tknLblId2tknLbl=self.dataframes_meta['tknLblId2tknLbl'],
                 DEBUG_bch_tknLblIds_True=batch['tknLblIds'],
                 DEBUG_tokenizer=self.tokenizer))
 
@@ -324,7 +324,7 @@ class Model(LightningModule):
                 bch_nnOut_userOut=bch_nnOut_userOut,
                 df=self.df,
                 tokenizer=self.tokenizer,
-                dataset_meta=self.dataset_meta,
+                dataframes_meta=self.dataframes_meta,
                 failed_nnOut_tknLblIds_file=self.failed_nnOut_tknLblIds_file,
                 failed_nnOut_entityLblsUserOut_file=(
                     self.failed_nnOut_entityLblsUserOut_file),
@@ -347,7 +347,7 @@ class Model(LightningModule):
         y_true, y_pred = Predict_statistics.prepare_metric(
             bch=batch,
             bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
-            dataset_meta=self.dataset_meta)
+            dataframes_meta=self.dataframes_meta)
         self.y_true.extend(y_true)
         self.y_pred.extend(y_pred)
 
@@ -358,7 +358,7 @@ class Model(LightningModule):
 
         Predict_statistics.print_statistics(
             test_results=self.test_results,
-            dataset_meta=self.dataset_meta,
+            dataframes_meta=self.dataframes_meta,
             count_total_turns=self.count_total_turns,
             count_failed_turns=self.count_failed_turns,
             count_failed_nnOut_tknLblIds=self.count_failed_nnOut_tknLblIds,
