@@ -7,8 +7,9 @@ import torch
 from torch.utils.data import Dataset, RandomSampler, DataLoader
 from logging import getLogger
 from typing import List, Dict, Any, Tuple
-from generate_dataset.Generate_dataset import generate_dataset
-from Prepare_dataset_for_trainValTest import prepare_dataset_for_trainValTest
+from generate_dataset.Generate_dataframes import generate_dataframes
+from Prepare_dataframes_for_trainValTest import (
+    prepare_dataframes_for_trainValTest)
 import Utilities
 
 logg = getLogger(__name__)
@@ -28,23 +29,18 @@ class Data(LightningDataModule):
         # Trainer('auto_scale_bch_size': True...) requires self.bch_size
         self.bch_size = bch_sizes['train']  # self.bch_size vs self.bch_sizes
 
-    def generate_dataset(self, dataset_dirPath: str,
-                         dataset_split: Dict[str, int]) -> None:
-        # dataset_split is not used anymore
-        for dataset_split_key in ('train', 'val', 'test'):
-            if dataset_split_key not in dataset_split or not isinstance(
-                    dataset_split[dataset_split_key], int):
-                dataset_split[dataset_split_key] = 0
-        generate_dataset(tokenizer=self.tokenizer,
-                         dataset_dirPath=dataset_dirPath,
-                         bch_sizes=self.bch_sizes,
-                         dataset_split=dataset_split)
+    def generate_dataframes(self, dataframes_dirPath: str) -> None:
+        generate_dataframes(tokenizer=self.tokenizer,
+                            dataframes_dirPath=dataframes_dirPath,
+                            bch_sizes=self.bch_sizes)
 
-    def prep_dataset_for_trainValTest(self, dataset_dirPath: str, train: bool,
-                                      predict: bool) -> Dict[str, Any]:
-        dataset_metadata, train_data, val_data, test_data = (
-            prepare_dataset_for_trainValTest(tokenizer=self.tokenizer,
-                                             dataset_dirPath=dataset_dirPath))
+    def prepare_dataframes_for_trainValTest(self, dataframes_dirPath: str,
+                                            train: bool,
+                                            predict: bool) -> Dict[str, Any]:
+        dataframes_metadata, train_data, val_data, test_data = (
+            prepare_dataframes_for_trainValTest(
+                tokenizer=self.tokenizer,
+                dataframes_dirPath=dataframes_dirPath))
         if train:
             assert (train_data is not None and val_data is not None
                     and test_data is not None)
@@ -58,12 +54,12 @@ class Data(LightningDataModule):
             strng = 'Train=False and Predict=False; both cannot be False'
             logg.critical(strng)
             exit()
-        return dataset_metadata
+        return dataframes_metadata
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
             self.train_data,
-            batch_size=self.bch_size,   # self.bch_size vs self.bch_sizes
+            batch_size=self.bch_size,  # self.bch_size vs self.bch_sizes
             shuffle=False,
             sampler=RandomSampler(self.train_data),
             batch_sampler=None,
