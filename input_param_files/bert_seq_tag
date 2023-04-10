@@ -24,9 +24,8 @@ parameters for python-dictionary 'optz_sched'
 {'optz': 'Adam', 'optz_params': {'lr': 1e-5}, 'lr_sched': 'ReduceLROnPlateau', 'lr_sched_params': {'mode': 'min', 'patience': 3, 'factor': 5e-1}} 
 
 parameters for python-dictionary 'data'
-# NOTE: dataset_split is ignored
 - 
-{'dataset_dirPath': 'datasets/3', 'batch_size': {'train': 4, 'val': 16, 'test': 32}} 
+{'dataframes_dirPath': 'experiments/2', 'batch_sizes': {'train': 4, 'val': 16, 'test': 32}} 
 
 
 parameters for python-dictionary 'trainer'
@@ -43,10 +42,9 @@ Works:         'auto_lr_find': False, 'auto_scale_batch_size': True
 parameters for python-dictionary 'model_init'
 Dropouts are used ONLY during Training; dropouts are disabled by Lightning during validation or testing or Predicting
 - 
-{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert'}
-#{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert', 'hidden_dropout_prob': 0.2, 'attention_probs_dropout_prob': 0.3, 'classification_head_dropout': 0.4}
+#{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert'}
+{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert', 'hidden_dropout_prob': 0.1, 'attention_probs_dropout_prob': 0.1, 'classification_head_dropout': 0.1, 'loss_func_class_weights': True}
 #{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert', 'classification_head_dropout': 0.3, 'tokenizer_init': {'tokenizer.model_max_length': 20, 'tokenizer.truncation_side':'left'}}
-#{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert', 'classification_head_dropout': 0.1, 'loss_func_class_weights': True}
 
 
 parameters for python-dictionary 'ld_resume_chkpt'. This dictionary MUST be empty
