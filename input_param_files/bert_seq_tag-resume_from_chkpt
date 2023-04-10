@@ -32,9 +32,8 @@ parameters for python-dictionary 'optz_sched'. ***Contents of this dict are repl
 
 parameters for python-dictionary 'data'
 ***Either keep this dict empty or specifiy All key-values
-Dataset for Predict is the same as test-set
 - 
-{'dataset_dirPath': 'datasets/1', 'batch_size': {'train': 4, 'val': 16, 'test': 32}} 
+{'dataframes_dirPath': 'experiments/2', 'batch_sizes': {'train': 4, 'val': 16, 'test': 32}} 
 
 
 parameters for python-dictionary 'trainer'
