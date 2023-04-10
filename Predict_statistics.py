@@ -23,7 +23,7 @@ def failed_nnOut_tknLblIds(
     bch_nnOut_userOut: List[Dict[str, List[str]]],
     df: pd.DataFrame,
     tokenizer,
-    dataset_meta: Dict[str, Any],
+    dataframes_meta: Dict[str, Any],
     failed_nnOut_tknLblIds_file: pathlib.Path,
     failed_nnOut_entityLblsUserOut_file: pathlib.Path,
     passed_file: pathlib.Path,
@@ -114,11 +114,11 @@ def failed_nnOut_tknLblIds(
                                [nnIn_tknIds_idx]).item()
             bch_nnIn_tkns[-1].append(
                 tokenizer.convert_ids_to_tokens(nnIn_tknId))
-            if nnIn_tknId in dataset_meta['test-set unseen tokens']:
+            if nnIn_tknId in dataframes_meta['test-set unseen tokens']:
                 bch_unseen_tkns_predictSet[-1].append(bch_nnIn_tkns[-1][-1])
-            bch_tknLbls_True[-1].append(dataset_meta['tknLblId2tknLbl'][
+            bch_tknLbls_True[-1].append(dataframes_meta['tknLblId2tknLbl'][
                 bch['tknLblIds'][bch_idx, nnIn_tknIds_idx]])
-            bch_nnOut_tknLbls[-1].append(dataset_meta['tknLblId2tknLbl'][
+            bch_nnOut_tknLbls[-1].append(dataframes_meta['tknLblId2tknLbl'][
                 bch_nnOut_tknLblIds[bch_idx, nnIn_tknIds_idx]])
 
     with failed_nnOut_tknLblIds_file.open(
@@ -247,7 +247,7 @@ def failed_nnOut_tknLblIds(
 def prepare_metric(
     bch: Dict[str, Any],
     bch_nnOut_tknLblIds: torch.Tensor,
-    dataset_meta: Dict[str, Any],
+    dataframes_meta: Dict[str, Any],
 ) -> Tuple[List[List[str]], List[List[str]]]:
     y_true: List[List[str]] = []
     y_pred: List[List[str]] = []
@@ -268,13 +268,13 @@ def prepare_metric(
                 ) == prev_firstTknOfWrd_idx:
                 continue  # ignore tknId that is not first-token-of-word
             prev_firstTknOfWrd_idx = firstTknOfWrd_idx
-            nnOut_tknLbl_True = dataset_meta['tknLblId2tknLbl'][
+            nnOut_tknLbl_True = dataframes_meta['tknLblId2tknLbl'][
                 bch['tknLblIds'][bch_idx, nnIn_tknIds_idx]]
             #assert nnOut_tknLbl_True != "T"
             assert nnOut_tknLbl_True[0] != "T"
             y_true[-1].append(nnOut_tknLbl_True)
-            nnOut_tknLbl = dataset_meta['tknLblId2tknLbl'][bch_nnOut_tknLblIds[
-                bch_idx, nnIn_tknIds_idx]]
+            nnOut_tknLbl = dataframes_meta['tknLblId2tknLbl'][
+                bch_nnOut_tknLblIds[bch_idx, nnIn_tknIds_idx]]
             #if nnOut_tknLbl == "T":
             if nnOut_tknLbl[0] == "T":
                 # "T" is not allowed in the metric, only BIO is allowed;
@@ -293,7 +293,7 @@ def prepare_metric(
 
 def print_statistics(
     test_results: pathlib.Path,
-    dataset_meta: Dict[str, Any],
+    dataframes_meta: Dict[str, Any],
     count_total_turns: int,
     count_failed_turns: int,
     count_failed_nnOut_tknLblIds: int,
@@ -349,12 +349,12 @@ def print_statistics(
                 else:
                     print('None')
 
-                relevant_keys_of_dataset_meta = [
+                relevant_keys_of_dataframes_meta = [
                     'bch sizes', 'dataframes lengths',
                     'pandas predict-dataframe file location'
                 ]
-                for k, v in dataset_meta.items():
-                    if k in relevant_keys_of_dataset_meta:
+                for k, v in dataframes_meta.items():
+                    if k in relevant_keys_of_dataframes_meta:
                         print(k)
                         print(
                             textwrap.fill(f'{v}',
