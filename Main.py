@@ -89,9 +89,9 @@ def main():
             for item in ['model', 'model_type', 'tokenizer_type']
             if item in user_dicts['model_init']
         ])
-        dataset_dirPath = Path(
-            user_dicts['data']['dataset_dirPath']).resolve(strict=True)
-        dirPath = dataset_dirPath.joinpath(tb_subDir).resolve(strict=False)
+        dataframes_dirPath = Path(
+            user_dicts['data']['dataframes_dirPath']).resolve(strict=True)
+        dirPath = dataframes_dirPath.joinpath(tb_subDir).resolve(strict=False)
         dirPath.mkdir(parents=True, exist_ok=True)
 
     from transformers import BertTokenizerFast
@@ -104,13 +104,10 @@ def main():
     data = Data(tokenizer=tokenizer,
                 bch_sizes=user_dicts['data']['batch_sizes']
                 if 'batch_sizes' in user_dicts['data'] else {})
-    data.generate_dataset(
-        dataset_dirPath=user_dicts['data']['dataset_dirPath'],
-        # dataset_split is not used anymore
-        dataset_split=user_dicts['data']['dataset_split']
-        if 'dataset_split' in user_dicts['data'] else {})
-    dataset_metadata = data.prep_dataset_for_trainValTest(
-        dataset_dirPath=user_dicts['data']['dataset_dirPath'],
+    data.generate_dataframes(
+        dataframes_dirPath=user_dicts['data']['dataframes_dirPath'])
+    dataframes_metadata = data.prepare_dataframes_for_trainValTest(
+        dataframes_dirPath=user_dicts['data']['dataframes_dirPath'],
         train=user_dicts['misc']['train'],
         predict=user_dicts['misc']['predict'])
 
@@ -120,14 +117,14 @@ def main():
             checkpoint_path=user_dicts['ld_resume_chkpt']['ld_chkpt'])
     else:
         model = Model(model_init=user_dicts['model_init'],
-                      num_classes=len(dataset_metadata['tknLblId2tknLbl']),
-                      tknLblIds_NumberCount=dataset_metadata[
+                      num_classes=len(dataframes_metadata['tknLblId2tknLbl']),
+                      tknLblIds_NumberCount=dataframes_metadata[
                           'train tknLbls -> number:count'])
     # bch_sizes is only provided to turn-off Lightning Warning;
     # resume_from_checkpoint can provide a different bch_sizes which will
     # conflict with this bch_sizes
     model.params(optz_sched_params=user_dicts['optz_sched'],
-                 bch_sizes=dataset_metadata['bch sizes'])
+                 bch_sizes=dataframes_metadata['bch sizes'])
 
     # create a directory to store all types of results
     if 'resume_from_checkpoint' in user_dicts['ld_resume_chkpt']:
@@ -225,7 +222,7 @@ def main():
         model.prepare_for_predict(
             predictStatistics=user_dicts['misc']['predictStatistics'],
             tokenizer=tokenizer,
-            dataset_meta=dataset_metadata,
+            dataframes_meta=dataframes_metadata,
             dirPath=dirPath)
         if user_dicts['misc']['train']:
             trainer.predict(dataloaders=data.predict_dataloader(),
@@ -279,9 +276,9 @@ def verify_and_change_user_provided_parameters(user_dicts: Dict):
             logg.critical(strng)
             exit()
 
-        if not ('dataset_dirPath' in user_dicts['data']
-                and isinstance(user_dicts['data']['dataset_dirPath'], str)):
-            logg.critical('Must specify a path to the dataset.')
+        if not ('dataframes_dirPath' in user_dicts['data']
+                and isinstance(user_dicts['data']['dataframes_dirPath'], str)):
+            logg.critical('Must specify a path to the dataframes.')
             exit()
 
 
