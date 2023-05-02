@@ -156,10 +156,9 @@ def main():
             dirPath.mkdir(parents=True, exist_ok=True)
         else:
             assert False
-    if not user_dicts['misc']['predict']:
-        paramFile = dirPath.joinpath('hyperparameters_used.yaml')
-        paramFile.touch()
-        paramFile.write_text(dump(user_dicts))
+    paramFile = dirPath.joinpath('hyperparameters_used.yaml')
+    paramFile.touch()
+    paramFile.write_text(dump(user_dicts))
 
     # setup Callbacks and Trainer
     if user_dicts['misc']['train']:
