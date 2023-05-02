@@ -15,6 +15,7 @@ Note the following:
 Command-line:
 -------------
 python3 Main.py input_param_files/bert_seq_tag-ld_chkpt_and_predict
+python3 -m pdb Main.py input_param_files/bert_seq_tag-ld_chkpt_and_predict
 
 
 parameters for python-dictionary 'misc'. ***Must specify the contents of this dict***
@@ -32,7 +33,7 @@ parameters for python-dictionary 'data'.
 ***Either keep this dict empty or specifiy All key-values
 Dataframe for Predict is the same as test-dataframe
 - 
-{'dataframes_dirPath': 'experiments/2', 'batch_sizes': {'predict': 3}} 
+{'dataframes_dirPath': 'experiments/4', 'batch_sizes': {'predict': 32}} 
 
 
 parameters for python-dictionary 'trainer'. 
@@ -47,6 +48,5 @@ Dropouts are used ONLY during Training; dropouts are disabled by Lightning durin
 
 
 parameters for python-dictionary 'ld_resume_chkpt'. ***Must specify the contents of this dict***
-checkpoint must be in same directory-path as 'dataset_dirPath'
 - 
-{'ld_chkpt': '/home/vin/sequence-tagging/datasets/1/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/optz=Adam,lr=1e-05,lr_sched=ReduceLROnPlateau,mode=min,patience=3,factor=0.5,epoch=1755-val_loss=0.22628.ckpt'}
+{'ld_chkpt': '/home/vin/sequence-tagging/experiments/4/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/optz=Adam,lr=1e-05,lr_sched=ReduceLROnPlateau,mode=min,patience=4,factor=0.5,epoch=15-val_loss=0.01347.ckpt'}
