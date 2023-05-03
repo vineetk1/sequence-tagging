@@ -409,12 +409,6 @@ def tknLblIds2entity_wrds_lbls(
                         count_wrongPredictions = (
                                 max_count_wrongPredictions_plus1)
                         break
-                        # entityLbl with next-BIO of “I” is different from
-                        # entityLbl with prev_BIO of “B”
-                        multipleWord_entity = f"WRNG_{entityLbl}-{multipleWord_entity}-{entityWrd}"
-                        if ((count_wrongPredictions := count_wrongPredictions +
-                           1) >= max_count_wrongPredictions_plus1):
-                            break
                     else:
                         multipleWord_entity = (
                                 f"{multipleWord_entity} {entityWrd}")
@@ -422,19 +416,6 @@ def tknLblIds2entity_wrds_lbls(
                 elif prev_BIO == "O":
                     count_wrongPredictions = max_count_wrongPredictions_plus1
                     break
-                    # expected "B" or "O" but model predicts "I"; assume model
-                    # is right with prev_BIO but wrong now; so change from "I"
-                    # to "B"
-                    if multipleWord_entity:  # previous multipleWord_entity
-                        bch_nnOut_userIn_filtered_entityWrds[-1].append(
-                                                           multipleWord_entity)
-                    bch_nnOut_entityLbls[-1].append(
-                            f"Changed_ItoB-{entityLbl}")
-                    multipleWord_entity = entityWrd
-                    prev_BIO = "B"    # next tkn is "B" or "I" or "O"
-                    if ((count_wrongPredictions := count_wrongPredictions + 1)
-                            >= max_count_wrongPredictions_plus1):
-                        break
                 else:   # prev_BIO == None
                     # expected "B" or "O" at start-of-sentence but model
                     # predicts "I"
@@ -442,7 +423,7 @@ def tknLblIds2entity_wrds_lbls(
                     count_wrongPredictions = max_count_wrongPredictions_plus1
                     break
             else:
-                #assert not nnOut_tknLbl == 'T'
+                assert False
                 count_wrongPredictions = max_count_wrongPredictions_plus1
                 break
         if multipleWord_entity:  # previous multipleWord_entity
