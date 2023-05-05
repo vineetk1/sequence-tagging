@@ -490,7 +490,7 @@ def generate_userOut(
                             assert False
                         if carEntityNums:
                             transition(bch_nnOut_userOut[bch_idx], cmd, unit,
-                                    carEntityNums, carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
+                                       carEntityNums, carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
                     cmd, carEntityNumsNeeded, unit = "", None, ""
                     carEntityNums.clear()
                     carEntityNumsLbl = ""
@@ -662,12 +662,45 @@ def generate_userOut(
                             wrdLbl_idx -= 1
                 case 'carEntityLbl':
                     pass
+                case "restore":
+                    if cmd:
+                        #if len(carEntityNums) < carEntityNumsNeeded:
+                        #    assert False
+                        if len(carEntityNums) >= carEntityNumsNeeded:
+                            transition(bch_nnOut_userOut[bch_idx], cmd, unit,
+                                       carEntityNums, carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
+                        # else throw previous collected data
+                    elif carEntityNums:
+                        transition(bch_nnOut_userOut[bch_idx], "", unit,
+                                   carEntityNums, carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
+                    cmd, carEntityNumsNeeded, unit = "", None, ""
+                    carEntityNums.clear()
+                    carEntityNumsLbl = ""
+
+                    wrdLbl_idx += 1
+                    if wrdLbl_idx < len(bch_nnOut_entityLbls[bch_idx]) and (
+                       bch_nnOut_entityLbls[bch_idx][wrdLbl_idx] == 'setting'):
+                        try:
+                            num = int(bch_nnOut_userIn_filtered_entityWrds[
+                                bch_idx][wrdLbl_idx])
+                            # bch_nnOut_userOut[bch_idx] = setting # num
+                            # following is dummy userOut
+                            bch_nnOut_userOut[bch_idx] = {'brand': ['bentley'], 'model': ['nv3500 hd passenger'], 'color': ['tuxedo black metallic'], 'style': ['vanminivan'], 'mileage': ['less 26632.01 kilometers'], 'price': ['more 5000 $'], 'year': ['2015-2023']}
+                        except ValueError:
+                            pass
+                    else:
+                        wrdLbl_idx -= 1
                 case _:
                     assert False
             wrdLbl_idx += 1
         if cmd or len(carEntityNums):
-            transition(bch_nnOut_userOut[bch_idx], cmd, unit, carEntityNums,
-                       carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
+            if cmd != 'remove':
+                transition(bch_nnOut_userOut[bch_idx], cmd, unit,
+                           carEntityNums, carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
+            else:
+                cmd, carEntityNumsNeeded, unit = "", None, ""
+                carEntityNums.clear()
+                carEntityNumsLbl = ""
     return bch_nnOut_userOut
 
 
