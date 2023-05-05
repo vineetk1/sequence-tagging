@@ -12,6 +12,13 @@ Note the following:
 	    corresponding dictionary from the checkpoint file that is loaded
 	(6) Some dicts -- such as misc, ld_resume_chkpt -- must not be empty
 
+****************** IMPORTANT: Your run will FAIL: ***************
+------------------------------------------------------------------
+(1) The path in 'dataframes_dirPath' MUST be the same as in 'ld_chkpt';
+	 In the example below, the number 5 MUST be the same:
+	 'dataframes_dirPath': 'experiments/5' must be be same as in
+	 'ld_chkpt': '/home/vin/sequence-tagging/experiments/5/.....
+
 Command-line:
 -------------
 python3 Main.py input_param_files/bert_seq_tag-ld_chkpt_and_predict
@@ -33,7 +40,7 @@ parameters for python-dictionary 'data'.
 ***Either keep this dict empty or specifiy All key-values
 Dataframe for Predict is the same as test-dataframe
 - 
-{'dataframes_dirPath': 'experiments/4', 'batch_sizes': {'predict': 32}} 
+{'dataframes_dirPath': 'experiments/5', 'batch_sizes': {'predict': 3}} 
 
 
 parameters for python-dictionary 'trainer'. 
@@ -49,4 +56,4 @@ Dropouts are used ONLY during Training; dropouts are disabled by Lightning durin
 
 parameters for python-dictionary 'ld_resume_chkpt'. ***Must specify the contents of this dict***
 - 
-{'ld_chkpt': '/home/vin/sequence-tagging/experiments/4/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/optz=Adam,lr=1e-05,lr_sched=ReduceLROnPlateau,mode=min,patience=4,factor=0.5,epoch=15-val_loss=0.01347.ckpt'}
+{'ld_chkpt': '/home/vin/sequence-tagging/experiments/5/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/optz=Adam,lr=1e-05,lr_sched=ReduceLROnPlateau,mode=min,patience=4,factor=0.5,epoch=12-val_loss=0.01685.ckpt'}
