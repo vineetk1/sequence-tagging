@@ -350,8 +350,9 @@ def print_statistics(
                     print('None')
 
                 relevant_keys_of_dataframes_meta = [
-                    'bch sizes', 'dataframes lengths',
-                    'pandas predict-dataframe file location'
+                    'bch sizes', '# of dialog-turns in dataframes',
+                    'entityWrds that have more than one tknLbl',
+                    'pandas predict-dataframe file location',
                 ]
                 for k, v in dataframes_meta.items():
                     if k in relevant_keys_of_dataframes_meta:
