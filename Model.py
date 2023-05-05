@@ -308,7 +308,7 @@ class Model(LightningModule):
 
         # gather statistics
 
-        # write do file the info about FAILED nnOut_tknLblIds. etc.; keep count
+        # write to file the info about FAILED nnOut_tknLblIds. etc.; keep count
         count_total_turns,\
             count_failed_nnOut_tknLblIds,\
             count_failedTurns_nnOut_tknLblIds,\
