@@ -114,7 +114,7 @@ def failed_nnOut_tknLblIds(
                                [nnIn_tknIds_idx]).item()
             bch_nnIn_tkns[-1].append(
                 tokenizer.convert_ids_to_tokens(nnIn_tknId))
-            if nnIn_tknId in dataframes_meta['test-set unseen tokens']:
+            if nnIn_tknId in dataframes_meta['test-set unseen tknIds']:
                 bch_unseen_tkns_predictSet[-1].append(bch_nnIn_tkns[-1][-1])
             bch_tknLbls_True[-1].append(dataframes_meta['tknLblId2tknLbl'][
                 bch['tknLblIds'][bch_idx, nnIn_tknIds_idx]])
