@@ -119,7 +119,7 @@ def main():
         model = Model(model_init=user_dicts['model_init'],
                       num_classes=len(dataframes_metadata['tknLblId2tknLbl']),
                       tknLblIds_NumberCount=dataframes_metadata[
-                          'train tknLbls -> number:count'])
+                          'train-set tknLblIds:count'])
     # bch_sizes is only provided to turn-off Lightning Warning;
     # resume_from_checkpoint can provide a different bch_sizes which will
     # conflict with this bch_sizes
