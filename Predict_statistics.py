@@ -302,6 +302,23 @@ def print_statistics(
                         passedTurnsTknLbls_userOutFail,
                 ):
                     print(strng)
+                print('')  # empty line
+
+                relevant_keys_of_dataframes_meta = [
+                    'bch sizes',
+                    '# of dialog-turns in dataframes',
+                    'entityWrds that have more than one tknLbl',
+                    'pandas predict-dataframe file location',
+                    'predict-set entityWrds not seen in train-set',
+                ]
+                for k, v in dataframes_meta.items():
+                    if k in relevant_keys_of_dataframes_meta:
+                        print(k)
+                        print(
+                            textwrap.fill(f'{v}',
+                                          width=80,
+                                          initial_indent=4 * " ",
+                                          subsequent_indent=5 * " "))
 
                 tknLblsTrue_not_in_predictSet: str = ""
                 passed_nnOut_tknLbl: str = ""
@@ -371,23 +388,6 @@ def print_statistics(
                                   initial_indent=0 * " ",
                                   subsequent_indent=5 * " "))
                 print()
-
-                relevant_keys_of_dataframes_meta = [
-                    'bch sizes',
-                    '# of dialog-turns in dataframes',
-                    'entityWrds that have more than one tknLbl',
-                    'pandas predict-dataframe file location',
-                    'predict-set entityWrds not seen in train-set',
-                ]
-                for k, v in dataframes_meta.items():
-                    if k in relevant_keys_of_dataframes_meta:
-                        print(k)
-                        print(
-                            textwrap.fill(f'{v}',
-                                          width=80,
-                                          initial_indent=4 * " ",
-                                          subsequent_indent=5 * " "))
-                print('')  # empty line
 
                 from seqeval.scheme import IOB2
                 from seqeval.metrics import accuracy_score
