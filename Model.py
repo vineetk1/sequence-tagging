@@ -234,12 +234,6 @@ class Model(LightningModule):
         if self.failed_nnOut_tknLblIds_file.stat().st_size:
             with self.failed_nnOut_tknLblIds_file.open('a') as file:
                 file.write('\n\n****resume from checkpoint****\n')
-        self.failed_nnOut_entityLblsUserOut_file: pathlib.Path = (
-            dirPath.joinpath('failed_nnOut_entityLblsUserOut.txt'))
-        self.failed_nnOut_entityLblsUserOut_file.touch()
-        if self.failed_nnOut_entityLblsUserOut_file.stat().st_size:
-            with self.failed_nnOut_entityLblsUserOut_file.open('a') as file:
-                file.write('\n\n****resume from checkpoint****\n')
         self.passed_file: pathlib.Path = dirPath.joinpath('passed_file.txt')
         self.passed_file.touch()
         if self.passed_file.stat().st_size:
@@ -259,24 +253,29 @@ class Model(LightningModule):
         self.df: pd.DataFrame = pd.read_pickle(
             dataframes_meta['pandas predict-dataframe file location'])
 
-        # number of turns in the Predict dataframe
-        self.count_total_turns: int = 0
-        # number of turns that failed
-        self.count_failed_turns: int = 0
-        # number of nnOut_tknLblId that failed; many can fail in the same turn
-        self.count_failed_nnOut_tknLblIds: int = 0
-        # number of turns in which nnOut_tknLblIds: failed; only one can
-        # fail in a turn
-        self.count_failedTurns_nnOut_tknLblIds: int = 0
-        # number of turns in which nnOut_entityLbls failed; only one can
-        # fail in a turn
-        self.count_failedTurns_nnOut_entityLbl: int = 0
-        # number of turns in which nnOut_userOut failed; only one can
-        # fail in a turn
-        self.count_failedTurns_nnOut_userOut: int = 0
-        self.counter_failed_nnOut_tknLblIds: Counter(Counter,
-                                                     Dict[str,
-                                                          int]) = Counter()
+        self.count = {
+            # number of turns in Predict dataframe
+            "total_turns": 0,
+            # number of nnOut_tknLblId that failed; many can fail in same turn
+            "failed_tknLbls": 0,
+            # number of turns in which nnOut_tknLblIds failed
+            "failedTurns_tknLbls": 0,
+            # number of turns in which nnOut_entityLbls failed
+            "failedTurns_entityLbls": 0,
+            # number of turns in which nnOut_userOut failed
+            "failedTurns_userOut": 0,
+            # num of turns where nnOut_tknLblIds fail but nnOut_entityLbls pass
+            "failedTurnsTknLbls_entityLblsPass": 0,
+            # num of turns where nnOut_tknLblIds fail but nnOut_userOut pass
+            "failedTurnsTknLbls_userOutPass": 0,
+            # num of turns where nnOut_tknLblIds pass but nnOut_entityLbls fail
+            "passedTurnsTknLbls_entityLblsFail": 0,  # must not happen
+            # num of turns where nnOut_tknLblIds pass but nnOut_userOut fail
+            "passedTurnsTknLbls_userOutFail": 0,  # must not happen
+            # for each tknLbl_True whose nnOut_tknLbls failed, collect a list
+            # of passed and failed nnOut_tknLbls and their counts
+            "failed_tknLbls_perDlg": {}
+        }
 
     def predict_step(self, batch: Dict[str, Any], batch_idx: int) -> Any:
         outputs = self.bertModel(**batch['nnIn_tknIds'])
@@ -309,38 +308,20 @@ class Model(LightningModule):
         # gather statistics
 
         # write to file the info about FAILED nnOut_tknLblIds. etc.; keep count
-        count_total_turns,\
-            count_failed_nnOut_tknLblIds,\
-            count_failedTurns_nnOut_tknLblIds,\
-            count_failedTurns_nnOut_entityLbl,\
-            count_failedTurns_nnOut_userOut, count_failed_turns,\
-            counter_failed_nnOut_tknLblIds = (
-              Predict_statistics.failed_nnOut_tknLblIds(
-                bch=batch,
-                bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
-                bch_nnOut_userIn_filtered_entityWrds=(
-                                         bch_nnOut_userIn_filtered_entityWrds),
-                bch_nnOut_entityLbls=bch_nnOut_entityLbls,
-                bch_nnOut_userOut=bch_nnOut_userOut,
-                df=self.df,
-                tokenizer=self.tokenizer,
-                dataframes_meta=self.dataframes_meta,
-                failed_nnOut_tknLblIds_file=self.failed_nnOut_tknLblIds_file,
-                failed_nnOut_entityLblsUserOut_file=(
-                    self.failed_nnOut_entityLblsUserOut_file),
-                passed_file=self.passed_file,
-              ))
-        self.count_total_turns += count_total_turns
-        self.count_failed_turns += count_failed_turns
-        self.count_failed_nnOut_tknLblIds += count_failed_nnOut_tknLblIds
-        self.count_failedTurns_nnOut_tknLblIds += (
-            count_failedTurns_nnOut_tknLblIds)
-        self.count_failedTurns_nnOut_entityLbl += (
-            count_failedTurns_nnOut_entityLbl)
-        self.count_failedTurns_nnOut_userOut += count_failedTurns_nnOut_userOut
-        if counter_failed_nnOut_tknLblIds:
-            self.counter_failed_nnOut_tknLblIds.update(
-                counter_failed_nnOut_tknLblIds)
+        Predict_statistics.failed_nnOut_tknLblIds(
+            bch=batch,
+            bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
+            bch_nnOut_userIn_filtered_entityWrds=(
+                bch_nnOut_userIn_filtered_entityWrds),
+            bch_nnOut_entityLbls=bch_nnOut_entityLbls,
+            bch_nnOut_userOut=bch_nnOut_userOut,
+            df=self.df,
+            tokenizer=self.tokenizer,
+            dataframes_meta=self.dataframes_meta,
+            count=self.count,
+            failed_nnOut_tknLblIds_file=self.failed_nnOut_tknLblIds_file,
+            passed_file=self.passed_file,
+        )
 
         # generate self.y_true and self.y_pred; on_predict_end()
         # uses them to calculate precision, recall, f1, etc.
@@ -359,16 +340,7 @@ class Model(LightningModule):
         Predict_statistics.print_statistics(
             test_results=self.test_results,
             dataframes_meta=self.dataframes_meta,
-            count_total_turns=self.count_total_turns,
-            count_failed_turns=self.count_failed_turns,
-            count_failed_nnOut_tknLblIds=self.count_failed_nnOut_tknLblIds,
-            count_failedTurns_nnOut_tknLblIds=(
-                self.count_failedTurns_nnOut_tknLblIds),
-            count_failedTurns_nnOut_entityLbl=(
-                self.count_failedTurns_nnOut_entityLbl),
-            count_failedTurns_nnOut_userOut=(
-                self.count_failedTurns_nnOut_userOut),
-            counter_failed_nnOut_tknLblIds=self.counter_failed_nnOut_tknLblIds,
+            count=self.count,
             y_true=self.y_true,
             y_pred=self.y_pred,
         )
