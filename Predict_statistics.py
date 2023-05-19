@@ -8,9 +8,9 @@ from typing import Dict, List, Any, Union, Tuple, Set
 import pathlib
 import textwrap
 import pandas as pd
-from collections import Counter
 from itertools import zip_longest
 from Utilities import userOut_init
+from contextlib import redirect_stdout
 
 logg = getLogger(__name__)
 
@@ -24,224 +24,183 @@ def failed_nnOut_tknLblIds(
     df: pd.DataFrame,
     tokenizer,
     dataframes_meta: Dict[str, Any],
+    count: Dict[str, Union[int, Dict[str, int]]],
     failed_nnOut_tknLblIds_file: pathlib.Path,
-    failed_nnOut_entityLblsUserOut_file: pathlib.Path,
     passed_file: pathlib.Path,
 ) -> Tuple[int, int, int, int, int, Dict[str, int]]:
-    count_total_turns: int = 0
-    count_failed_nnOut_tknLblIds: int = 0
-    count_failedTurns_nnOut_tknLblIds: int = 0
-    count_failedTurns_nnOut_entityLbl: int = 0
-    count_failedTurns_nnOut_userOut: int = 0
-    count_failed_turns: int = 0
-    counter_failed_nnOut_tknLblIds: Counter(Counter, Dict[str,
-                                                          int]) = Counter()
 
     assert bch_nnOut_tknLblIds.shape[0] == len(bch_nnOut_entityLbls)
-    count_total_turns += len(bch_nnOut_entityLbls)
+    count["total_turns"] += len(bch_nnOut_entityLbls)
     bch_nnOut_tknLblIds = torch.where(bch['tknLblIds'] == -100,
                                       bch['tknLblIds'], bch_nnOut_tknLblIds)
     failed_bchIdxs_nnOutTknLblIdIdxs: List[List[int, int]] = torch.ne(
         bch['tknLblIds'], bch_nnOut_tknLblIds).nonzero().tolist()
-    count_failed_nnOut_tknLblIds += len(failed_bchIdxs_nnOutTknLblIdIdxs)
+    count["failed_tknLbls"] += len(failed_bchIdxs_nnOutTknLblIdIdxs)
     failed_bchIdxs: Set[int] = {
         failed_bchIdx_nnOutTknLblIdIdx[0]
         for failed_bchIdx_nnOutTknLblIdIdx in failed_bchIdxs_nnOutTknLblIdIdxs
     }
-    count_failedTurns_nnOut_tknLblIds += len(failed_bchIdxs)
+    count["failedTurns_tknLbls"] += len(failed_bchIdxs)
 
-    bch_userIn_filtered_entityWrds_True: List[List[str]] = []
-    bch_idx: int
-    for bch_idx, (dlgId, trnId) in enumerate(bch['dlgTrnId']):
-        bch_userIn_filtered_entityWrds_True.append(
-            df[(df['dlgId'] == dlgId)
-               & (df['trnId'] == trnId)]['userIn_filtered_entityWrds'].item())
+    for bch_idx in range(len(bch_nnOut_entityLbls)):
 
-    bch_entityLbls_True: List[List[str]] = []
-    bch_failed_nnOut_entityLbls: List[List[str]] = []
-    for bch_idx, (dlgId, trnId) in enumerate(bch['dlgTrnId']):
-        bch_failed_nnOut_entityLbls.append([])
-        bch_entityLbls_True.append(
-            df[(df['dlgId'] == dlgId)
-               & (df['trnId'] == trnId)]['entityLbls'].item())
-        if bch_nnOut_entityLbls[bch_idx] != bch_entityLbls_True[-1]:
-            count_failedTurns_nnOut_entityLbl += 1
-            for entityLbl_True, nnOut_entityLbl in zip_longest(
-                    bch_entityLbls_True[-1],
-                (bch_nnOut_entityLbls[bch_idx]
-                 if bch_nnOut_entityLbls[bch_idx] is not None else [])):
-                if entityLbl_True != nnOut_entityLbl:
-                    bch_failed_nnOut_entityLbls[-1].append(
-                        f"({entityLbl_True}, {nnOut_entityLbl})")
-    assert len(bch_entityLbls_True) == len(bch_nnOut_entityLbls)
+        # associate (nnIn_tkn, tknLbl_True, nnOut_tknLbl) and
+        tknLbls_assoc: List[str] = []
+        prev_wrd_idx: int = None
+        next_wrd_idx: int = None
+        tkns: str = None
+        tknLbl_True: str = None
+        nnOut_tknLbl: str = None
+        tknLbl_Pass: bool = True if bch_idx not in failed_bchIdxs else False
+        nnIn_tknIds_beginEnd: torch.Tensor = (
+            bch['nnIn_tknIds']['input_ids'][bch_idx] == 102).nonzero()
+        for nnIn_tknIds_idx in range(nnIn_tknIds_beginEnd[0].item() + 1,
+                                     nnIn_tknIds_beginEnd[1].item()):
+            nnIn_tkn: str = tokenizer.convert_ids_to_tokens(
+                bch['nnIn_tknIds']['input_ids'][bch_idx]
+                [nnIn_tknIds_idx].item())
+            if (next_wrd_idx := bch['map_tknIdx2wrdIdx'][bch_idx]
+                [nnIn_tknIds_idx]) != prev_wrd_idx:
+                # ignore tknId that is not first-token-of-the-word; BIO labels
+                assert not nnIn_tkn.startswith("##")
+                if tkns is not None:
+                    tknLbls_assoc.append(
+                        f'({tkns}, {tknLbl_True}, {nnOut_tknLbl})')
+                tknLblId_True: int = bch['tknLblIds'][bch_idx,
+                                                      nnIn_tknIds_idx].item()
+                assert tknLblId_True != -100
+                tknLbl_True = dataframes_meta['tknLblId2tknLbl'][tknLblId_True]
+                nnOut_tknLblId: int = bch_nnOut_tknLblIds[
+                    bch_idx, nnIn_tknIds_idx].item()
+                assert nnOut_tknLblId != -100
+                nnOut_tknLbl = dataframes_meta['tknLblId2tknLbl'][
+                    nnOut_tknLblId]
+                tkns = (f'{"++t+ " if tknLbl_True != nnOut_tknLbl else ""}'
+                        f'{nnIn_tkn}')
+                if tknLblId_True in count["failed_tknLbls_perDlg"]:
+                    if nnOut_tknLblId in count["failed_tknLbls_perDlg"][
+                            tknLblId_True]:
+                        count["failed_tknLbls_perDlg"][tknLblId_True][
+                            nnOut_tknLblId] += 1
+                    else:
+                        count["failed_tknLbls_perDlg"][tknLblId_True][
+                            nnOut_tknLblId] = 1
+                else:
+                    count["failed_tknLbls_perDlg"][tknLblId_True] = {
+                        nnOut_tknLblId: 1
+                    }
 
-    bch_userOut_True: List[Dict[str, List[str]]] = []
-    bch_failed_nnOut_userOut: List[Union[Dict[str, List[str]], None]] = []
-    for bch_idx, (dlgId, trnId) in enumerate(bch['dlgTrnId']):
-        bch_userOut_True.append(
-            (df[(df['dlgId'] == dlgId)
-                & (df['trnId'] == trnId)]['userOut']).item())
-        if bch_nnOut_userOut[bch_idx] == bch_userOut_True[-1]:
-            bch_failed_nnOut_userOut.append(None)
+            else:
+                assert tkns is not None
+                tkns = f'{tkns} {nnIn_tkn}'
+            prev_wrd_idx = next_wrd_idx
+        if tkns is not None:
+            tknLbls_assoc.append(f'({tkns}, {tknLbl_True}, {nnOut_tknLbl})')
+
+        # associate (userIn_filtered_entityWrds_True, bch_entityLbls_True,
+        #            nnOut_userIn_filtered_entityWrds, bch_nnOut_entityLbls)
+        entityLbl_assoc: List[str] = []
+        entityLbl_Pass: bool = None
+        userIn_filtered_entityWrds_True: List[str] = df[
+            (df['dlgId'] == bch['dlgTrnId'][bch_idx][0])
+            & (df['trnId'] == bch['dlgTrnId'][bch_idx][1]
+               )]['userIn_filtered_entityWrds'].item()
+        entityLbls_True: List[str] = df[
+            (df['dlgId'] == bch['dlgTrnId'][bch_idx][0]) &
+            (df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['entityLbls'].item()
+        if bch_nnOut_entityLbls[bch_idx] != entityLbls_True:
+            count["failedTurns_entityLbls"] += 1
+            entityLbl_Pass = False
         else:
-            count_failedTurns_nnOut_userOut += 1
+            entityLbl_Pass = True
+        for entityWrd_True, entityLbl_True, entityWrd, entityLbl in (
+                zip_longest(
+                    userIn_filtered_entityWrds_True, entityLbls_True,
+                    (bch_nnOut_userIn_filtered_entityWrds[bch_idx]
+                     if bch_nnOut_userIn_filtered_entityWrds[bch_idx]
+                     is not None else []),
+                    (bch_nnOut_entityLbls[bch_idx]
+                     if bch_nnOut_entityLbls[bch_idx] is not None else []))):
+            entityLbl_assoc.append(
+                f'({"++e+ " if entityLbl_True != entityLbl else ""}'
+                f'{entityWrd_True}, {entityLbl_True}, {entityWrd}, '
+                f'{entityLbl})')
+
+        # userOut_True vs. nnOut_userOut
+        failed_nnOut_userOut: Union[Dict[str, List[str], None]]
+        userOut_Pass: bool = None
+        userOut_True: Dict[str, List[str]] = df[
+            (df['dlgId'] == bch['dlgTrnId'][bch_idx][0])
+            & (df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['userOut'].item()
+        if bch_nnOut_userOut[bch_idx] == userOut_True:
+            failed_nnOut_userOut: Union[Dict[str, List[str], None]] = None
+            userOut_Pass = True
+        else:
+            userOut_Pass = False
+            count["failedTurns_userOut"] += 1
             d: dict = userOut_init()
-            for k in bch_userOut_True[-1]:
-                if bch_nnOut_userOut[bch_idx][k] != bch_userOut_True[-1][k]:
+            for k in userOut_True:
+                if bch_nnOut_userOut[bch_idx][k] != userOut_True[k]:
                     for item_True, item in zip_longest(
-                            bch_userOut_True[-1][k],
-                            bch_nnOut_userOut[bch_idx][k]):
+                            userOut_True[k], bch_nnOut_userOut[bch_idx][k]):
                         if item != item_True:
                             d[k].append((item_True, item))
-            bch_failed_nnOut_userOut.append(str(d))
+            failed_nnOut_userOut: Union[Dict[str, List[str], None]] = str(d)
 
-    bch_nnIn_tkns: List[List[str]] = []
-    bch_unseen_tkns_predictSet: List[List[str]] = []
-    bch_tknLbls_True: List[List[str]] = []
-    bch_nnOut_tknLbls: List[List[str]] = []
-    nnIn_tknIds_beginEnd_idx = (
-        bch['nnIn_tknIds']['input_ids'] == 102).nonzero()
-    for bch_idx in range(len(bch_nnOut_entityLbls)):
-        bch_nnIn_tkns.append([])
-        bch_unseen_tkns_predictSet.append([])
-        bch_tknLbls_True.append([])
-        bch_nnOut_tknLbls.append([])
-        index_of_first_SEP_plus1 = nnIn_tknIds_beginEnd_idx[bch_idx * 2, 1] + 1
-        index_of_second_SEP = nnIn_tknIds_beginEnd_idx[(bch_idx * 2) + 1, 1]
-        for nnIn_tknIds_idx in range(index_of_first_SEP_plus1,
-                                     index_of_second_SEP):
-            nnIn_tknId: int = (bch['nnIn_tknIds']['input_ids'][bch_idx]
-                               [nnIn_tknIds_idx]).item()
-            bch_nnIn_tkns[-1].append(
-                tokenizer.convert_ids_to_tokens(nnIn_tknId))
-            if nnIn_tknId in dataframes_meta['test-set unseen tknIds']:
-                bch_unseen_tkns_predictSet[-1].append(bch_nnIn_tkns[-1][-1])
-            bch_tknLbls_True[-1].append(dataframes_meta['tknLblId2tknLbl'][
-                bch['tknLblIds'][bch_idx, nnIn_tknIds_idx]])
-            bch_nnOut_tknLbls[-1].append(dataframes_meta['tknLblId2tknLbl'][
-                bch_nnOut_tknLblIds[bch_idx, nnIn_tknIds_idx]])
-
-    with failed_nnOut_tknLblIds_file.open(
-            'a') as file_failed, failed_nnOut_entityLblsUserOut_file.open(
-                'a') as file_halfFailed, passed_file.open('a') as file_passed:
-
-        # append[bch_idx, print_preamble, failed_nnOutTknLblIdIdx,
-        # print_nnOutEntityLblUserOut, file_name]
-        # nnOutTknLblIdIdxs failed for some bch_idxs
-        failed_items: List[List[int, bool, int, bool, str]] = []
-        for idx in range(len(failed_bchIdxs_nnOutTknLblIdIdxs)):
-            if idx == 0:
-                failed_items.append([
-                    failed_bchIdxs_nnOutTknLblIdIdxs[idx][0], True,
-                    failed_bchIdxs_nnOutTknLblIdIdxs[idx][1], False,
-                    file_failed
-                ])
-            elif failed_bchIdxs_nnOutTknLblIdIdxs[idx][
-                    0] != failed_bchIdxs_nnOutTknLblIdIdxs[idx - 1][0]:
-                failed_items[-1][3] = True
-                failed_items.append([
-                    failed_bchIdxs_nnOutTknLblIdIdxs[idx][0], True,
-                    failed_bchIdxs_nnOutTknLblIdIdxs[idx][1], False,
-                    file_failed
-                ])
+        # tknLbl_Pass != entityLbl_Pass, tknLbl_Pass != userOut_Pass
+        entityLbls_status: str = ""
+        userOut_status: str = ""
+        if tknLbl_Pass != entityLbl_Pass:
+            if entityLbl_Pass:
+                count["failedTurnsTknLbls_entityLblsPass"] += 1
+                entityLbls_status = "+- entityLbls passed  "
             else:
-                failed_items.append([
-                    failed_bchIdxs_nnOutTknLblIdIdxs[idx][0], False,
-                    failed_bchIdxs_nnOutTknLblIdIdxs[idx][1], False,
-                    file_failed
-                ])
-        if failed_items:
-            failed_items[-1][3] = True
-        count_failed_turns += len({
-            failed_bchIdx_nnOutTknLblIdIdx[0]
-            for failed_bchIdx_nnOutTknLblIdIdx in
-            failed_bchIdxs_nnOutTknLblIdIdxs
-        })
-        # nnOutTknLblIdIdxs passed for some bch_idxs but
-        # nnOut_entityLbls or nnOut_userOut could have failed
-        for bch_idx in range(len(bch_entityLbls_True)):
-            if bch_idx not in failed_bchIdxs:
-                if bch_failed_nnOut_entityLbls[bch_idx] or (
-                        bch_failed_nnOut_userOut[bch_idx] is not None):
-                    failed_items.append(
-                        [bch_idx, True, None, True, file_halfFailed])
-                    count_failed_turns += 1
-                else:
-                    failed_items.append(
-                        [bch_idx, True, None, True, file_passed])
+                count["passedTurnsTknLbls_entityLblsFail"] += 1
+                entityLbls_status = "+- entityLbls failed  "
+        if tknLbl_Pass != userOut_Pass:
+            if userOut_Pass:
+                count["failedTurnsTknLbls_userOutPass"] += 1
+                userOut_status = "+- userOut passed  "
+            else:
+                count["passedTurnsTknLbls_userOutFail"] += 1
+                userOut_status = "+- userOut failed  "
 
-        print_to_file: Dict[str, pathlib.Path] = {"file": None}
-        wrapper: textwrap.TextWrapper = textwrap.TextWrapper(
-            width=80, initial_indent="", subsequent_indent=21 * " ")
-
-        for bch_idx, print_preamble, failed_nnOutTknLblIdIdx,\
-                print_nnOutEntityLblUserOut,\
-                print_to_file["file"] in failed_items:
-            index_of_first_SEP_plus1 = nnIn_tknIds_beginEnd_idx[bch_idx * 2,
-                                                                1] + 1
-            if print_preamble:
-                # print out: dlgId_trnId, userIn, userIn_filtered wrds,
-                # nnIn_tkns, tknLbls_True, and nnOut_tknLbls;
-                # tknIds between two SEP belong to tknIds of words in
-                # bch['userIn_filtered_wrds']
-                print_to_file["file"].write("\n\n")
+        # print to output files
+        with passed_file.open(
+                'a') as file_passed, failed_nnOut_tknLblIds_file.open(
+                    'a') as file_failed:
+            with redirect_stdout(file_passed if tknLbl_Pass else file_failed):
+                wrapper: textwrap.TextWrapper = textwrap.TextWrapper(
+                    width=80, initial_indent="", subsequent_indent=5 * " ")
                 for strng in (
-                        f"dlg_id, trn_id = {bch['dlgTrnId'][bch_idx]}",
-                        f"userIn = {(df[(df['dlgId'] == bch['dlgTrnId'][bch_idx][0]) & (df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['userIn']).item()}",
-                        f"userIn_filtered_wrds = {' '.join(bch['userIn_filtered_wrds'][bch_idx])}",
-                        f"nnIn_tkns = {' '.join(bch_nnIn_tkns[bch_idx])}",
-                        f"tknLbls_True = {' '.join(bch_tknLbls_True[bch_idx])}",
-                        f"nnOut_tknLbls = {' '.join(bch_nnOut_tknLbls[bch_idx])}",
-                        "Failed nnOut_tknLbls (userIn_filtered.., nnIn_tkn, tknLbl_True, nnOut_tknLbl):"
-                        if failed_nnOutTknLblIdIdx is not None else
-                        "Failed nnOut_tknLbls: None",
-                ):
-                    print_to_file["file"].write(wrapper.fill(strng))
-                    print_to_file["file"].write("\n")
-
-            if failed_nnOutTknLblIdIdx is not None:
-                counter_failed_nnOut_tknLblIds[
-                    f"{bch_tknLbls_True[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}, {bch_nnOut_tknLbls[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}"] += 1
-                print_to_file["file"].write(
-                    wrapper.fill(
-                        f"{bch['userIn_filtered_wrds'][bch_idx][bch['map_tknIdx2wrdIdx'][bch_idx][failed_nnOutTknLblIdIdx]]}, {bch_nnIn_tkns[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}, {bch_tknLbls_True[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}, {bch_nnOut_tknLbls[bch_idx][failed_nnOutTknLblIdIdx - index_of_first_SEP_plus1]}  "
-                    ))
-                print_to_file["file"].write("\n")
-
-            if print_nnOutEntityLblUserOut:
-                for strng in (
-                        f"userIn_filtered_entityWrds_True = {' '.join(bch_userIn_filtered_entityWrds_True[bch_idx])}",
-                        f"nnOut_userIn_filtered_entityWrds = {' '.join(bch_nnOut_userIn_filtered_entityWrds[bch_idx])}"
-                        if bch_nnOut_userIn_filtered_entityWrds[bch_idx] else
-                        "nnOut_userIn_filtered_entityWrds: None",
-                        f"entityLbls_True = {' '.join(bch_entityLbls_True[bch_idx])}",
-                        f"nnOut_entityLbls = {' '.join(bch_nnOut_entityLbls[bch_idx])}"
-                        if bch_nnOut_entityLbls[bch_idx] else
-                        "nnOut_entityLbls: None",
-                        f"Failed-nnOut_entityLbls (entityLbls_True, nnOut_entityLbls): {', '.join(bch_failed_nnOut_entityLbls[bch_idx])}"
-                        if bch_failed_nnOut_entityLbls[bch_idx] else
-                        "Failed-nnOut_entityLbls: None",
-                        f"prevTrnUserOut_True = {(df[(df['dlgId'] == bch['dlgTrnId'][bch_idx][0]) & (df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['prevTrnUserOut']).item()}",
-                        f"userOut_True = {bch_userOut_True[bch_idx]}",
-                        f"nnOut_userOut = {bch_nnOut_userOut[bch_idx]}",
-                        f"Failed-nnOut_userOut (userOut_True, nnOut_userOut): {bch_failed_nnOut_userOut[bch_idx]}"
-                        if bch_failed_nnOut_userOut[bch_idx] is not None else
+                        f"dlg_id, trn_id: {bch['dlgTrnId'][bch_idx]}   "
+                        f"{entityLbls_status}{userOut_status}",
+                        "userIn:",
+                        f"     {(df[(df['dlgId'] == bch['dlgTrnId'][bch_idx][0]) & (df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['userIn']).item()}",
+                        "userIn_filtered_wrds:",
+                        f"     {' '.join(bch['userIn_filtered_wrds'][bch_idx])}",
+                        "(nnIn_tkn, tknLbl_True, nnOut_tknLbl):",
+                        f"     {' '.join(tknLbls_assoc)}",
+                        "(userIn_filtered_entityWrds_True, "
+                        "entityLbls_True, "
+                        "nnOut_userIn_filtered_entityWrds, "
+                        "nnOut_entityLbls):",
+                        f"     {' '.join(entityLbl_assoc)}",
+                        "prevTrnUserOut_True:",
+                        f"     {(df[(df['dlgId'] == bch['dlgTrnId'][bch_idx][0]) & (df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['prevTrnUserOut']).item()}",
+                        "userOut_True:",
+                        f"     {userOut_True}",
+                        "nnOut_userOut:",
+                        f"     {bch_nnOut_userOut[bch_idx]}",
+                        "Failed-nnOut_userOut (userOut_True, nnOut_userOut):"
+                        if failed_nnOut_userOut is not None else
                         "Failed-nnOut_userOut: None",
-                        f"Predict-set tkns not seen in train-set = {', '.join(bch_unseen_tkns_predictSet[bch_idx])}"
-                        if bch_unseen_tkns_predictSet[bch_idx] else
-                        "Predict-set tkns not seen in train-set: None",
                 ):
-                    print_to_file["file"].write(wrapper.fill(strng))
-                    print_to_file["file"].write("\n")
+                    print(wrapper.fill(strng))
 
-        assert count_failed_nnOut_tknLblIds == sum(
-            [value for value in counter_failed_nnOut_tknLblIds.values()])
-        assert bch_idx is not None
-
-    return (count_total_turns, count_failed_nnOut_tknLblIds,
-            count_failedTurns_nnOut_tknLblIds,
-            count_failedTurns_nnOut_entityLbl, count_failedTurns_nnOut_userOut,
-            count_failed_turns, counter_failed_nnOut_tknLblIds)
+                if failed_nnOut_userOut is not None:
+                    print(wrapper.fill(f"     {failed_nnOut_userOut}"))
+                print('\n')
 
 
 def prepare_metric(
@@ -270,12 +229,10 @@ def prepare_metric(
             prev_firstTknOfWrd_idx = firstTknOfWrd_idx
             nnOut_tknLbl_True = dataframes_meta['tknLblId2tknLbl'][
                 bch['tknLblIds'][bch_idx, nnIn_tknIds_idx]]
-            #assert nnOut_tknLbl_True != "T"
             assert nnOut_tknLbl_True[0] != "T"
             y_true[-1].append(nnOut_tknLbl_True)
             nnOut_tknLbl = dataframes_meta['tknLblId2tknLbl'][
                 bch_nnOut_tknLblIds[bch_idx, nnIn_tknIds_idx]]
-            #if nnOut_tknLbl == "T":
             if nnOut_tknLbl[0] == "T":
                 # "T" is not allowed in the metric, only BIO is allowed;
                 # the prediction for first-token-in-word must not be "T";
@@ -294,65 +251,133 @@ def prepare_metric(
 def print_statistics(
     test_results: pathlib.Path,
     dataframes_meta: Dict[str, Any],
-    count_total_turns: int,
-    count_failed_turns: int,
-    count_failed_nnOut_tknLblIds: int,
-    count_failedTurns_nnOut_tknLblIds: int,
-    count_failedTurns_nnOut_entityLbl: int,
-    count_failedTurns_nnOut_userOut: int,
-    counter_failed_nnOut_tknLblIds: Dict[str, int],
+    count: Dict[str, Union[int, Dict[str, int]]],
     y_true: List[List[str]],
     y_pred: List[List[str]],
 ) -> None:
     # Print
     from sys import stdout
-    from contextlib import redirect_stdout
     from pathlib import Path
+
     stdoutput = Path('/dev/null')
+
     for out in (stdoutput, test_results):
         with out.open("a") as results_file:
             with redirect_stdout(stdout if out == stdoutput else results_file):
-                turns = (f'# of turns = {count_total_turns}')
-                failed_turns = (f'# of failed turns = {count_failed_turns}')
+                turns = (f'# of turns = {count["total_turns"]}')
                 failed_nnOut_tknLblIds = ('# of failed nnOut_tknLblIds = '
-                                          f'{count_failed_nnOut_tknLblIds}')
+                                          f'{count["failed_tknLbls"]}')
                 failedTurns_nnOut_tknLblIds = (
                     '# of turns of failed nnOut_tknLblIds = '
-                    f'{count_failedTurns_nnOut_tknLblIds}')
+                    f'{count["failedTurns_tknLbls"]}')
                 failedTurns_nnOut_entityLbl = (
                     '# of turns of failed nnOut_entityLbl = '
-                    f'{count_failedTurns_nnOut_entityLbl}')
+                    f'{count["failedTurns_entityLbls"]}')
                 failedTurns_nnOut_userOut = (
                     '# of turns of failed nnOut_userOut = '
-                    f'{count_failedTurns_nnOut_userOut}')
+                    f'{count["failedTurns_userOut"]}')
+                failedTurnsTknLbls_entityLblsPass = (
+                    '# of turns where nnOut_tknLbls fail but nnOut_entityLbls '
+                    f'pass = {count["failedTurnsTknLbls_entityLblsPass"]}')
+                failedTurnsTknLbls_userOutPass = (
+                    '# of turns where nnOut_tknLbls fail but nnOut_userOut '
+                    f'pass = {count["failedTurnsTknLbls_userOutPass"]}')
+                passedTurnsTknLbls_entityLblsFail = (
+                    '# of turns where nnOut_tknLbls pass but nnOut_entityLbls '
+                    'fail (MUST be 0) = '
+                    f'{count["passedTurnsTknLbls_entityLblsFail"]}')
+                passedTurnsTknLbls_userOutFail = (
+                    '# of turns where nnOut_tknLbls pass but nnOut_userOut '
+                    'fail (MUST be 0) = '
+                    f'{count["passedTurnsTknLbls_userOutFail"]}')
                 for strng in (
                         turns,
-                        failed_turns,
                         failed_nnOut_tknLblIds,
                         failedTurns_nnOut_tknLblIds,
                         failedTurns_nnOut_entityLbl,
                         failedTurns_nnOut_userOut,
+                        failedTurnsTknLbls_entityLblsPass,
+                        failedTurnsTknLbls_userOutPass,
+                        passedTurnsTknLbls_entityLblsFail,
+                        passedTurnsTknLbls_userOutFail,
                 ):
                     print(strng)
 
-                strng = ('failed nnOut_tknLblIds '
-                         '(tknLbl_True, nnOut_tknLbl: # of times) =')
+                tknLblsTrue_not_in_predictSet: str = ""
+                passed_nnOut_tknLbl: str = ""
+                strng = ('\nfailed tknLbls (* tknLbl_True: # of times -> '
+                         'nnOut_tknLbl: # of times, ...):')
                 print(strng)
-                if counter_failed_nnOut_tknLblIds:
-                    for k, v in counter_failed_nnOut_tknLblIds.items():
+                for tknLblId_True in range(
+                        len(dataframes_meta['tknLblId2tknLbl'])):
+                    tknLbl_True: str = dataframes_meta['tknLblId2tknLbl'][
+                        tknLblId_True]
+                    if tknLblId_True not in count["failed_tknLbls_perDlg"]:
+                        tknLblsTrue_not_in_predictSet = (
+                            f"{tknLblsTrue_not_in_predictSet} {tknLbl_True},")
+                    elif (len(count["failed_tknLbls_perDlg"][tknLblId_True])
+                          == 1) and (tknLblId_True
+                                     in count["failed_tknLbls_perDlg"]
+                                     [tknLblId_True]):
+                        assert (count['failed_tknLbls_perDlg'][tknLblId_True]
+                                [tknLblId_True] == dataframes_meta[
+                                    'test-set tknLblIds:count'][tknLblId_True])
+                        # all predictions are True
+                        passed_nnOut_tknLbl = (
+                            f"{passed_nnOut_tknLbl} {tknLbl_True}:"
+                            f"{count['failed_tknLbls_perDlg'][tknLblId_True][tknLblId_True]},"
+                        )
+                    else:
+                        assert len(
+                            count["failed_tknLbls_perDlg"][tknLblId_True])
+                        total_num_times = sum([
+                            num_times
+                            for num_times in count["failed_tknLbls_perDlg"]
+                            [tknLblId_True].values()
+                        ])
+                        assert total_num_times == dataframes_meta[
+                            'test-set tknLblIds:count'][tknLblId_True]
+                        failed_nnOut_tknLbl = (f"* {tknLbl_True}:"
+                                               f"{total_num_times} ->")
+                        if tknLblId_True in count["failed_tknLbls_perDlg"][
+                                tknLblId_True]:
+                            failed_nnOut_tknLbl = (
+                                f"{failed_nnOut_tknLbl} {tknLbl_True}:"
+                                f"{count['failed_tknLbls_perDlg'][tknLblId_True][tknLblId_True]},"
+                            )
+                        for nnOut_tknLblId, num_times in count[
+                                "failed_tknLbls_perDlg"][tknLblId_True].items(
+                                ):
+                            if nnOut_tknLblId != tknLblId_True:
+                                failed_nnOut_tknLbl = (
+                                    f"{failed_nnOut_tknLbl} "
+                                    f"{dataframes_meta['tknLblId2tknLbl'][nnOut_tknLblId]}:{num_times},"
+                                )
                         print(
-                            textwrap.fill(f'{k}: {v}',
+                            textwrap.fill(failed_nnOut_tknLbl,
                                           width=80,
-                                          initial_indent=4 * " ",
+                                          initial_indent=0 * " ",
                                           subsequent_indent=5 * " "))
-                    print('')  # empty line
-                else:
-                    print('None')
+                print('\n100% passed tknLbls:')
+                print(
+                    textwrap.fill(passed_nnOut_tknLbl,
+                                  width=80,
+                                  initial_indent=0 * " ",
+                                  subsequent_indent=5 * " "))
+                print('\ntknLbls in Train-set but not_in Predict-set:')
+                print(
+                    textwrap.fill(tknLblsTrue_not_in_predictSet,
+                                  width=80,
+                                  initial_indent=0 * " ",
+                                  subsequent_indent=5 * " "))
+                print()
 
                 relevant_keys_of_dataframes_meta = [
-                    'bch sizes', '# of dialog-turns in dataframes',
+                    'bch sizes',
+                    '# of dialog-turns in dataframes',
                     'entityWrds that have more than one tknLbl',
                     'pandas predict-dataframe file location',
+                    'predict-set entityWrds not seen in train-set',
                 ]
                 for k, v in dataframes_meta.items():
                     if k in relevant_keys_of_dataframes_meta:
