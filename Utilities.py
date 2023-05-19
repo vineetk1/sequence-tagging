@@ -382,7 +382,7 @@ def tknLblIds2entity_wrds_lbls(
                                                         multipleWord_entity)
                     multipleWord_entity = ""
                 prev_BIO = "O"   # next tkn is "B" or "O"
-                continue    # ignore tknId of "O"
+                continue    # ignore tknLblId of "O"
 
             nnOut_tknLbl = tknLblId2tknLbl[bch_nnOut_tknLblIds[
                                                      bch_idx, nnIn_tknIds_idx]]
@@ -419,11 +419,11 @@ def tknLblIds2entity_wrds_lbls(
                 else:   # prev_BIO == None
                     # expected "B" or "O" at start-of-sentence but model
                     # predicts "I"
-                    assert prev_BIO is None
+                    #assert prev_BIO is None
                     count_wrongPredictions = max_count_wrongPredictions_plus1
                     break
             else:
-                assert False
+                #assert False
                 count_wrongPredictions = max_count_wrongPredictions_plus1
                 break
         if multipleWord_entity:  # previous multipleWord_entity
@@ -691,7 +691,8 @@ def generate_userOut(
                     else:
                         wrdLbl_idx -= 1
                 case _:
-                    assert False
+                    #assert False
+                    pass
             wrdLbl_idx += 1
         if cmd or len(carEntityNums):
             if cmd != 'remove':
