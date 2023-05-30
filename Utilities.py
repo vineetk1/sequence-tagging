@@ -549,46 +549,44 @@ def generate_userOut(
                         cmd, carEntityNumsNeeded, unit = entityLbl, 1, None
                         carEntityNumsLbl = None
                     else:   # carEntityNums
-                        idx = wrdLbl_idx + 1
-                        seg_ends_with_cmd = None
+                        seg_ends_with_cmd = True
                         found_numLbl, found_unitCatLbl = False, False
-                        while (idx < len(bch_nnOut_entityLbls[bch_idx])) and (
-                                seg_ends_with_cmd is None):
-                            lbl = bch_nnOut_entityLbls[bch_idx][idx]
+                        for lbl in bch_nnOut_entityLbls[
+                                                    bch_idx][wrdLbl_idx+1:]:
                             if lbl in (syntheticData.
                                        carEntityLbls_for_numEntityWrds):
                                 if found_numLbl:
-                                    seg_ends_with_cmd = True
+                                    break
                                 else:
+                                    seg_ends_with_cmd = False
                                     found_numLbl = True
                             elif lbl in syntheticData.unit_categories:
                                 if found_unitCatLbl:
-                                    seg_ends_with_cmd = True
+                                    break
                                 else:
                                     found_unitCatLbl = True
                             elif lbl == 'more' or lbl == 'less':
                                 seg_ends_with_cmd = True
+                                break
                             else:
                                 if (found_numLbl and lbl not in
                                         syntheticData.cmds_after_carEntityNum):
                                     seg_ends_with_cmd = False
                                 else:
                                     seg_ends_with_cmd = True
-                            idx += 1
-                        if seg_ends_with_cmd or (seg_ends_with_cmd is None and not found_numLbl):
+                                break
+                        if seg_ends_with_cmd:
                             transition(bch_nnOut_userOut[bch_idx], entityLbl,
                                        unit, carEntityNums, carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
                             cmd, carEntityNumsNeeded, unit = None, None, None
                             carEntityNums.clear()
                             carEntityNumsLbl = None
-                        elif not seg_ends_with_cmd or (seg_ends_with_cmd is None and found_numLbl):
+                        else:
                             transition(bch_nnOut_userOut[bch_idx], None, unit,
                                        carEntityNums, carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
                             cmd, carEntityNumsNeeded, unit = entityLbl, 1, None
                             carEntityNums.clear()
                             carEntityNumsLbl = None
-                        else:
-                            assert False
 
                 case 'range1':
                     if carEntityNumsLbl:
@@ -599,7 +597,7 @@ def generate_userOut(
                     carEntityNumsLbl = None
 
                 case 'range2':
-                    if entityWrd == "to" and cmd == 'range1' and len(carEntityNums) == 1:
+                    if cmd == 'range1' and len(carEntityNums) == 1:
                         # special case
                         wrdLbl_idx += 1
                         continue
@@ -799,15 +797,17 @@ userIn_filtereds_True = [
         ["5000", "-", "9000", "miles"],
         ["5000", "miles", "-", "9000"],
        ]
+#num_tests = 0
 #num_failed = 0
 #for userIn, userIn_filtered_True in zip(userIns, userIn_filtereds_True):
+#    num_tests += 1
 #    userIn_filtered = userIn_filter_splitWords(userIn)
 #    num_failed = num_failed if (
 #            userIn_filtered_True == userIn_filtered) else num_failed+1
 #    print(f'userIn  {userIn}\nuserIn_filtered_True {userIn_filtered_True}\n'
 #          f'userIn_filtered      {userIn_filtered}\nuserIn_filtered_True == '
 #          f'userIn_filtered  {userIn_filtered_True == userIn_filtered}\n')
-#print(f'# of failures = {num_failed}')
+#print(f'# of tests = {num_tests}; # of failures = {num_failed}')
 #print("end of userIn_filter_splitWords(userIn: str) -> List[str]\n\n")
 
 
@@ -815,38 +815,79 @@ print("start of generate_userOut()")
 in_out = [
  [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
    'price': [], 'year': []},
-  ['between',      '$',      '500',    'to',    '600', ],
+  ['between',      '$',      '500',    '-',    '600', ],
   ['range1', 'units_price', 'price', 'range2', 'price',],
   {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
    'price': ["500-600 $"], 'year': []}],
 
  [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
-   'price': ['500-600 $'], 'year': []},
-  ['between',      '$',      '500',    'to',    'more', '600',    'dollars',    '1992', 'more', '2001', 'less', '2000',    'miles',          'more'],
+   'price': [], 'year': []},
+  ['between',      '$',      '500',    '-',    '600', ],
+  ['range1', 'units_price', 'price', 'range2', 'price',],
+  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+   'price': ["500-600 $"], 'year': []}],
+
+ [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+   'price': [], 'year': ['more 1992', ]},
+  ['between',      '$',      '1500',    'to',    'more', '2600',    'dollars',    '1992', 'more', '2001', 'less', '2000',    'miles',          'more'],
   ['range1', 'units_price', 'price', 'range2',  'more', 'price', 'units_price', 'year', 'more', 'year', 'less', 'mileage', 'units_mileage', 'more'],
   {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': ['more 2000 mi'],
-   'price': ['500-600 $', 'more 600 $',], 'year': ['more 1992', 'less 2001',]}],
+   'price': ['more 2600 $',], 'year': ['more 1992', 'less 2001',]}],
+ # Note: prev_out has 'more 1992', so it is not written again
 
  [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
    'price': [], 'year': []},
-  ['500',    'to',    '600',   '700',      'mile', ],
-  ['price', 'range2', 'price', 'price', 'unit_mileage',],
+  ['3500',    'to',    '6007',   '7009',      'mile', ],
+  ['price', 'range2', 'price', 'price', 'units_mileage',],
   {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
-   'price': ['500-600', '700'], 'year': []}],
+   'price': ['3500-6007', '7009'], 'year': []}],
+ # Note: 7009 has a label of price
 
  [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
    'price': [], 'year': []},
-  ['$',            '500',  'less',  '600', ],
+  ['3500',    '-',      '6007',    'mile',         '7009', ],
+  ['mileage', 'range2', 'mileage', 'units_mileage', 'price',],
+  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': ['3500-6007 mi', ],
+   'price': ['7009'], 'year': []}],
+
+ [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+   'price': [], 'year': []},
+  ['3500',    '-',      '6007',    'dollars',     '7009', ],
+  ['mileage', 'range2', 'mileage', 'units_price', 'price',],
+  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': ['3500-6007', ],
+   'price': ['7009 $'], 'year': []}],
+
+ [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+   'price': [], 'year': []},
+  ['$',            '200',  'less',  '700', ],
   ['units_price', 'price', 'less', 'price',],
   {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
-   'price': ['500 $', 'less 600'], 'year': []}],
+   'price': ['200 $', 'less 700'], 'year': []}],
+
+ [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+   'price': [], 'year': []},
+  ['less', '$',           '863400',   '-',     '989677', ],
+  ['less', 'units_price', 'price', 'range2', 'price',],
+  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+   'price': ['less 863400 $', '989677'], 'year': []}],
+ # ambiguous user-in: I think the right answer is ['less 500 $',]
+
+ [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+   'price': [], 'year': []},
+  ['less', '12700',   '-',      '26100',   'dollars', ],
+  ['less', 'price', 'range2', 'price', 'units_price',],
+  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+   'price': ['26100 $'], 'year': []}],
+ # when range2 is reached, carEntityNumsNeeded is not None; so segment thrown
 ]
+num_tests = 0
 num_failed = 0
 for prev_out, wrds, lbls, out_True in in_out:
+    num_tests += 1
     out = generate_userOut([prev_out], [wrds], [lbls])
     num_failed = num_failed if (out[0] == out_True) else num_failed+1
-    print(f'wrds  {wrds}\nlbls  {lbls}\nprev_out  {prev_out}\n'
-          f'out       {out[0]}\nout_True  {out_True}\n'
-          f'out == out_True\t\t {out[0] == out_True}\n')
-print(f'# of failures = {num_failed}')
+    print(f'wrds {wrds}\nlbls  {lbls}\nprev_out {prev_out}\n'
+          f'out      {out[0]}\nout_True {out_True}\n'
+          f'(out == out_True)\t{out[0] == out_True}\n')
+print(f'# of tests = {num_tests}; # of failures = {num_failed}')
 print("end of generate_userOut()")
