@@ -505,10 +505,10 @@ def generate_userOut(
                                    carEntityNums, carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
                         cmd, carEntityNumsNeeded, unit = None, None, None
                         carEntityNums.clear()
-                        carEntityNumsLbl = entityLbl
                     assert (carEntityNumsNeeded and len(carEntityNums) <
                             carEntityNumsNeeded) or (not carEntityNumsNeeded)
                     carEntityNums.append(entityWrd)
+                    carEntityNumsLbl = entityLbl
                     if (carEntityNumsNeeded and len(carEntityNums) == carEntityNumsNeeded) and ((unit and (carEntityNumsLbl in syntheticData.carEntityLbls_require_unit)) or (carEntityNumsLbl not in syntheticData.carEntityLbls_require_unit)):
                         transition(bch_nnOut_userOut[bch_idx], cmd, unit,
                                    carEntityNums, carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
@@ -533,30 +533,19 @@ def generate_userOut(
                         carEntityNumsLbl = None
 
                 case 'more' | 'less':
-                    if carEntityNumsNeeded and (
-                            len(carEntityNums) == carEntityNumsNeeded):
-                        transition(bch_nnOut_userOut[bch_idx], cmd, unit,
-                                   carEntityNums, carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
+                    if carEntityNumsNeeded is not None:
                         cmd, carEntityNumsNeeded, unit = None, None, None
                         carEntityNums.clear()
                         carEntityNumsLbl = None
-                    elif carEntityNumsNeeded and (
-                            len(carEntityNums) > carEntityNumsNeeded):
+                    elif len(carEntityNums) > 1:
                         transition(bch_nnOut_userOut[bch_idx], cmd, unit,
                                    carEntityNums[:-1], carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
                         cmd, carEntityNumsNeeded = None, None
                         carEntityNums = carEntityNums[-1:]
-                    elif carEntityNumsNeeded and (
-                            len(carEntityNums) < carEntityNumsNeeded):
-                        # bad userIn-seg; throw previous collected info
-                        cmd, carEntityNumsNeeded, unit = None, None, None
-                        carEntityNums.clear()
-                        carEntityNumsLbl = None
                     else:
                         pass
 
                     if not carEntityNums:
-                        # start of sentence-segment; less than $5000
                         cmd, carEntityNumsNeeded, unit = entityLbl, 1, None
                         carEntityNumsLbl = None
                     else:   # carEntityNums
@@ -580,23 +569,26 @@ def generate_userOut(
                             elif lbl == 'more' or lbl == 'less':
                                 seg_ends_with_cmd = True
                             else:
-                                if found_numLbl:
+                                if (found_numLbl and lbl not in
+                                        syntheticData.cmds_after_carEntityNum):
                                     seg_ends_with_cmd = False
                                 else:
                                     seg_ends_with_cmd = True
                             idx += 1
-                        if seg_ends_with_cmd:
-                            transition(bch_nnOut_userOut[bch_idx], entityLbl, unit,
-                                       carEntityNums, carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
+                        if seg_ends_with_cmd or (seg_ends_with_cmd is None and not found_numLbl):
+                            transition(bch_nnOut_userOut[bch_idx], entityLbl,
+                                       unit, carEntityNums, carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
                             cmd, carEntityNumsNeeded, unit = None, None, None
                             carEntityNums.clear()
                             carEntityNumsLbl = None
-                        else:
+                        elif not seg_ends_with_cmd or (seg_ends_with_cmd is None and found_numLbl):
                             transition(bch_nnOut_userOut[bch_idx], None, unit,
                                        carEntityNums, carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
                             cmd, carEntityNumsNeeded, unit = entityLbl, 1, None
                             carEntityNums.clear()
                             carEntityNumsLbl = None
+                        else:
+                            assert False
 
                 case 'range1':
                     if carEntityNumsLbl:
@@ -607,20 +599,24 @@ def generate_userOut(
                     carEntityNumsLbl = None
 
                 case 'range2':
-                    if len(carEntityNums) == 1:
+                    if entityWrd == "to" and cmd == 'range1' and len(carEntityNums) == 1:
+                        # special case
+                        wrdLbl_idx += 1
+                        continue
+
+                    if (carEntityNumsNeeded is not None) or not carEntityNums:
+                        cmd, carEntityNumsNeeded, unit = None, None, None
+                        carEntityNums.clear()
+                        carEntityNumsLbl = None
+                    elif len(carEntityNums) == 1:
                         cmd, carEntityNumsNeeded = entityLbl, 2
                     elif len(carEntityNums) > 1:
                         transition(bch_nnOut_userOut[bch_idx], cmd, unit,
                                    carEntityNums[:-1], carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
                         cmd, carEntityNumsNeeded = entityLbl, 2
                         carEntityNums = carEntityNums[-1:]
-                    else:   # not carEntityNums:
-                        #assert False
-                        # bad userIn-seg; throw previous collected info
-                        # plus this one
-                        cmd, carEntityNumsNeeded, unit = None, None, None
-                        carEntityNums.clear()
-                        carEntityNumsLbl = None
+                    else:
+                        pass
 
                 case 'remove':
                     if carEntityNumsLbl:
@@ -762,7 +758,7 @@ def prevTrnUserOut2history(prevTrnUserOut: Dict[str, List[str]]) -> List[str]:
 # python3 -m pdb Utilities.py
 
 
-# **** test vectors for userIn_filter_splitWords(userIn: str) -> List[str] ****
+#print("start of userIn_filter_splitWords(userIn: str) -> List[str]")
 userIns = [
             "- dark-brown, 100.25 - 600.33, 200 -",
             "dark -brown, dark - brown dark-brown dark brown-   red dark#-brown dark#- brown",
@@ -803,14 +799,54 @@ userIn_filtereds_True = [
         ["5000", "-", "9000", "miles"],
         ["5000", "miles", "-", "9000"],
        ]
-for userIn, userIn_filtered_True in zip(userIns, userIn_filtereds_True):
-    userIn_filtered = userIn_filter_splitWords(userIn)
-    print(f'userIn  {userIn}\nuserIn_filtered_True {userIn_filtered_True}\n'
-          f'userIn_filtered      {userIn_filtered}\nuserIn_filtered_True == '
-          f'userIn_filtered  {userIn_filtered_True == userIn_filtered}\n')
+#num_failed = 0
+#for userIn, userIn_filtered_True in zip(userIns, userIn_filtereds_True):
+#    userIn_filtered = userIn_filter_splitWords(userIn)
+#    num_failed = num_failed if (
+#            userIn_filtered_True == userIn_filtered) else num_failed+1
+#    print(f'userIn  {userIn}\nuserIn_filtered_True {userIn_filtered_True}\n'
+#          f'userIn_filtered      {userIn_filtered}\nuserIn_filtered_True == '
+#          f'userIn_filtered  {userIn_filtered_True == userIn_filtered}\n')
+#print(f'# of failures = {num_failed}')
+#print("end of userIn_filter_splitWords(userIn: str) -> List[str]\n\n")
 
 
-# test vectors for def generate_userOut(
-#        bch_prevTrnUserOut: List[Dict[str, List[str]]],
-#        bch_nnOut_userIn_filtered_entityWrds: List[List[str]],
-#        bch_nnOut_entityLbls: List[List[str]]) -> List[Dict[str, List[str]]]:
+print("start of generate_userOut()")
+in_out = [
+ [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+   'price': [], 'year': []},
+  ['between',      '$',      '500',    'to',    '600', ],
+  ['range1', 'units_price', 'price', 'range2', 'price',],
+  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+   'price': ["500-600 $"], 'year': []}],
+
+ [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+   'price': ['500-600 $'], 'year': []},
+  ['between',      '$',      '500',    'to',    'more', '600',    'dollars',    '1992', 'more', '2001', 'less', '2000',    'miles',          'more'],
+  ['range1', 'units_price', 'price', 'range2',  'more', 'price', 'units_price', 'year', 'more', 'year', 'less', 'mileage', 'units_mileage', 'more'],
+  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': ['more 2000 mi'],
+   'price': ['500-600 $', 'more 600 $',], 'year': ['more 1992', 'less 2001',]}],
+
+ [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+   'price': [], 'year': []},
+  ['500',    'to',    '600',   '700',      'mile', ],
+  ['price', 'range2', 'price', 'price', 'unit_mileage',],
+  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+   'price': ['500-600', '700'], 'year': []}],
+
+ [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+   'price': [], 'year': []},
+  ['$',            '500',  'less',  '600', ],
+  ['units_price', 'price', 'less', 'price',],
+  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+   'price': ['500 $', 'less 600'], 'year': []}],
+]
+num_failed = 0
+for prev_out, wrds, lbls, out_True in in_out:
+    out = generate_userOut([prev_out], [wrds], [lbls])
+    num_failed = num_failed if (out[0] == out_True) else num_failed+1
+    print(f'wrds  {wrds}\nlbls  {lbls}\nprev_out  {prev_out}\n'
+          f'out       {out[0]}\nout_True  {out_True}\n'
+          f'out == out_True\t\t {out[0] == out_True}\n')
+print(f'# of failures = {num_failed}')
+print("end of generate_userOut()")
