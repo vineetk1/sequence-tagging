@@ -518,7 +518,11 @@ def generate_userOut(
                             bch_nnOut_userOut[bch_idx][
                                                    entityLbl].remove(entityWrd)
                         except ValueError:
-                            pass
+                            for entry in bch_nnOut_userOut[bch_idx][entityLbl]:
+                                if len(entry) > 1:
+                                    if entityWrd in entry:
+                                        bch_nnOut_userOut[bch_idx][
+                                                    entityLbl].remove(entry)
 
                 case entityLbl if ((
                         entityLbl in syntheticData.carEntityNumLbls)):
@@ -574,9 +578,9 @@ def generate_userOut(
                                 transition(bch_nnOut_userOut[bch_idx], cmdLbl,
                                            None, carEntityNums,
                                            carEntityNumsLbl, remove, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
-                                cmdLbl, carEntityNumsNeeded = None, None
-                                carEntityNums.clear()
-                                carEntityNumsLbl = None
+                            cmdLbl, carEntityNumsNeeded = None, None
+                            carEntityNums.clear()
+                            carEntityNumsLbl = None
 
                 case 'more' | 'less':
                     if (not len(carEntityNums)) or (
@@ -708,7 +712,7 @@ def generate_userOut(
                 case "restore":
                     if carEntityNumsLbl:
                         transition(bch_nnOut_userOut[bch_idx], cmdLbl, unitLbl,
-                                   carEntityNums, carEntityNumsLbl, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
+                                   carEntityNums, carEntityNumsLbl, remove, {"bch_nnOut_userIn_filtered_entityWrds[bch_idx]": bch_nnOut_userIn_filtered_entityWrds[bch_idx], "bch_nnOut_entityLbls[bch_idx]": bch_nnOut_entityLbls[bch_idx], "wrdLbl_idx": wrdLbl_idx, "carEntityNumsNeeded": carEntityNumsNeeded})
                         cmdLbl, carEntityNumsNeeded, unitLbl = None, None, None
                         carEntityNums.clear()
                         carEntityNumsLbl = None
@@ -719,7 +723,7 @@ def generate_userOut(
                          bch_nnOut_entityLbls[bch_idx][
                                                      wrdLbl_idx] != 'setting'):
                         # following is dummy userOut
-                        bch_nnOut_userOut[bch_idx] = {'brand': ['toyota'], 'model': ['nv3500 hd passenger'], 'color': ['tuxedo black metallic'], 'style': ['vanminivan'], 'mileage': ['less 26632.01 mi'], 'price': ['more 5000 $'], 'year': ['2015-2023']}
+                        bch_nnOut_userOut[bch_idx] = {'brand': ['toyota'], 'model': ['nv3500 hd passenger'], 'color': ['tuxedo black metallic'], 'mileage': ['less 26632.01 mi'], 'price': ['more 5000 $'], 'year': ['2015-2023']}
                         wrdLbl_idx -= 1
                     elif wrdLbl_idx < len(bch_nnOut_entityLbls[bch_idx]) and (
                        bch_nnOut_entityLbls[bch_idx][wrdLbl_idx] == 'setting'):
@@ -727,15 +731,18 @@ def generate_userOut(
                             num = int(bch_nnOut_userIn_filtered_entityWrds[
                                 bch_idx][wrdLbl_idx])
                             # following is dummy userOut
-                            bch_nnOut_userOut[bch_idx] = {'brand': ['bentley'], 'model': ['nv3500 hd passenger'], 'color': ['tuxedo black metallic'], 'style': ['vanminivan'], 'mileage': ['less 2987 mi'], 'price': ['more 5000 $'], 'year': ['2018-2024']}
+                            bch_nnOut_userOut[bch_idx] = {'brand': ['bentley'], 'model': ['nv3500 hd passenger'], 'color': ['tuxedo black metallic'], 'mileage': ['less 2987 mi'], 'price': ['more 5000 $'], 'year': ['2018-2024']}
                         except ValueError:
                             wrdLbl_idx -= 1
                     else:
                         assert False
 
                 case _:
-                    assert False
-                    pass
+                    if entityLbl == 'setting':
+                        pass
+                    else:
+                        assert False
+                    #pass
 
             wrdLbl_idx += 1
 
@@ -870,21 +877,21 @@ userIn_filtereds_True = [
 print("start of generate_userOut()")
 in_out = [
 
- [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+ [{'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': [], 'year': []},
   ['between',      '$',      '500',    '-',    '600', ],
   ['range1', 'units_price_$', 'price', 'range2', 'price',],
-  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+  {'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': ["500-600 $"], 'year': []}],
 
- [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+ [{'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': [], 'year': []},
   ['between',      '$',      '500',    '-',    '600', ],
   ['range1', 'units_price_$', 'price', 'range2', 'price',],
-  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+  {'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': ["500-600 $"], 'year': []}],
 
- [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+ [{'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': [], 'year': ['more 1992', ]},
   ['between',      '$',      '1500',    'to',    'more', '2600',
    'dollars',       '1992', 'more', '2001', 'less', '2000',
@@ -892,118 +899,127 @@ in_out = [
   ['range1', 'units_price_$', 'price', 'range2',  'more', 'price',
    'units_price_$', 'year', 'more', 'year', 'less', 'mileage',
    'units_mileage_mi', 'more'],
-  {'brand': [], 'model': [], 'color': [], 'style': [],
+  {'brand': [], 'model': [], 'color': [],
    'mileage': ['more 2000 mi'], 'price': ['more 2600 $',],
    'year': ['more 1992', 'less 2001',]}],
  # Note: prev_out has 'more 1992', so it is not written again
 
- [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+ [{'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': [], 'year': ['more 1992', ]},
   ['between',      '$',      '1500',    'to',    'more', '2600',    'dollars',      '1992', 'more', '$',             '2001', 'less', '2000',    'miles',          'more'],
   ['range1', 'units_price_$', 'price', 'range2',  'more', 'price', 'units_price_$', 'year', 'more', 'units_price_$', 'year', 'less', 'mileage', 'units_mileage_mi', 'more'],
-  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': ['more 2000 mi'],
+  {'brand': [], 'model': [], 'color': [], 'mileage': ['more 2000 mi'],
    'price': ['more 2600 $',], 'year': ['more 1992', 'less 2001',]}],
  # Note: prev_out has 'more 1992', so it is not written again
 
- [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+ [{'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': [], 'year': []},
   ['3500',    'to',    '6007',   '7009',      'mile', ],
   ['price', 'range2', 'price', 'price', 'units_mileage_mi',],
-  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+  {'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': ['3500-6007', '7009'], 'year': []}],
  # Note: 7009 has a label of price
 
- [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+ [{'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': [], 'year': []},
   ['3500',    '-',      '6007',    'mile',         '7009', ],
   ['mileage', 'range2', 'mileage', 'units_mileage_mi', 'price',],
-  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': ['3500-6007 mi', ],
+  {'brand': [], 'model': [], 'color': [], 'mileage': ['3500-6007 mi', ],
    'price': ['7009'], 'year': []}],
 
- [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+ [{'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': [], 'year': []},
   ['3500',    '-',      '6007',    'dollars',     '7009', ],
   ['mileage', 'range2', 'mileage', 'units_price_$', 'price',],
-  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': ['3500-6007', ],
+  {'brand': [], 'model': [], 'color': [], 'mileage': ['3500-6007', ],
    'price': ['7009 $'], 'year': []}],
 
- [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+ [{'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': [], 'year': []},
   ['$',            '200',  'less',  '700', ],
   ['units_price_$', 'price', 'less', 'price',],
-  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+  {'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': ['200 $', 'less 700'], 'year': []}],
 
- [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+ [{'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': [], 'year': []},
   ['less', '$',           '863400',   '-',     '989677', ],
   ['less', 'units_price_$', 'price', 'range2', 'price',],
-  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+  {'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': ['less 863400 $', '989677'], 'year': []}],
 
- [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+ [{'brand': [], 'model': [], 'color': [],'mileage': [],
    'price': [], 'year': []},
   ['less', '12700',   '-',      '26100',   'dollars', ],
   ['less', 'price', 'range2', 'price', 'units_price_$',],
-  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+  {'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': ['less 12700', '26100 $'], 'year': []}],
  # when range2 is reached, less 12700 is fine, so range2 is thrown
 
- [{'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+ [{'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': [], 'year': []},
   ['$', '3793',   'more',      '28423',   'range', ],
   ['units_price_$', 'price', 'more', 'price', 'range1',],
-  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+  {'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': ['3793 $', 'more 28423'], 'year': []}],
  # either ['3793 $', 'more 28423'] or ['3793 $', 'more 28423'] is possible but
  # it is more likely that user will type "more 28423"
 
  [{'brand': ['honda'], 'model': ['accord'], 'color': ['tuxedo black metallic'],
-   'style': ['vanminivan'], 'mileage': ['less 40001 mi'],
+   'mileage': ['less 40001 mi'],
    'price': ['less 15000 $'], 'year': ['2019-2024']},
   ['retrieve', 'delete'],
   ['restore', 'remove'],
-  {'brand': [], 'model': [], 'color': [], 'style': [], 'mileage': [],
+  {'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': [], 'year': []}],
 
  [{'brand': ['honda'], 'model': ['accord'], 'color': ['tuxedo black metallic'],
-   'style': ['vanminivan'], 'mileage': ['less 40001 mi'],
+   'mileage': ['less 40001 mi'],
    'price': ['less 15000 $'], 'year': ['2019-2024']},
   ['delete', 'everything', 'toyota', 'camry'],
   ['remove', 'everything', 'brand',  'model'],
-  {'brand': ['toyota'], 'model': ['camry'], 'color': [], 'style': [],
+  {'brand': ['toyota'], 'model': ['camry'], 'color': [],
    'mileage': [], 'price': [], 'year': []}],
 
  [{'brand': ['honda'], 'model': ['accord'], 'color': ['tuxedo black metallic'],
-   'style': ['vanminivan'], 'mileage': ['less 40001 mi'],
+   'mileage': ['less 40001 mi'],
    'price': ['less 15000 $'], 'year': ['2019-2024']},
   ['remove', 'retreive', '45'],
   ['remove', 'restore', 'setting'],
   {'brand': ['bentley'], 'model': ['nv3500 hd passenger'],
-   'color': ['tuxedo black metallic'], 'style': ['vanminivan'],
+   'color': ['tuxedo black metallic'],
    'mileage': ['less 2987 mi'], 'price': ['more 5000 $'],
    'year': ['2018-2024']}],
  # remove does nothing
 
  [{'brand': ['honda'], 'model': ['accord'], 'color': ['tuxedo black metallic'],
-   'style': ['vanminivan'], 'mileage': ['less 40001 mi'],
+   'mileage': ['less 40001 mi'],
    'price': ['less 15000 $'], 'year': ['2019-2024']},
   ['remove', 'honda', 'less', '$',             '15000', '2019', '-',      '2024'],
   ['remove', 'brand', 'less', 'units_price_$', 'price', 'year', 'range2', 'year'],
   {'brand': [], 'model': ['accord'], 'color': ['tuxedo black metallic'],
-   'style': ['vanminivan'], 'mileage': ['less 40001 mi'],
+   'mileage': ['less 40001 mi'],
    'price': [], 'year': []}],
 
  [{'brand': ['honda'], 'model': ['accord'], 'color': ['tuxedo black metallic'],
-   'style': ['vanminivan'], 'mileage': ['less 40001 mi'],
+   'mileage': ['less 40001 mi'],
    'price': ['less 15000 $'], 'year': ['2019-2024']},
   ['remove', 'accord', '40001',   'mile',             '$',             '15000', '2024'],
   ['remove', 'model',  'mileage', 'units_mileage_mi', 'units_price_$', 'price', 'year'],
   {'brand': ['honda'], 'model': [], 'color': ['tuxedo black metallic'],
-   'style': ['vanminivan'], 'mileage': [],
+   'mileage': [],
    'price': [], 'year': []}],
 
+ [{'brand': ['honda'], 'model': ['accord'], 'color': ['tuxedo black metallic'],
+   'mileage': ['less 40001 mi'],
+   'price': ['less 15000 $'], 'year': ['2019-2024']},
+  ['retrieve', '145',     'remove', 'passenger', 'tuxedo', '2987',    '5000',  'dollar',        '2024'],
+  ['restore', 'setting', 'remove', 'model',     'color',  'mileage', 'price', 'units_price_$', 'year'],
+  {'brand': ['bentley'], 'model': [], 'color': [],
+   'mileage': [], 'price': [], 'year': []}],
+
 ]
+"""
 num_tests = 0
 num_failed = 0
 for prev_out, wrds, lbls, out_True in in_out:
@@ -1015,3 +1031,4 @@ for prev_out, wrds, lbls, out_True in in_out:
           f'(out == out_True)\t{out[0] == out_True}\n')
 print(f'# of tests = {num_tests}; # of failures = {num_failed}')
 print("end of generate_userOut()")
+"""
