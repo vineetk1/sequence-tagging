@@ -4,7 +4,7 @@ Vineet Kumar, sioom.ai
 
 import torch
 from logging import getLogger
-from typing import Dict, List, Any, Union, Tuple, Set
+from typing import Dict, List, Any, Union, Tuple
 import pathlib
 import textwrap
 import pandas as pd
@@ -31,16 +31,6 @@ def failed_nnOut_tknLblIds(
 
     assert bch_nnOut_tknLblIds.shape[0] == len(bch_nnOut_entityLbls)
     count["total_turns"] += len(bch_nnOut_entityLbls)
-    bch_nnOut_tknLblIds = torch.where(bch['tknLblIds'] == -100,
-                                      bch['tknLblIds'], bch_nnOut_tknLblIds)
-    failed_bchIdxs_nnOutTknLblIdIdxs: List[List[int, int]] = torch.ne(
-        bch['tknLblIds'], bch_nnOut_tknLblIds).nonzero().tolist()
-    count["failed_tknLbls"] += len(failed_bchIdxs_nnOutTknLblIdIdxs)
-    failed_bchIdxs: Set[int] = {
-        failed_bchIdx_nnOutTknLblIdIdx[0]
-        for failed_bchIdx_nnOutTknLblIdIdx in failed_bchIdxs_nnOutTknLblIdIdxs
-    }
-    count["failedTurns_tknLbls"] += len(failed_bchIdxs)
 
     for bch_idx in range(len(bch_nnOut_entityLbls)):
 
@@ -51,7 +41,7 @@ def failed_nnOut_tknLblIds(
         tkns: str = None
         tknLbl_True: str = None
         nnOut_tknLbl: str = None
-        tknLbl_Pass: bool = True if bch_idx not in failed_bchIdxs else False
+        tknLbl_Pass: bool = True
         nnIn_tknIds_beginEnd: torch.Tensor = (
             bch['nnIn_tknIds']['input_ids'][bch_idx] == 102).nonzero()
         for nnIn_tknIds_idx in range(nnIn_tknIds_beginEnd[0].item() + 1,
@@ -64,8 +54,34 @@ def failed_nnOut_tknLblIds(
                 # ignore tknId that is not first-token-of-the-word; BIO labels
                 assert not nnIn_tkn.startswith("##")
                 if tkns is not None:
-                    tknLbls_assoc.append(
-                        f'({tkns}, {tknLbl_True}, {nnOut_tknLbl})')
+                    if tknLbl_True != nnOut_tknLbl:
+                        if tknLbl_True[-1] != ")" and nnOut_tknLbl[-1] == ")":
+                            nnOut_tknLbl_openParen_idx = nnOut_tknLbl.index(
+                                '(')
+                            if ((tknLbl_True == nnOut_tknLbl[
+                                 :nnOut_tknLbl_openParen_idx]) and (
+                                 tkns.translate(
+                                  {ord(i): None for i in '# '}) == (
+                                  nnOut_tknLbl[
+                                    nnOut_tknLbl_openParen_idx + 1:-1]))):
+                                nnOut_tknLbl_pass = True
+                            else:
+                                nnOut_tknLbl_pass = False
+                        else:
+                            nnOut_tknLbl_pass = False
+                    else:
+                        nnOut_tknLbl_pass = True
+                    if nnOut_tknLbl_pass:
+                        tknLbls_assoc.append(
+                            f'({tkns}, {tknLbl_True}, {nnOut_tknLbl})')
+                    else:
+                        tknLbls_assoc.append(
+                            f'({"++t+ "} {tkns}, {tknLbl_True}, '
+                            f'{nnOut_tknLbl})'
+                        )
+                        tknLbl_Pass = False
+                        count["failed_tknLbls"] += 1
+                tkns = f'{nnIn_tkn}'
                 tknLblId_True: int = bch['tknLblIds'][bch_idx,
                                                       nnIn_tknIds_idx].item()
                 assert tknLblId_True != -100
@@ -75,8 +91,6 @@ def failed_nnOut_tknLblIds(
                 assert nnOut_tknLblId != -100
                 nnOut_tknLbl = dataframes_meta['tknLblId2tknLbl'][
                     nnOut_tknLblId]
-                tkns = (f'{"++t+ " if tknLbl_True != nnOut_tknLbl else ""}'
-                        f'{nnIn_tkn}')
                 if tknLblId_True in count["failed_tknLbls_perDlg"]:
                     if nnOut_tknLblId in count["failed_tknLbls_perDlg"][
                             tknLblId_True]:
@@ -95,7 +109,32 @@ def failed_nnOut_tknLblIds(
                 tkns = f'{tkns} {nnIn_tkn}'
             prev_wrd_idx = next_wrd_idx
         if tkns is not None:
-            tknLbls_assoc.append(f'({tkns}, {tknLbl_True}, {nnOut_tknLbl})')
+            if tknLbl_True != nnOut_tknLbl:
+                if tknLbl_True[-1] != ")" and nnOut_tknLbl[-1] == ")":
+                    nnOut_tknLbl_openParen_idx = nnOut_tknLbl.index('(')
+                    if ((tknLbl_True == nnOut_tknLbl[
+                         :nnOut_tknLbl_openParen_idx]) and (
+                         tkns.translate(
+                          {ord(i): None for i in '# '}) == (
+                          nnOut_tknLbl[
+                            nnOut_tknLbl_openParen_idx + 1:-1]))):
+                        nnOut_tknLbl_pass = True
+                    else:
+                        nnOut_tknLbl_pass = False
+                else:
+                    nnOut_tknLbl_pass = False
+            else:
+                nnOut_tknLbl_pass = True
+            if nnOut_tknLbl_pass:
+                tknLbls_assoc.append(
+                    f'({tkns}, {tknLbl_True}, {nnOut_tknLbl})')
+            else:
+                tknLbls_assoc.append(
+                    f'({"++t+ "} {tkns}, {tknLbl_True}, {nnOut_tknLbl})')
+                tknLbl_Pass = False
+                count["failed_tknLbls"] += 1
+        if not tknLbl_Pass:
+            count["failedTurns_tknLbls"] += 1
 
         # associate (userIn_filtered_entityWrds_True, bch_entityLbls_True,
         #            nnOut_userIn_filtered_entityWrds, bch_nnOut_entityLbls)
