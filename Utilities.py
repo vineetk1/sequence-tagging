@@ -818,8 +818,8 @@ def prevTrnUserOut2history(prevTrnUserOut: Dict[str, List[str]]) -> List[str]:
 # ************************** test vectors follow ************************
 # python3 -m pdb Utilities.py
 
-
-#print("start of userIn_filter_splitWords(userIn: str) -> List[str]")
+"""
+print("start of userIn_filter_splitWords(userIn: str) -> List[str]")
 userIns = [
             "- dark-brown, 100.25 - 600.33, 200 -",
             "dark -brown, dark - brown dark-brown dark brown-   red dark#-brown dark#- brown",
@@ -839,6 +839,7 @@ userIns = [
             "5000 miles - 9000 miles",
             "5000  - 9000 miles",
             "5000 miles - 9000",
+            "5000 - prices 9000",
           ]
 userIn_filtereds_True = [
         ["dark", "brown", "100.25", "-", "600.33", "200"],
@@ -859,22 +860,23 @@ userIn_filtereds_True = [
         ["5000", "miles", "-", "9000", "miles"],
         ["5000", "-", "9000", "miles"],
         ["5000", "miles", "-", "9000"],
+        ["5000", "-", "prices", "9000"],
        ]
-#num_tests = 0
-#num_failed = 0
-#for userIn, userIn_filtered_True in zip(userIns, userIn_filtereds_True):
-#    num_tests += 1
-#    userIn_filtered = userIn_filter_splitWords(userIn)
-#    num_failed = num_failed if (
-#            userIn_filtered_True == userIn_filtered) else num_failed+1
-#    print(f'userIn  {userIn}\nuserIn_filtered_True {userIn_filtered_True}\n'
-#          f'userIn_filtered      {userIn_filtered}\nuserIn_filtered_True == '
-#          f'userIn_filtered  {userIn_filtered_True == userIn_filtered}\n')
-#print(f'# of tests = {num_tests}; # of failures = {num_failed}')
-#print("end of userIn_filter_splitWords(userIn: str) -> List[str]\n\n")
+num_tests = 0
+num_failed = 0
+for userIn, userIn_filtered_True in zip(userIns, userIn_filtereds_True):
+    num_tests += 1
+    userIn_filtered = userIn_filter_splitWords(userIn)
+    num_failed = num_failed if (
+            userIn_filtered_True == userIn_filtered) else num_failed+1
+    print(f'userIn  {userIn}\nuserIn_filtered_True {userIn_filtered_True}\n'
+          f'userIn_filtered      {userIn_filtered}\nuserIn_filtered_True == '
+          f'userIn_filtered  {userIn_filtered_True == userIn_filtered}\n')
+print(f'# of tests = {num_tests}; # of failures = {num_failed}')
+print("end of userIn_filter_splitWords(userIn: str) -> List[str]\n\n")
 
 
-print("start of generate_userOut()")
+#print("start of generate_userOut()")
 in_out = [
 
  [{'brand': [], 'model': [], 'color': [], 'mileage': [],
@@ -1019,7 +1021,6 @@ in_out = [
    'mileage': [], 'price': [], 'year': []}],
 
 ]
-"""
 num_tests = 0
 num_failed = 0
 for prev_out, wrds, lbls, out_True in in_out:
