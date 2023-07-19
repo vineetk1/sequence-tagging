@@ -265,12 +265,14 @@ def verify_and_change_user_provided_parameters(user_dicts: Dict):
         exit()
 
     if not user_dicts['ld_resume_chkpt']:
-        if user_dicts["model_init"]['model'] != "bert" or user_dicts[
-                "model_init"]['tokenizer_type'] != "bert" or user_dicts[
-                    "model_init"]['model_type'] != "bert-large-uncased":
+        if (user_dicts["model_init"]['model'] != "bert"
+                or user_dicts["model_init"]['tokenizer_type'] != "bert" or
+            (not (user_dicts["model_init"]['model_type'] == "bert-base-uncased"
+                  or user_dicts["model_init"]['model_type']
+                  == "bert-large-uncased"))):
             strng = ('unknown model and tokenizer_type: '
-                     f'{user_dicts["model_init"]["model"]}'
-                     f'{user_dicts["model_init"]["model_type"]}'
+                     f'{user_dicts["model_init"]["model"]} '
+                     f'{user_dicts["model_init"]["model_type"]} '
                      f'{user_dicts["model_init"]["tokenizer_type"]}')
             logg.critical(strng)
             exit()
