@@ -9,6 +9,7 @@ from enum import Enum
 import torch
 import copy
 import generate_dataset.Synthetic_dataset as syntheticData
+import common
 
 logg = getLogger(__name__)
 
@@ -331,23 +332,54 @@ def tknLblIds2entity_wrds_lbls(
         DEBUG_tokenizer,
         ) -> Tuple[List[Union[List[str], None]], List[Union[List[str], None]]]:
 
+    # NOTE: Remove all ASSERTS from Production code of this function
+    #   Right now one assert is commented at: assert not nnOut_tknLbl == 'T'
+    assert bch_nnOut_tknLblIds.shape == bch_nnIn_tknIds.shape
+
+    if common.no_history:
+        # tknIds between CLS and SEP belong to tknIds of words in
+        # bch['userIn_filtered_wrds']
+        nnIn_tknIds_idx_beginEnd: torch.Tensor = torch.zeros(
+                (bch_nnIn_tknIds.shape[0] * 2, 2),
+                device=bch_nnIn_tknIds.device, dtype=torch.int64)
+        sep_indices: torch.Tensor = (bch_nnIn_tknIds == 102).nonzero()
+        assert bch_nnIn_tknIds.shape[0] == sep_indices.shape[
+                0], "no_history is True but dataset has history"
+        indices = torch.arange(
+                1, (bch_nnIn_tknIds.shape[0] * 2),
+                2).type(torch.long).to(bch_nnIn_tknIds.device)
+        nnIn_tknIds_idx_beginEnd.index_copy_(0, indices, sep_indices)
+
+        cls_indices: torch.Tensor = torch.zeros(
+                (bch_nnIn_tknIds.shape[0], 2),
+                device=bch_nnIn_tknIds.device, dtype=torch.int64)
+        for i in range(bch_nnIn_tknIds.shape[0]):
+            cls_indices[i] = torch.tensor([i, 0])
+        indices = torch.arange(
+                0, (bch_nnIn_tknIds.shape[0] * 2) - 1,
+                2).type(torch.long).to(bch_nnIn_tknIds.device)
+        nnIn_tknIds_idx_beginEnd.index_copy_(0, indices, cls_indices)
+    else:
+        # tknIds between two SEP belong to tknIds of words in
+        # bch['userIn_filtered_wrds']
+        nnIn_tknIds_idx_beginEnd: torch.Tensor = (
+                bch_nnIn_tknIds == 102).nonzero()
+        assert bch_nnIn_tknIds.shape[0] * 2 == nnIn_tknIds_idx_beginEnd.shape[
+                0], "no_history is False but dataset does not have  history"
+
     # ***************remove DEBUG code starting from here*********************
     D_bch_associate = []
-    D_nnIn_tknIds_idx_beginEnd: torch.Tensor = (bch_nnIn_tknIds == 102).nonzero()
     for bch_idx in range(bch_nnOut_tknLblIds.shape[0]):
         D_bch_associate.append([])
         for D_nnIn_tknIds_idx in range(
-                (D_nnIn_tknIds_idx_beginEnd[bch_idx * 2, 1] + 1), (
-                   D_nnIn_tknIds_idx_beginEnd[(bch_idx * 2) + 1, 1])):
+                (nnIn_tknIds_idx_beginEnd[bch_idx * 2, 1] + 1), (
+                   nnIn_tknIds_idx_beginEnd[(bch_idx * 2) + 1, 1])):
             D_nnIn_tkn = DEBUG_tokenizer.convert_ids_to_tokens(bch_nnIn_tknIds[bch_idx][D_nnIn_tknIds_idx].item())
             D_tknLbl_True = tknLblId2tknLbl[DEBUG_bch_tknLblIds_True[bch_idx, D_nnIn_tknIds_idx]]
             D_nnOut_tknLbl = tknLblId2tknLbl[bch_nnOut_tknLblIds[bch_idx, D_nnIn_tknIds_idx]]
             D_userIn_filtered_wrd = bch_userIn_filtered_wrds[bch_idx][bch_map_tknIdx2wrdIdx[bch_idx][D_nnIn_tknIds_idx]]
             D_bch_associate[-1].append((D_nnIn_tknIds_idx, D_userIn_filtered_wrd, D_nnIn_tkn, D_tknLbl_True, D_nnOut_tknLbl))
     # ******************remove DEBUG code ending  here**********************
-    # NOTE: Remove all ASSERTS from Production code of this function
-    #   Right now one assert is commented at: assert not nnOut_tknLbl == 'T'
-    assert bch_nnOut_tknLblIds.shape == bch_nnIn_tknIds.shape
 
     bch_nnOut_entityLbls: List[List[str]] = []
     bch_nnOut_userIn_filtered_entityWrds: List[List[str]] = []
@@ -355,10 +387,6 @@ def tknLblIds2entity_wrds_lbls(
     entityLbl: str = None
     userIn_filtered_idx: int = None
     max_count_wrongPredictions_plus1: int = 2 + 1
-
-    # tknIds between two SEP belong to tknIds of words in
-    # bch['userIn_filtered_wrds']
-    nnIn_tknIds_idx_beginEnd: torch.Tensor = (bch_nnIn_tknIds == 102).nonzero()
     tknLblId_of_O: int = tknLblId2tknLbl.index("O")
 
     for bch_idx in range(bch_nnOut_tknLblIds.shape[0]):
@@ -738,7 +766,7 @@ def generate_userOut(
                         assert False
 
                 case _:
-                    if entityLbl == 'setting':
+                    if entityLbl == 'setting' or entityLbl == 'everything':
                         pass
                     else:
                         assert False
