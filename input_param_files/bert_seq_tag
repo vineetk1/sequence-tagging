@@ -44,8 +44,8 @@ parameters for python-dictionary 'model_init'
 Dropouts are used ONLY during Training; dropouts are disabled by Lightning during validation or testing or Predicting
 - 
 #{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert'}
-#{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert', 'hidden_dropout_prob': 0.1, 'attention_probs_dropout_prob': 0.1, 'classification_head_dropout': 0.1, 'loss_func_class_weights': False}
-{'model': 'bert', 'model_type': 'bert-base-uncased', 'tokenizer_type': 'bert', 'hidden_dropout_prob': 0.1, 'attention_probs_dropout_prob': 0.1, 'classification_head_dropout': 0.1, 'loss_func_class_weights': False}
+{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert', 'hidden_dropout_prob': 0.1, 'attention_probs_dropout_prob': 0.1, 'classification_head_dropout': 0.1, 'loss_func_class_weights': False}
+#{'model': 'bert', 'model_type': 'bert-base-uncased', 'tokenizer_type': 'bert', 'hidden_dropout_prob': 0.1, 'attention_probs_dropout_prob': 0.1, 'classification_head_dropout': 0.1, 'loss_func_class_weights': False}
 #{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert', 'hidden_dropout_prob': 0.1, 'attention_probs_dropout_prob': 0.1, 'classification_head_dropout': 0.1, 'loss_func_class_weights': True}
 #{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert', 'hidden_dropout_prob': 0.2, 'attention_probs_dropout_prob': 0.2, 'classification_head_dropout': 0.2, 'loss_func_class_weights': True}
 #{'model': 'bert', 'model_type': 'bert-large-uncased', 'tokenizer_type': 'bert', 'classification_head_dropout': 0.3, 'tokenizer_init': {'tokenizer.model_max_length': 20, 'tokenizer.truncation_side':'left'}}
