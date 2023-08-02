@@ -11,6 +11,7 @@ import pandas as pd
 from itertools import zip_longest
 from Utilities import userOut_init
 from contextlib import redirect_stdout
+import common
 
 logg = getLogger(__name__)
 
@@ -42,8 +43,16 @@ def failed_nnOut_tknLblIds(
         tknLbl_True: str = None
         nnOut_tknLbl: str = None
         tknLbl_Pass: bool = True
-        nnIn_tknIds_beginEnd: torch.Tensor = (
-            bch['nnIn_tknIds']['input_ids'][bch_idx] == 102).nonzero()
+        if common.no_history:
+            nnIn_tknIds_beginEnd: torch.Tensor = (
+                bch['nnIn_tknIds']['input_ids'][bch_idx] == 102).nonzero()
+            nnIn_tknIds_beginEnd = torch.cat(
+                (torch.tensor([[0]],
+                              device=bch['nnIn_tknIds']['input_ids'].device),
+                 nnIn_tknIds_beginEnd), 0)
+        else:
+            nnIn_tknIds_beginEnd: torch.Tensor = (
+                bch['nnIn_tknIds']['input_ids'][bch_idx] == 102).nonzero()
         for nnIn_tknIds_idx in range(nnIn_tknIds_beginEnd[0].item() + 1,
                                      nnIn_tknIds_beginEnd[1].item()):
             nnIn_tkn: str = tokenizer.convert_ids_to_tokens(
@@ -58,12 +67,13 @@ def failed_nnOut_tknLblIds(
                         if tknLbl_True[-1] != ")" and nnOut_tknLbl[-1] == ")":
                             nnOut_tknLbl_openParen_idx = nnOut_tknLbl.index(
                                 '(')
-                            if ((tknLbl_True == nnOut_tknLbl[
-                                 :nnOut_tknLbl_openParen_idx]) and (
-                                 tkns.translate(
-                                  {ord(i): None for i in '# '}) == (
-                                  nnOut_tknLbl[
-                                    nnOut_tknLbl_openParen_idx + 1:-1]))):
+                            if ((tknLbl_True
+                                 == nnOut_tknLbl[:nnOut_tknLbl_openParen_idx])
+                                    and
+                                (tkns.translate({ord(i): None
+                                                 for i in '# '})
+                                 == (nnOut_tknLbl[nnOut_tknLbl_openParen_idx +
+                                                  1:-1]))):
                                 nnOut_tknLbl_pass = True
                             else:
                                 nnOut_tknLbl_pass = False
@@ -77,8 +87,7 @@ def failed_nnOut_tknLblIds(
                     else:
                         tknLbls_assoc.append(
                             f'({"++t+ "} {tkns}, {tknLbl_True}, '
-                            f'{nnOut_tknLbl})'
-                        )
+                            f'{nnOut_tknLbl})')
                         tknLbl_Pass = False
                         count["failed_tknLbls"] += 1
                 tkns = f'{nnIn_tkn}'
@@ -112,12 +121,12 @@ def failed_nnOut_tknLblIds(
             if tknLbl_True != nnOut_tknLbl:
                 if tknLbl_True[-1] != ")" and nnOut_tknLbl[-1] == ")":
                     nnOut_tknLbl_openParen_idx = nnOut_tknLbl.index('(')
-                    if ((tknLbl_True == nnOut_tknLbl[
-                         :nnOut_tknLbl_openParen_idx]) and (
-                         tkns.translate(
-                          {ord(i): None for i in '# '}) == (
-                          nnOut_tknLbl[
-                            nnOut_tknLbl_openParen_idx + 1:-1]))):
+                    if ((tknLbl_True
+                         == nnOut_tknLbl[:nnOut_tknLbl_openParen_idx])
+                            and (tkns.translate({ord(i): None
+                                                 for i in '# '})
+                                 == (nnOut_tknLbl[nnOut_tknLbl_openParen_idx +
+                                                  1:-1]))):
                         nnOut_tknLbl_pass = True
                     else:
                         nnOut_tknLbl_pass = False
@@ -250,10 +259,42 @@ def prepare_metric(
     y_true: List[List[str]] = []
     y_pred: List[List[str]] = []
     assert bch_nnOut_tknLblIds.shape[0] == bch['tknLblIds'].shape[0]
-    # tknIds between two SEP belong to tknIds of words in
-    # bch['userIn_filtered_wrds']
-    nnIn_tknIds_idx_beginEnd: torch.Tensor = (
-        bch['nnIn_tknIds']['input_ids'] == 102).nonzero()
+
+    if common.no_history:
+        # tknIds between CLS and SEP belong to tknIds of words in
+        # bch['userIn_filtered_wrds']
+        nnIn_tknIds_idx_beginEnd: torch.Tensor = torch.zeros(
+            (bch['nnIn_tknIds']['input_ids'].shape[0] * 2, 2),
+            device=bch['nnIn_tknIds']['input_ids'].device,
+            dtype=torch.int64)
+        sep_indices: torch.Tensor = (
+            bch['nnIn_tknIds']['input_ids'] == 102).nonzero()
+        assert bch['nnIn_tknIds']['input_ids'].shape[0] == sep_indices.shape[
+                0], "no_history is True but dataset has history"
+        indices = torch.arange(
+            1, (bch['nnIn_tknIds']['input_ids'].shape[0] * 2),
+            2).type(torch.long).to(bch['nnIn_tknIds']['input_ids'].device)
+        nnIn_tknIds_idx_beginEnd.index_copy_(0, indices, sep_indices)
+
+        cls_indices: torch.Tensor = torch.zeros(
+            (bch['nnIn_tknIds']['input_ids'].shape[0], 2),
+            device=bch['nnIn_tknIds']['input_ids'].device,
+            dtype=torch.int64)
+        for i in range(bch['nnIn_tknIds']['input_ids'].shape[0]):
+            cls_indices[i] = torch.tensor([i, 0])
+        indices = torch.arange(
+            0, (bch['nnIn_tknIds']['input_ids'].shape[0] * 2) - 1,
+            2).type(torch.long).to(bch['nnIn_tknIds']['input_ids'].device)
+        nnIn_tknIds_idx_beginEnd.index_copy_(0, indices, cls_indices)
+    else:
+        # tknIds between two SEP belong to tknIds of words in
+        # bch['userIn_filtered_wrds']
+        nnIn_tknIds_idx_beginEnd: torch.Tensor = (
+            bch['nnIn_tknIds']['input_ids'] == 102).nonzero()
+        assert bch['nnIn_tknIds']['input_ids'].shape[
+                0] * 2 == nnIn_tknIds_idx_beginEnd.shape[
+                0], "no_history is False but dataset does not have  history"
+
     for bch_idx in range(bch_nnOut_tknLblIds.shape[0]):
         y_true.append([])
         y_pred.append([])
