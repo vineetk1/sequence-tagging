@@ -328,8 +328,8 @@ def tknLblIds2entity_wrds_lbls(
         bch_userIn_filtered_wrds: List[List[str]],
         bch_nnOut_tknLblIds: torch.Tensor,
         tknLblId2tknLbl: List[str],
-        DEBUG_bch_tknLblIds_True,
-        DEBUG_tokenizer,
+        DEBUG_bch_tknLblIds_True=torch.LongTensor([]),
+        DEBUG_tokenizer=0,
         ) -> Tuple[List[Union[List[str], None]], List[Union[List[str], None]]]:
 
     # NOTE: Remove all ASSERTS from Production code of this function
@@ -368,17 +368,18 @@ def tknLblIds2entity_wrds_lbls(
                 0], "no_history is False but dataset does not have  history"
 
     # ***************remove DEBUG code starting from here*********************
-    D_bch_associate = []
-    for bch_idx in range(bch_nnOut_tknLblIds.shape[0]):
-        D_bch_associate.append([])
-        for D_nnIn_tknIds_idx in range(
-                (nnIn_tknIds_idx_beginEnd[bch_idx * 2, 1] + 1), (
-                   nnIn_tknIds_idx_beginEnd[(bch_idx * 2) + 1, 1])):
-            D_nnIn_tkn = DEBUG_tokenizer.convert_ids_to_tokens(bch_nnIn_tknIds[bch_idx][D_nnIn_tknIds_idx].item())
-            D_tknLbl_True = tknLblId2tknLbl[DEBUG_bch_tknLblIds_True[bch_idx, D_nnIn_tknIds_idx]]
-            D_nnOut_tknLbl = tknLblId2tknLbl[bch_nnOut_tknLblIds[bch_idx, D_nnIn_tknIds_idx]]
-            D_userIn_filtered_wrd = bch_userIn_filtered_wrds[bch_idx][bch_map_tknIdx2wrdIdx[bch_idx][D_nnIn_tknIds_idx]]
-            D_bch_associate[-1].append((D_nnIn_tknIds_idx, D_userIn_filtered_wrd, D_nnIn_tkn, D_tknLbl_True, D_nnOut_tknLbl))
+    if DEBUG_bch_tknLblIds_True.numel():
+        D_bch_associate = []
+        for bch_idx in range(bch_nnOut_tknLblIds.shape[0]):
+            D_bch_associate.append([])
+            for D_nnIn_tknIds_idx in range(
+                    (nnIn_tknIds_idx_beginEnd[bch_idx * 2, 1] + 1), (
+                       nnIn_tknIds_idx_beginEnd[(bch_idx * 2) + 1, 1])):
+                D_nnIn_tkn = DEBUG_tokenizer.convert_ids_to_tokens(bch_nnIn_tknIds[bch_idx][D_nnIn_tknIds_idx].item())
+                D_tknLbl_True = tknLblId2tknLbl[DEBUG_bch_tknLblIds_True[bch_idx, D_nnIn_tknIds_idx]]
+                D_nnOut_tknLbl = tknLblId2tknLbl[bch_nnOut_tknLblIds[bch_idx, D_nnIn_tknIds_idx]]
+                D_userIn_filtered_wrd = bch_userIn_filtered_wrds[bch_idx][bch_map_tknIdx2wrdIdx[bch_idx][D_nnIn_tknIds_idx]]
+                D_bch_associate[-1].append((D_nnIn_tknIds_idx, D_userIn_filtered_wrd, D_nnIn_tkn, D_tknLbl_True, D_nnOut_tknLbl))
     # ******************remove DEBUG code ending  here**********************
 
     bch_nnOut_entityLbls: List[List[str]] = []
