@@ -64,8 +64,8 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.train_data),
             batch_sampler=None,
-            num_workers=6,
-            #num_workers=0,
+            #num_workers=6,
+            num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -78,8 +78,8 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.valid_data),
             batch_sampler=None,
-            num_workers=6,
-            #num_workers=0,
+            #num_workers=6,
+            num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -92,8 +92,8 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.test_data),
             batch_sampler=None,
-            num_workers=6,
-            #num_workers=0,
+            #num_workers=6,
+            num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -106,8 +106,8 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.test_data),
             batch_sampler=None,
-            num_workers=6,
-            #num_workers=0,
+            #num_workers=6,
+            num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -135,7 +135,7 @@ class Data(LightningDataModule):
                                              truncation='do_not_truncate',
                                              return_tensors='pt',
                                              return_token_type_ids=False,
-                                             return_attention_mask=True,
+                                             return_attention_mask=False,
                                              return_overflowing_tokens=False)
         else:
             bch_nnIn_tknIds = self.tokenizer(
@@ -146,18 +146,26 @@ class Data(LightningDataModule):
                 truncation='do_not_truncate',
                 return_tensors='pt',
                 return_token_type_ids=False,
-                return_attention_mask=True,
+                return_attention_mask=False,
                 return_overflowing_tokens=False)
 
         for idx in range(len(examples)):
             map_tknIdx2wrdIdx.append(bch_nnIn_tknIds.word_ids(idx))
 
-        # Stop if truncation is needed; Cannot Stop in Predict, so what is
-        # the solution?
+        # if truncation is needed, create error messages
+        err_msgs = []
         if bch_nnIn_tknIds['input_ids'].shape[
                 1] > self.tokenizer.model_max_length:
-            logg.critical('Truncation needed')
-            exit()
+            assert not common.no_history
+            bch_nnIn_tknIds_SEP_beginEnd: torch.Tensor = (
+                bch_nnIn_tknIds['input_ids'] == 102).nonzero()
+            for idx, bol in enumerate(
+                (bch_nnIn_tknIds_SEP_beginEnd[1::2, 1] <=
+                 self.tokenizer.model_max_length).tolist()):
+                if bol:
+                    err_msgs.append("Try again; your text is lost")
+                else:
+                    err_msgs.append("Your text is too long; send shorter text")
 
         if common.no_history:
             # convert token-label-ids of (CLS history SEP userIn_filtered SEP)
@@ -172,7 +180,7 @@ class Data(LightningDataModule):
                     if elem == -100:
                         count += 1
                     else:
-                        count_history_plus_SEP.append(count-1)
+                        count_history_plus_SEP.append(count - 1)
                         break
 
             bch_tknLblIds = torch.LongTensor([
@@ -189,12 +197,14 @@ class Data(LightningDataModule):
                                               count_history_plus_SEP[i])
         else:
             # Verify that number of token-ids in history and userIn_filtered
-            # are equal to token-label-ids; token-label-ids not used in Predict
+            # are equal to token-label-ids; token-label-ids not used in
+            # Deployment
             for i, tknLbls_len in enumerate(
-                    bch_nnIn_tknIds['attention_mask'].count_nonzero(-1)):
-                assert tknLbls_len.item() == len(examples[i][4])
+                ((bch_nnIn_tknIds['input_ids'] == 102).nonzero()[1::2,
+                                                                 1]).tolist()):
+                assert (tknLbls_len + 1) == len(examples[i][4])
 
-            # pad token-label-ids; token-label-ids not used in Predict
+            # pad token-label-ids; token-label-ids not used in Deployment
             bch_tknLblIds_max_len = max(
                 [len(example[4]) for example in examples])
             bch_tknLblIds = torch.LongTensor([
@@ -214,6 +224,7 @@ class Data(LightningDataModule):
             'prevTrnUserOut': bch_prevTrnUserOut,
             'userIn_filtered_wrds': bch_userIn_filtered_wrds,
             'map_tknIdx2wrdIdx': map_tknIdx2wrdIdx,
+            'error_msgs': err_msgs
         }
 
 
