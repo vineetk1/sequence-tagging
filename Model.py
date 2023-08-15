@@ -93,8 +93,11 @@ class Model(LightningModule):
             'optz_params' in optz_sched_params) and (
                 'lr' in optz_sched_params['optz_params']) else None
 
-    def forward(self):
-        logg.debug('')
+    def forward(self, batch: Dict[str, Any]):
+        outputs = self.bertModel(batch)
+        logits = self.classification_head(outputs.last_hidden_state)
+        bch_nnOut_tknLblIds = torch.argmax(logits, dim=-1)
+        return bch_nnOut_tknLblIds
 
     def training_step(self, batch: Dict[str, Any],
                       batch_idx: int) -> torch.Tensor:
@@ -156,6 +159,8 @@ class Model(LightningModule):
 
     def _run_model(self,
                    batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
+        if batch['error_msgs']:
+            assert False, "Text is longer than allowed"
         outputs = self.bertModel(**batch['nnIn_tknIds'])
         logits = self.classification_head(
             self.classification_head_dropout(outputs.last_hidden_state))
@@ -278,6 +283,8 @@ class Model(LightningModule):
         }
 
     def predict_step(self, batch: Dict[str, Any], batch_idx: int) -> Any:
+        if batch['error_msgs']:
+            assert False, "Text is longer than allowed"
         outputs = self.bertModel(**batch['nnIn_tknIds'])
         logits = self.classification_head(outputs.last_hidden_state)
         bch_nnOut_tknLblIds = torch.argmax(logits, dim=-1)
