@@ -11,7 +11,6 @@ from generate_dataset.Generate_dataframes import generate_dataframes
 from Prepare_dataframes_for_trainValTest import (
     prepare_dataframes_for_trainValTest)
 import Utilities
-import common
 
 logg = getLogger(__name__)
 
@@ -128,26 +127,16 @@ class Data(LightningDataModule):
             bch_history.append(Utilities.prevTrnUserOut2history(example[3]))
             bch_prevTrnUserOut.append(example[3])
 
-        if common.no_history:
-            bch_nnIn_tknIds = self.tokenizer(text=bch_userIn_filtered_wrds,
-                                             is_split_into_words=True,
-                                             padding=True,
-                                             truncation='do_not_truncate',
-                                             return_tensors='pt',
-                                             return_token_type_ids=False,
-                                             return_attention_mask=False,
-                                             return_overflowing_tokens=False)
-        else:
-            bch_nnIn_tknIds = self.tokenizer(
-                text=bch_history,
-                text_pair=bch_userIn_filtered_wrds,
-                is_split_into_words=True,
-                padding=True,
-                truncation='do_not_truncate',
-                return_tensors='pt',
-                return_token_type_ids=False,
-                return_attention_mask=False,
-                return_overflowing_tokens=False)
+        bch_nnIn_tknIds = self.tokenizer(
+            text=bch_history,
+            text_pair=bch_userIn_filtered_wrds,
+            is_split_into_words=True,
+            padding=True,
+            truncation='do_not_truncate',
+            return_tensors='pt',
+            return_token_type_ids=False,
+            return_attention_mask=False,
+            return_overflowing_tokens=False)
 
         for idx in range(len(examples)):
             map_tknIdx2wrdIdx.append(bch_nnIn_tknIds.word_ids(idx))
@@ -156,7 +145,6 @@ class Data(LightningDataModule):
         err_msgs = []
         if bch_nnIn_tknIds['input_ids'].shape[
                 1] > self.tokenizer.model_max_length:
-            assert not common.no_history
             bch_nnIn_tknIds_SEP_beginEnd: torch.Tensor = (
                 bch_nnIn_tknIds['input_ids'] == 102).nonzero()
             for idx, bol in enumerate(
@@ -167,50 +155,21 @@ class Data(LightningDataModule):
                 else:
                     err_msgs.append("Your text is too long; send shorter text")
 
-        if common.no_history:
-            # convert token-label-ids of (CLS history SEP userIn_filtered SEP)
-            # to (CLS userIn_filtered SEP)
-            bch_tknLblIds_max_len = max(
-                [len(example[4]) for example in examples])
+        # Verify that number of token-ids in history and userIn_filtered
+        # are equal to token-label-ids; token-label-ids not used in
+        # Deployment
+        for i, tknLbls_len in enumerate(
+            ((bch_nnIn_tknIds['input_ids'] == 102).nonzero()[1::2,
+                                                             1]).tolist()):
+            assert (tknLbls_len + 1) == len(examples[i][4])
 
-            count_history_plus_SEP: List[int] = []
-            for example in examples:
-                count: int = 0
-                for elem in example[4]:
-                    if elem == -100:
-                        count += 1
-                    else:
-                        count_history_plus_SEP.append(count - 1)
-                        break
-
-            bch_tknLblIds = torch.LongTensor([
-                example[4][count_history_plus_SEP[i]:] + [-100] *
-                (bch_nnIn_tknIds['input_ids'].shape[1] -
-                 (len(example[4]) - count_history_plus_SEP[i]))
-                for i, example in enumerate(examples)
-            ])
-
-            assert bch_nnIn_tknIds['input_ids'].shape == bch_tknLblIds.shape
-            for i, tknLbls_len in enumerate(
-                    bch_nnIn_tknIds['attention_mask'].count_nonzero(-1)):
-                assert tknLbls_len.item() == (len(examples[i][4]) -
-                                              count_history_plus_SEP[i])
-        else:
-            # Verify that number of token-ids in history and userIn_filtered
-            # are equal to token-label-ids; token-label-ids not used in
-            # Deployment
-            for i, tknLbls_len in enumerate(
-                ((bch_nnIn_tknIds['input_ids'] == 102).nonzero()[1::2,
-                                                                 1]).tolist()):
-                assert (tknLbls_len + 1) == len(examples[i][4])
-
-            # pad token-label-ids; token-label-ids not used in Deployment
-            bch_tknLblIds_max_len = max(
-                [len(example[4]) for example in examples])
-            bch_tknLblIds = torch.LongTensor([
-                example[4] + [-100] * (bch_tknLblIds_max_len - len(example[4]))
-                for example in examples
-            ])
+        # pad token-label-ids; token-label-ids not used in Deployment
+        bch_tknLblIds_max_len = max(
+            [len(example[4]) for example in examples])
+        bch_tknLblIds = torch.LongTensor([
+            example[4] + [-100] * (bch_tknLblIds_max_len - len(example[4]))
+            for example in examples
+        ])
 
         return {
             'nnIn_tknIds': bch_nnIn_tknIds,
