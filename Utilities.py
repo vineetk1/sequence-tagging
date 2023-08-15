@@ -9,7 +9,6 @@ from enum import Enum
 import torch
 import copy
 import generate_dataset.Synthetic_dataset as syntheticData
-import common
 
 logg = getLogger(__name__)
 
@@ -336,36 +335,12 @@ def tknLblIds2entity_wrds_lbls(
     #   Right now one assert is commented at: assert not nnOut_tknLbl == 'T'
     assert bch_nnOut_tknLblIds.shape == bch_nnIn_tknIds.shape
 
-    if common.no_history:
-        # tknIds between CLS and SEP belong to tknIds of words in
-        # bch['userIn_filtered_wrds']
-        nnIn_tknIds_idx_beginEnd: torch.Tensor = torch.zeros(
-                (bch_nnIn_tknIds.shape[0] * 2, 2),
-                device=bch_nnIn_tknIds.device, dtype=torch.int64)
-        sep_indices: torch.Tensor = (bch_nnIn_tknIds == 102).nonzero()
-        assert bch_nnIn_tknIds.shape[0] == sep_indices.shape[
-                0], "no_history is True but dataset has history"
-        indices = torch.arange(
-                1, (bch_nnIn_tknIds.shape[0] * 2),
-                2).type(torch.long).to(bch_nnIn_tknIds.device)
-        nnIn_tknIds_idx_beginEnd.index_copy_(0, indices, sep_indices)
-
-        cls_indices: torch.Tensor = torch.zeros(
-                (bch_nnIn_tknIds.shape[0], 2),
-                device=bch_nnIn_tknIds.device, dtype=torch.int64)
-        for i in range(bch_nnIn_tknIds.shape[0]):
-            cls_indices[i] = torch.tensor([i, 0])
-        indices = torch.arange(
-                0, (bch_nnIn_tknIds.shape[0] * 2) - 1,
-                2).type(torch.long).to(bch_nnIn_tknIds.device)
-        nnIn_tknIds_idx_beginEnd.index_copy_(0, indices, cls_indices)
-    else:
-        # tknIds between two SEP belong to tknIds of words in
-        # bch['userIn_filtered_wrds']
-        nnIn_tknIds_idx_beginEnd: torch.Tensor = (
-                bch_nnIn_tknIds == 102).nonzero()
-        assert bch_nnIn_tknIds.shape[0] * 2 == nnIn_tknIds_idx_beginEnd.shape[
-                0], "no_history is False but dataset does not have  history"
+    # tknIds between two SEP belong to tknIds of words in
+    # bch['userIn_filtered_wrds']
+    nnIn_tknIds_idx_beginEnd: torch.Tensor = (
+            bch_nnIn_tknIds == 102).nonzero()
+    assert bch_nnIn_tknIds.shape[0] * 2 == nnIn_tknIds_idx_beginEnd.shape[
+            0], "no_history is False but dataset does not have  history"
 
     # ***************remove DEBUG code starting from here*********************
     if DEBUG_bch_tknLblIds_True.numel():
