@@ -205,7 +205,6 @@ def main():
         exit()
 
     # training and testing
-    trainer.tune(model, datamodule=data)
     if user_dicts['misc']['train']:
         # (train, val, test): True
         trainer.fit(
