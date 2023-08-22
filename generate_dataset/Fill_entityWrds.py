@@ -32,10 +32,15 @@ class Fill_entityWrds():
     def __init__(self):
         self.nonNumEntityWrds_per_entityLbl: Dict[str, Dict[str, Union[
             Set[Union[str, Tuple[str, str]]], int, bool]]] = {}
-        global carEntityNonNumLbls
+        carEntityNonNumLbls_plus_style = list(carEntityNonNumLbls) + ['style']
+        synonyms_for_carEntityNonNumLbls_plus_style = (
+            synonyms_for_carEntityNonNumLbls)
+        synonyms_for_carEntityNonNumLbls_plus_style['style'] = [
+            "body_style", "body_styles"
+        ]
         for entityLbl in (tuple(unitsLbls.keys()) + tuple(cmdsLbls.keys()) +
-                          carEntityNonNumLbls):
-            if entityLbl in carEntityNonNumLbls:
+                          tuple(carEntityNonNumLbls_plus_style)):
+            if entityLbl in carEntityNonNumLbls_plus_style:
                 entityWrds = set()
             elif entityLbl in unitsLbls.keys():
                 entityWrds = set(unitsLbls[entityLbl])
@@ -66,8 +71,9 @@ class Fill_entityWrds():
         for df in get_df(
                 pathlib.Path(__file__).parent.joinpath('datasets').resolve()):
             for entityLbl in self.nonNumEntityWrds_per_entityLbl:
-                if entityLbl in carEntityNonNumLbls:
-                    for lbl in synonyms_for_carEntityNonNumLbls[entityLbl]:
+                if entityLbl in carEntityNonNumLbls_plus_style:
+                    for lbl in synonyms_for_carEntityNonNumLbls_plus_style[
+                            entityLbl]:
                         if lbl in df.columns:
                             self.nonNumEntityWrds_per_entityLbl[entityLbl][
                                 'nonNumEntityWrds'].update(
@@ -87,8 +93,8 @@ class Fill_entityWrds():
         self.nonNumEntityWrds_per_entityLbl['model']['nonNumEntityWrds'].update(
             self.nonNumEntityWrds_per_entityLbl['style']['nonNumEntityWrds'])
         del self.nonNumEntityWrds_per_entityLbl['style']
-        carEntityNonNumLbls = carEntityNonNumLbls[:-1]
-        del synonyms_for_carEntityNonNumLbls['style']
+        del carEntityNonNumLbls_plus_style
+        del synonyms_for_carEntityNonNumLbls_plus_style
 
         self.multilabel_entityWrds = find_multilabel_entityWrds(
             self.nonNumEntityWrds_per_entityLbl)
