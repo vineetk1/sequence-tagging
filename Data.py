@@ -63,8 +63,8 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.train_data),
             batch_sampler=None,
-            #num_workers=6,
-            num_workers=0,
+            num_workers=6,
+            #num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -77,8 +77,8 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.valid_data),
             batch_sampler=None,
-            #num_workers=6,
-            num_workers=0,
+            num_workers=6,
+            #num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -91,8 +91,8 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.test_data),
             batch_sampler=None,
-            #num_workers=6,
-            num_workers=0,
+            num_workers=6,
+            #num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -105,8 +105,8 @@ class Data(LightningDataModule):
             shuffle=False,
             sampler=RandomSampler(self.test_data),
             batch_sampler=None,
-            #num_workers=6,
-            num_workers=0,
+            num_workers=6,
+            #num_workers=0,
             collate_fn=self._bert_collater,
             pin_memory=True,
             drop_last=False,
@@ -127,6 +127,7 @@ class Data(LightningDataModule):
             bch_history.append(Utilities.prevTrnUserOut2history(example[3]))
             bch_prevTrnUserOut.append(example[3])
 
+        # return_attention_mask must be True for the model to work properly
         bch_nnIn_tknIds = self.tokenizer(
             text=bch_history,
             text_pair=bch_userIn_filtered_wrds,
@@ -135,7 +136,7 @@ class Data(LightningDataModule):
             truncation='do_not_truncate',
             return_tensors='pt',
             return_token_type_ids=False,
-            return_attention_mask=False,
+            return_attention_mask=True,
             return_overflowing_tokens=False)
 
         for idx in range(len(examples)):
