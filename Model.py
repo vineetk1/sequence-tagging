@@ -10,7 +10,6 @@ import pathlib
 from importlib import import_module
 import copy
 import pandas as pd
-from collections import Counter
 import math
 import Utilities
 import Predict_statistics
@@ -112,6 +111,7 @@ class Model(LightningModule):
                  logger=False)
         return tr_loss
 
+    '''
     def training_epoch_end(
             self, training_step_outputs: List[Dict[str,
                                                    torch.Tensor]]) -> None:
@@ -120,6 +120,7 @@ class Model(LightningModule):
         # on TensorBoard, want to see x-axis in epochs (not steps=batches)
         self.logger.experiment.add_scalar('train_loss_epoch', tr_avg_loss,
                                           self.current_epoch)
+    '''
 
     def validation_step(self, batch: Dict[str, Any],
                         batch_idx: int) -> torch.Tensor:
@@ -135,12 +136,14 @@ class Model(LightningModule):
             logger=False)
         return v_loss
 
+    '''
     def validation_epoch_end(self,
                              val_step_outputs: List[torch.Tensor]) -> None:
         v_avg_loss = torch.stack(val_step_outputs).mean()
         # on TensorBoard, want to see x-axis in epochs (not steps=batches)
         self.logger.experiment.add_scalar('val_loss_epoch', v_avg_loss,
                                           self.current_epoch)
+    '''
 
     def test_step(self, batch: Dict[str, Any], batch_idx: int) -> torch.Tensor:
         ts_loss, logits = self._run_model(batch)
@@ -154,8 +157,10 @@ class Model(LightningModule):
                  logger=True)
         return ts_loss
 
+    '''
     def test_epoch_end(self, test_step_outputs: List[torch.Tensor]) -> None:
         pass
+    '''
 
     def _run_model(self,
                    batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
