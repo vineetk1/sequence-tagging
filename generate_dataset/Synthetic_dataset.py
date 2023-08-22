@@ -549,14 +549,14 @@ carEntityNonNumLbls = (
     "brand",
     "model",
     "color",
-    "style",    # needed in Fill_entityWrds.py and deleted
+    # "style",    # needed in Fill_entityWrds.py and deleted
 )
 synonyms_for_carEntityNonNumLbls = {
     # different datasets use different names, e.g. "make" instead of "brand"
     "brand": ["brand", "make"],
     "model": ["model"],
     "color": ["color"],
-    "style": ["body_style", "body_styles"],
+    # "style": ["body_style", "body_styles"],
     # 'style' needed in Fill_entityWrds.py and deleted
 }
 
