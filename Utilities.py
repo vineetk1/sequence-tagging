@@ -339,8 +339,7 @@ def tknLblIds2entity_wrds_lbls(
     # bch['userIn_filtered_wrds']
     nnIn_tknIds_idx_beginEnd: torch.Tensor = (
             bch_nnIn_tknIds == 102).nonzero()
-    assert bch_nnIn_tknIds.shape[0] * 2 == nnIn_tknIds_idx_beginEnd.shape[
-            0], "no_history is False but dataset does not have  history"
+    assert bch_nnIn_tknIds.shape[0] * 2 == nnIn_tknIds_idx_beginEnd.shape[0]
 
     # ***************remove DEBUG code starting from here*********************
     if DEBUG_bch_tknLblIds_True.numel():
@@ -782,7 +781,7 @@ def transition(userOut: Dict[str, List[str]], cmdLbl: str, unitLbl: str,
             if len(carEntityNums) < 2:
                 return
             strng = (
-             f"{carEntityNums[0]}-{carEntityNums[1]}"
+             f"{carEntityNums[0]} - {carEntityNums[1]}"
              f"{' ' if unitLbl else ''}"
              f"{syntheticData.unitsLbls[unitLbl][0] if unitLbl else ''}")
             if not remove:
@@ -816,7 +815,8 @@ def transition(userOut: Dict[str, List[str]], cmdLbl: str, unitLbl: str,
 def prevTrnUserOut2history(prevTrnUserOut: Dict[str, List[str]]) -> List[str]:
     history: List[str] = []
     for values in prevTrnUserOut.values():
-        history.extend(values)
+        if values:
+            history.extend(values)
     return history
 
 # ************************** test vectors follow ************************
