@@ -142,19 +142,10 @@ class Data(LightningDataModule):
         for idx in range(len(examples)):
             map_tknIdx2wrdIdx.append(bch_nnIn_tknIds.word_ids(idx))
 
-        # if truncation is needed, create error messages
-        err_msgs = []
+        # if truncation is needed during Training then Stop and fix the problem
         if bch_nnIn_tknIds['input_ids'].shape[
                 1] > self.tokenizer.model_max_length:
-            bch_nnIn_tknIds_SEP_beginEnd: torch.Tensor = (
-                bch_nnIn_tknIds['input_ids'] == 102).nonzero()
-            for idx, bol in enumerate(
-                (bch_nnIn_tknIds_SEP_beginEnd[1::2, 1] <=
-                 self.tokenizer.model_max_length).tolist()):
-                if bol:
-                    err_msgs.append("Try again; your text is lost")
-                else:
-                    err_msgs.append("Your text is too long; send shorter text")
+            assert False, "truncation needed"
 
         # Verify that number of token-ids in history and userIn_filtered
         # are equal to token-label-ids; token-label-ids not used in
@@ -184,7 +175,7 @@ class Data(LightningDataModule):
             'prevTrnUserOut': bch_prevTrnUserOut,
             'userIn_filtered_wrds': bch_userIn_filtered_wrds,
             'map_tknIdx2wrdIdx': map_tknIdx2wrdIdx,
-            'error_msgs': err_msgs
+            'error_msgs': []    # needed by Inference (deployment) code
         }
 
 
