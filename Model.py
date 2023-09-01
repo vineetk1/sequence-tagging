@@ -83,6 +83,12 @@ class Model(LightningModule):
             else:
                 self.loss_fct = torch.nn.CrossEntropyLoss()
 
+    def forward(self, batch: Dict[str, Any]):
+        outputs = self.bertModel(**batch)
+        logits = self.classification_head(outputs.last_hidden_state)
+        bch_nnOut_tknLblIds = torch.argmax(logits, dim=-1)
+        return bch_nnOut_tknLblIds
+
     def params(self, optz_sched_params: Dict[str, Any],
                bch_sizes: Dict[str, int]) -> None:
         self.bch_sizes = bch_sizes  # needed to turn off lightning warning
@@ -91,12 +97,6 @@ class Model(LightningModule):
         self.lr = optz_sched_params['optz_params']['lr'] if (
             'optz_params' in optz_sched_params) and (
                 'lr' in optz_sched_params['optz_params']) else None
-
-    def forward(self, batch: Dict[str, Any]):
-        outputs = self.bertModel(batch)
-        logits = self.classification_head(outputs.last_hidden_state)
-        bch_nnOut_tknLblIds = torch.argmax(logits, dim=-1)
-        return bch_nnOut_tknLblIds
 
     def training_step(self, batch: Dict[str, Any],
                       batch_idx: int) -> torch.Tensor:
@@ -108,19 +108,8 @@ class Model(LightningModule):
                  on_epoch=True,
                  prog_bar=True,
                  batch_size=self.bch_sizes['train'],
-                 logger=False)
+                 logger=True)
         return tr_loss
-
-    '''
-    def training_epoch_end(
-            self, training_step_outputs: List[Dict[str,
-                                                   torch.Tensor]]) -> None:
-        tr_avg_loss = torch.stack([x['loss']
-                                   for x in training_step_outputs]).mean()
-        # on TensorBoard, want to see x-axis in epochs (not steps=batches)
-        self.logger.experiment.add_scalar('train_loss_epoch', tr_avg_loss,
-                                          self.current_epoch)
-    '''
 
     def validation_step(self, batch: Dict[str, Any],
                         batch_idx: int) -> torch.Tensor:
@@ -133,17 +122,8 @@ class Model(LightningModule):
             # val_loss, so on_epoch Must be True
             prog_bar=True,
             batch_size=self.bch_sizes['val'],
-            logger=False)
+            logger=True)
         return v_loss
-
-    '''
-    def validation_epoch_end(self,
-                             val_step_outputs: List[torch.Tensor]) -> None:
-        v_avg_loss = torch.stack(val_step_outputs).mean()
-        # on TensorBoard, want to see x-axis in epochs (not steps=batches)
-        self.logger.experiment.add_scalar('val_loss_epoch', v_avg_loss,
-                                          self.current_epoch)
-    '''
 
     def test_step(self, batch: Dict[str, Any], batch_idx: int) -> torch.Tensor:
         ts_loss, logits = self._run_model(batch)
@@ -154,13 +134,8 @@ class Model(LightningModule):
                  on_epoch=True,
                  prog_bar=True,
                  batch_size=self.bch_sizes['test'],
-                 logger=True)
+                 logger=False)
         return ts_loss
-
-    '''
-    def test_epoch_end(self, test_step_outputs: List[torch.Tensor]) -> None:
-        pass
-    '''
 
     def _run_model(self,
                    batch: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
