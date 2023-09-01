@@ -44,7 +44,10 @@ class Segments2Sentence():
                 self.full_sentences['sentence_idx'] += 1
             return sentence
         segments_per_sentence = (
-            random.randint(1, len(self.segmentsInfo_per_entityLbl))
+            # input to model MUST be less than the max # of tokens allowed; too
+            # many segments in sentence could exceed max allowed
+            random.randint(1, 5)
+            #random.randint(1, len(self.segmentsInfo_per_entityLbl))
             if segs_per_sentence is None else segs_per_sentence)
         random_entityLbls_of_segmentsInfo_per_entityLbl = random.choices(
             list(self.segmentsInfo_per_entityLbl.keys()),
