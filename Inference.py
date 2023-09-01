@@ -4,6 +4,7 @@ import torch
 from Model import Model
 import Utilities
 from transformers import BertTokenizerFast
+from transformers import BertModel
 import pathlib
 import pickle
 
@@ -15,7 +16,7 @@ class Inference():
     def __init__(self):
         super().__init__()
         dataframes_dirPath: pathlib.Path = pathlib.Path(
-            'experiments/2').resolve(strict=True)
+            'experiments/4').resolve(strict=True)
         df_metadata_file: pathlib.Path = dataframes_dirPath.joinpath(
             'df_metadata')
         with df_metadata_file.open('rb') as file:
@@ -30,8 +31,15 @@ class Inference():
 
         # following line has dependence on Lightning
         self.model = Model.load_from_checkpoint(
-            '/home/vin/sequence-tagging/experiments/2/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/lr_sched=ReduceLROnPlateau,factor=0.5,mode=min,patience=4,optz=Adam,lr=1e-05,epoch=20-val_loss=0.00782.ckpt'
+        #    '/home/vin/sequence-tagging/experiments/4/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/lr_sched=ReduceLROnPlateau,factor=0.5,mode=min,patience=4,optz=Adam,lr=1e-05,epoch=12-val_loss=0.01277.ckpt'
+        #    '/home/vin/sequence-tagging/experiments/4/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/lr_sched=ReduceLROnPlateau,factor=0.5,mode=min,patience=4,optz=Adam,lr=1e-05,epoch=20-val_loss=0.01791.ckpt'
+            '/home/vin/sequence-tagging/experiments/4/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/last.ckpt'
         )
+        #self.model = torch.quantization.quantize_dynamic(self.model,
+        #                                                 {torch.nn.Linear},
+        #                                                 dtype=torch.qint8)
+        self.model = self.model.to(
+            "cuda:0" if torch.cuda.is_available() else "cpu")
 
     def batching(self, sessionId: str, userIn: str,
                  prevTrnUserOut: Dict[str, List[str]]):
@@ -39,7 +47,6 @@ class Inference():
         # is greater than 0 and estimated to be less than
         # self.tokenizer.model_max_length
         # actually prevTrnUserOut comes from the session-state stored in Redis
-        print(f"userIn= {userIn}")
         batch: Dict[str, Any] = self._bert_tokenize(
             [[sessionId, userIn, prevTrnUserOut]])
         if batch['error_msgs']:
@@ -47,7 +54,7 @@ class Inference():
                                           batch['error_msgs']):
                 # for each sessionId, send them their error message; then
                 # return;
-                # only one entry in our case, so we return now
+                # only one entry in our case, so return now
                 return err_msg
 
         # batch was tokenized without any errors
@@ -56,7 +63,7 @@ class Inference():
         for sessionId, nnOut_userOut in zip(batch['dlgTrnId'],
                                             bch_nnOut_userOut):
             # for each sessionId, send them their nnOut_userOut; then return
-            # only one entry in our case, so we return now
+            # only one entry in our case, so return now
             return nnOut_userOut
 
     def _bert_tokenize(self, examples: List[List[Any]]) -> Dict[str, Any]:
@@ -80,15 +87,17 @@ class Inference():
                 Utilities.prevTrnUserOut2history(bch_prevTrnUserOut[-1]))
 
         # return_attention_mask must be True for the model to work properly
-        bch_nnIn_tknIds = self.tokenizer(text=bch_history,
-                                         text_pair=bch_userIn_filtered_wrds,
-                                         is_split_into_words=True,
-                                         padding=True,
-                                         truncation='do_not_truncate',
-                                         return_tensors='pt',
-                                         return_token_type_ids=False,
-                                         return_attention_mask=True,
-                                         return_overflowing_tokens=False)
+        bch_nnIn_tknIds = self.tokenizer(
+            text=bch_history,
+            text_pair=bch_userIn_filtered_wrds,
+            is_split_into_words=True,
+            padding=True,
+            truncation='do_not_truncate',
+            return_tensors='pt',
+            return_token_type_ids=False,
+            return_attention_mask=True,
+            return_overflowing_tokens=False).to(
+                "cuda:0" if torch.cuda.is_available() else "cpu")
 
         # if truncation is needed, create error messages
         err_msgs = []
@@ -168,14 +177,14 @@ class Inference():
                     bch_nnOut_tknLblIds[bch_idx, D_nnIn_tknIds_idx]])
         return D_nnIn_tkn, D_nnOut_tknLbl
 
-    '''
-    inference = Inference()
 
-    sessionId = 93
-    userIn = "1362287.04 dollars liytle 1992 genesis brand"
-    prevTrnUserOut = 0
-    nnOut_userOut = inference.batching(sessionId, userIn, prevTrnUserOut)
-    #assert nnOut_userOut == {'brand': ['genesis'], 'model': [], 'color': [], 'style': [], 'mileage': [], 'price': ['1362287.04 $'], 'year': ['less 1992']}
+'''
+inference = Inference()
+sessionId = 93
+userIn = "1362287.04 dollars liytle 1992 genesis brand"
+prevTrnUserOut = 0
+nnOut_userOut = inference.batching(sessionId, userIn, prevTrnUserOut)
+#assert nnOut_userOut == {'brand': ['genesis'], 'model': [], 'color': [], 'style': [], 'mileage': [], 'price': ['1362287.04 $'], 'year': ['less 1992']}
 
 userIn = "smalker 1991 year frrightliner I want to buy fivian acentador"
 prevTrnUserOut = nnOut_userOut
