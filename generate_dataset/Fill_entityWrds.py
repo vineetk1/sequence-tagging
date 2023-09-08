@@ -5,6 +5,7 @@ Vineet Kumar, sioom.ai
 from logging import getLogger
 from typing import List, Dict, Tuple, Union, Any, Set
 import pathlib
+import pickle
 import pandas as pd
 import gc
 import random
@@ -29,7 +30,7 @@ logg = getLogger(__name__)
 
 class Fill_entityWrds():
 
-    def __init__(self):
+    def __init__(self, dataframes_dirPath: str):
         self.nonNumEntityWrds_per_entityLbl: Dict[str, Dict[str, Union[
             Set[Union[str, Tuple[str, str]]], int, bool]]] = {}
         carEntityNonNumLbls_plus_style = list(carEntityNonNumLbls) + ['style']
@@ -120,6 +121,15 @@ class Fill_entityWrds():
                 'nonNumEntityWrds'] = list(
                     self.nonNumEntityWrds_per_entityLbl[entityLbl]
                     ['nonNumEntityWrds'])
+        dataframes_dirPath = pathlib.Path(dataframes_dirPath).resolve(
+            strict=True)
+        entityWrds_for_programmer_io_file = dataframes_dirPath.joinpath(
+            'entityWrds_for_programmer_io')
+        # overwrite entityWrds_for_programmer_io file if it already exists
+        with entityWrds_for_programmer_io_file.open('wb') as file:
+            pickle.dump(self.nonNumEntityWrds_per_entityLbl,
+                        file,
+                        protocol=pickle.HIGHEST_PROTOCOL)
 
         self.entityLbls_of_numEntityWrds_mapTo_genFuncs: Dict[str,
                                                               Dict[str,
