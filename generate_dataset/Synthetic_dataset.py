@@ -116,6 +116,8 @@ val_sentences = (
     "  <year><> <range2><> <year><>   <color><>    <less><> than  <units_price_$><> <price><> <model><>   <less><> than  <mileage><>   <units_mileage_mi><> ",
     " <color><>  <more><>  than <year><>  <model><>  <units_price_$><> <price><>   <range2><-> <price><>  <mileage><>   <range2><->  <units_mileage_mi><mi> <mileage><>   <brand><> ",
     "<brand><>  <color><> <model><>   <range1><>  <mileage><>  and <mileage><>  <units_mileage_mi><>   <range1><>   <units_price_$><> <price><> <price><>   <less><>  <year><> ",
+    " <less><> than  <price><> <units_price_$><> and  <mileage><>   <units_mileage_mi><> ",
+    "<units_price_$><$> <price><> <mileage><> <units_mileage_mi><> ",
 
     # NN must sometimes NOT label entityWrds; usually (but not always) when they are between two "O" words
     "<color><> to <model><> and in between the $ and still there are <less><> than  <units_price_$><> <price><> ",
@@ -144,6 +146,7 @@ test_sentences = (
     " <color><>  <more><>  than <year><>  <model><> <brand><>  <range1><>  <mileage><>  <units_mileage_mi><> and <mileage><>    <range1><>   <units_price_$><> <price><> <price><>  ",
     "<brand><> <less><>  <year><>   <color><> <model><>   <units_price_$><> <price><>   <range2><-> <price><>  <mileage><>   <range2><->  <units_mileage_mi><mi> <mileage><> ",
     " <model><>  <year><> <range2><> <year><>   <color><>      <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>   <range1><>   <units_price_$><> <price><> and <price><> ",
+    "<units_price_$><$> <price><> <mileage><> <units_mileage_mi><> ",
 
     # NN must sometimes NOT label entityWrds; usually (but not always) when they are between two "O" words
     "these dollars and mileages are not worth <brand><> through <brand><>  ",  # In Predict, NN must not label "through" as range2 label
@@ -163,6 +166,9 @@ test_sentences = (
     # miscellaneous
     "<units_price_$><$> <price><> or <units_price_$><$> <price><> <range2><-> <price><>",
     "  <range1><>  <price><> and <price><>  price ",
+    " <less><> than  <units_price_$><> <price><>  <mileage><>   <units_mileage_mi><> or <less><>",
+    " <less><> than  <units_price_$><> <price><>  <mileage><>   <units_mileage_mi><>",
+    "<units_price_$><$> <price><>  <mileage><>   <units_mileage_mi><>",
 )
 full_sentences = {
     "train": train_sentences,
@@ -321,7 +327,6 @@ price_segments = (
     "i will pay <price><> <units_price_$><>",
     "me thinks <units_price_$><> <price><> is the way to go ",
     "how about <price><> <units_price_$><> for this junk",
-    "<units_price_$><$> <price><> <price><> <units_price_$><dollars> ",
 
     # "  <price><> <range2><-> <price><> ",
     " <units_price_$><> <price><>   <range2><-> <price><> ",
@@ -373,12 +378,11 @@ mileage_segments = (
     "<mileage><> <units_mileage_mi><> ",
     "it should be <mileage><> <units_mileage_mi><> ",
     "<units_mileage_mi><> <mileage><> is the wish",
-    "<units_mileage_mi><> <mileage><> <mileage><> <units_mileage_mi><> ",
 
     # "  <mileage><> <range2><-> <mileage><> ",
     " <units_mileage_mi><> <mileage><>   <range2><-> <mileage><> ",
-    " <mileage><>   <units_mileage_mi><mi>  <range2><-> <mileage><> ",
-    " <mileage><>   <range2><->  <units_mileage_mi><mi> <mileage><> ",
+    " <mileage><>   <units_mileage_mi><>  <range2><-> <mileage><> ",
+    " <mileage><>   <range2><->  <units_mileage_mi><> <mileage><> ",
     " <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><> ",
     " <units_mileage_mi><> <mileage><>   <range2><-> <mileage><> will work for me",
     " my car should be  <mileage><>   <range2><-> <mileage><> <units_mileage_mi><>",
@@ -463,13 +467,35 @@ year_segments = (
 remove_segments = (
     "<remove><> <everything><>",
     "<remove><> <restore><> <remove><> ",
-    "<remove><> <brand><>  <brand><toyota> <model><> <model><cruiser>  <color><>  <color><white> ",
+    "<remove><> <brand><>  <model><>  <color><> ",
     "<remove><> <units_price_$><> <price><> <units_mileage_mi><> <mileage><> <year><> ",
-    "<restore><> <remove><> <model><nv3500> <mileage><26632.01> <units_price_$><$> <price><5000>",
-    "<restore><>  <setting><> <remove><> <brand><bentley> <mileage><2987> <units_mileage_mi><miles> <price><5000> <year><2018> ",
-    "<restore><>  <setting><> <remove><>  <color><metallic>  <year><2018> ",
-    "<restore><>  <setting><145> <remove><> <model><passenger> <color><tuxedo> <mileage><2987> <price><5000> <units_price_$><> <year><2018> ",
-    "<restore><>  <setting><15> <remove><> <model><hd> <color><white>  <units_mileage_mi><mile> <mileage><2987> <units_price_$><>  <price><5000> <year><2024> ",
+    "<restore><>  <setting><> <remove><>  <color><>  <year><> ",
+    "<restore><>  <setting><> <remove><>  <brand><>  <year><> ",
+)
+price_mile_year_segments = (
+    "<units_price_$><$> <price><>  <range2><-> <price><> <mileage><> <range2><-> <mileage><> <units_mileage_mi><> ",
+    "<units_price_$><$> <price><>  <range2><-> <price><> <less><> than <mileage><> <units_mileage_mi><> ",
+    "<units_price_$><$> <price><>  <range2><-> <price><> <mileage><> <units_mileage_mi><> or <less><>",
+    "<less><> <units_price_$><> <price><> <mileage><> <range2><-> <mileage><> <units_mileage_mi><> ",
+    "<less><> <units_price_$><> <price><> <less><> than <mileage><> <units_mileage_mi><>",
+    "<less><> <units_price_$><> <price><> <mileage><> <units_mileage_mi><> or <less><>",
+
+    "<mileage><> <range2><-> <mileage><> <units_mileage_mi><> <units_price_$><> <price><> <range2><-> <price><> ",
+    "<mileage><> <range2><-> <mileage><> <units_mileage_mi><> <less><> <units_price_$><> <price><>",
+    "<mileage><> <range2><-> <mileage><> <units_mileage_mi><> <price><> <units_price_$><> or <less><>",
+    "<less><> <mileage><> <units_mileage_mi><> <units_price_$><> <price><> <range2><-> <price><> ",
+    "<less><> <mileage><> <units_mileage_mi><> <less><> <units_price_$><> <price><>",
+    "<less><> <mileage><> <units_mileage_mi><> <price><> <units_price_$><> or <less><>",
+
+    "<range1><> <units_price_$><> <price><> <price><> <range1><> <mileage><> <mileage><> <units_mileage_mi><>",
+    "<range1><> <units_price_$><> <price><> <price><> <less><> <mileage><> <units_mileage_mi><>",
+    "<range1><> <units_price_$><> <price><> <price><> <mileage><> <units_mileage_mi><> <less><>",
+    "<less><> <units_price_$><> <price><> <range1><> <mileage><> <mileage><> <units_mileage_mi><>",
+
+    "<range1><> <mileage><> <mileage><> <units_mileage_mi><> <range1><> <units_price_$><> <price><> <price><>",
+    "<range1><> <mileage><> <mileage><> <units_mileage_mi><> <less><> <units_price_$><> <price><>",
+    "<range1><> <mileage><> <mileage><> <units_mileage_mi><> <price><> <units_price_$><> <less><>",
+    "<less><> <mileage><> <units_mileage_mi><> <range1><> <units_price_$><> <price><> <price><>",
 )
 """
 style_segments = (
@@ -504,6 +530,7 @@ entityLbls_mapTo_segments = {
     "year": year_segments,
     "mileage": mileage_segments,
     "remove": remove_segments,
+    "price_mile_year": price_mile_year_segments,
     # "style": style_segments,
     # "setting": setting_segments,
 }
@@ -521,7 +548,7 @@ cmdsLbls = {
 cmdsLbls_follow_carEntityNum = ("range2", )
 
 unitsLbls = {
-    "units_price_$": ("$", "dollar", "dollars", "price", "prices",),
+    "units_price_$": ("$", "dollar", "dollars"),
     "units_mileage_mi": (
         "mi",
         "mile",
@@ -571,20 +598,21 @@ carEntityLbls = (carEntityNonNumLbls + carEntityNumLbls)
 
 def mileage_func() -> str:
     if random.getrandbits(1):
-        return str(round(random.uniform(0, 300000), 2))
+        return str(round(random.uniform(0, 9999999999), 2))
     else:
-        return str(int(random.uniform(0, 300000)))
+        return str(int(random.uniform(0, 9999999999)))
 
 
 def price_func() -> str:
     if random.getrandbits(1):
-        return str(round(random.uniform(0, 3000000), 2))
+        return str(round(random.uniform(0, 9999999999), 2))
     else:
-        return str(int(random.uniform(0, 3000000)))
+        return str(int(random.uniform(0, 9999999999)))
 
 
 def setting_func() -> str:
-    return str(random.randint(1, 30))
+    return str(random.randint(0, 9999999999))
+    #return str(random.randint(1, 5))
 
 
 def year_func() -> str:  # this generator has infinite loop
