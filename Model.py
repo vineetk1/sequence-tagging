@@ -2,15 +2,18 @@
 Vineet Kumar, sioom.ai
 '''
 
+
 from pytorch_lightning import LightningModule
 import torch
 from logging import getLogger
 from typing import Dict, List, Any, Tuple
+import math
+
+# following 6 imports are only needed in Training, not Deployment
 import pathlib
 from importlib import import_module
 import copy
 import pandas as pd
-import math
 import Utilities
 import Predict_statistics
 
@@ -88,6 +91,8 @@ class Model(LightningModule):
         logits = self.classification_head(outputs.last_hidden_state)
         bch_nnOut_tknLblIds = torch.argmax(logits, dim=-1)
         return bch_nnOut_tknLblIds
+
+    # following code, until the end, is only needed in Training, not Deployment
 
     def params(self, optz_sched_params: Dict[str, Any],
                bch_sizes: Dict[str, int]) -> None:
