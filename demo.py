@@ -9,8 +9,8 @@ with gr.Blocks() as demo:
     nnOut_userOut = gr.State()
     examples = gr.Examples(
         examples=[
-            "2022 - 2024 red ford mustang less than $32000 0 miles", "black",
-            "less than 9000 miles", "remove red", "remove $32000 9000 miles",
+            "2022 - 2024 red vf 9 vinfast less than $32000 5000 miles or less", "black",
+            "less than 8000 miles", "remove red", "remove $32000 8000 miles",
         ],
         inputs=[msg],
         label="Familiarize yourself with the interface by running the following examples by clicking on them one-by-one from left-to-right:",
@@ -55,4 +55,4 @@ with gr.Blocks() as demo:
 
     msg.submit(respond, [msg, chatbot], [msg, chatbot])
 
-demo.launch(debug=True)
+demo.launch(debug=True, share=False)
