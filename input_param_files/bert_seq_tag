@@ -13,7 +13,7 @@ Command-line:
 -------------
 python3 Main.py input_param_files/bert_seq_tag 
 python3 -m pdb Main.py input_param_files/bert_seq_tag 
-
+*************** NOTE: make sure that dataframes_dirPath is correct ***********
 
 parameters for python-dictionary 'misc'
 -
@@ -26,7 +26,7 @@ parameters for python-dictionary 'optz_sched'
 
 parameters for python-dictionary 'data'
 - 
-{'dataframes_dirPath': 'experiments/4', 'batch_sizes': {'train': 2, 'val': 16, 'test': 32}} 
+{'dataframes_dirPath': 'experiments/7', 'batch_sizes': {'train': 1, 'val': 8, 'test': 16}} 
 
 
 parameters for python-dictionary 'trainer'
