@@ -1,3 +1,7 @@
+'''
+Vineet Kumar, sioom.ai
+'''
+
 from logging import getLogger
 from typing import List, Dict, Any, Tuple
 import torch
@@ -16,7 +20,7 @@ class Inference():
     def __init__(self):
         super().__init__()
         dataframes_dirPath: pathlib.Path = pathlib.Path(
-            'experiments/4').resolve(strict=True)
+            'experiments/5').resolve(strict=True)
         df_metadata_file: pathlib.Path = dataframes_dirPath.joinpath(
             'df_metadata')
         with df_metadata_file.open('rb') as file:
@@ -31,9 +35,8 @@ class Inference():
 
         # following line has dependence on Lightning
         self.model = Model.load_from_checkpoint(
-        #    '/home/vin/sequence-tagging/experiments/4/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/lr_sched=ReduceLROnPlateau,factor=0.5,mode=min,patience=4,optz=Adam,lr=1e-05,epoch=12-val_loss=0.01277.ckpt'
-        #    '/home/vin/sequence-tagging/experiments/4/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/lr_sched=ReduceLROnPlateau,factor=0.5,mode=min,patience=4,optz=Adam,lr=1e-05,epoch=20-val_loss=0.01791.ckpt'
-            '/home/vin/sequence-tagging/experiments/4/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/last.ckpt'
+            # ******* NOTE: when checkpoint changes, also change dataframes_dirPath *******
+            '/home/vin/sequence-tagging/experiments/5/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/lr_sched=ReduceLROnPlateau,factor=0.5,mode=min,patience=4,optz=Adam,lr=1e-05,epoch=20-val_loss=0.01242.ckpt'
         )
         #self.model = torch.quantization.quantize_dynamic(self.model,
         #                                                 {torch.nn.Linear},
@@ -131,10 +134,13 @@ class Inference():
             # following line has dependence on Lightning
             bch_nnOut_tknLblIds: torch.Tensor = self.model(
                 batch['nnIn_tknIds'])  # model.forward()
-        D_bch_nnIn_tknIds, D_bch_nnOut_tknLbls = self._convert_ids2tkns(
+        D_bch_nnIn_tkns, D_bch_nnOut_tknLbls = self._convert_ids2tkns(
             batch['nnIn_tknIds']['input_ids'], bch_nnOut_tknLblIds)
-        print(f"D_bch_nnIn_tknIds= {D_bch_nnIn_tknIds}")
-        print(f"D_bch_nnOut_tknLbls= {D_bch_nnOut_tknLbls}")
+        print("(nnIn_tkn, nnOUt_tknLbl)= ", end="")
+        for nnIn_tkn, nnOut_tknLbl in zip(D_bch_nnIn_tkns,
+                                          D_bch_nnOut_tknLbls):
+            print(f"({nnIn_tkn}, {nnOut_tknLbl}), ", end="")
+        print()
 
         bch_nnOut_userIn_filtered_entityWrds, bch_nnOut_entityLbls = (
             Utilities.tknLblIds2entity_wrds_lbls(
