@@ -40,7 +40,7 @@ parameters for python-dictionary 'data'.
 ***Either keep this dict empty or specifiy All key-values
 Dataframe for Predict is the same as test-dataframe
 - 
-{'dataframes_dirPath': 'experiments/2', 'batch_sizes': {'predict': 32}} 
+{'dataframes_dirPath': 'experiments/5', 'batch_sizes': {'predict': 16}} 
 
 
 parameters for python-dictionary 'trainer'. 
@@ -55,8 +55,6 @@ Dropouts are used ONLY during Training; dropouts are disabled by Lightning durin
 
 
 parameters for python-dictionary 'ld_resume_chkpt'. ***Must specify the contents of this dict***
+***NOTE: Change dataframes_dirPath when checkpoint changes ************
 - 
-#{'ld_chkpt': '/home/vin/sequence-tagging/experiments/2/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v2/checkpoints/optz=Adam,lr=1e-05,lr_sched=ReduceLROnPlateau,mode=min,patience=4,factor=0.5,epoch=13-val_loss=0.00712.ckpt'}
-#{'ld_chkpt': '/home/vin/sequence-tagging/experiments/2/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v2/checkpoints/optz=Adam,lr=1e-05,lr_sched=ReduceLROnPlateau,mode=min,patience=4,factor=0.5,epoch=19-val_loss=0.00727.ckpt'}
-#{'ld_chkpt': '/home/vin/sequence-tagging/experiments/2/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/lr_sched=ReduceLROnPlateau,factor=0.5,mode=min,patience=4,optz=Adam,lr=1e-05,epoch=12-val_loss=0.00774.ckpt'}
-{'ld_chkpt': '/home/vin/sequence-tagging/experiments/2/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/lr_sched=ReduceLROnPlateau,factor=0.5,mode=min,patience=4,optz=Adam,lr=1e-05,epoch=20-val_loss=0.00782.ckpt'}
+{'ld_chkpt': '/home/vin/sequence-tagging/experiments/5/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/lr_sched=ReduceLROnPlateau,factor=0.5,mode=min,patience=4,optz=Adam,lr=1e-05,epoch=20-val_loss=0.01242.ckpt'}
