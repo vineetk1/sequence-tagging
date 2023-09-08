@@ -42,7 +42,7 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
     wrdLbls: List[str]
     userIn_filtered_entityWrds: List[str]
     entityLbls: List[str]
-    fill_entityWrds = Fill_entityWrds()
+    fill_entityWrds = Fill_entityWrds(dataframes_dirPath)
     dlgId: int = -1
     max_turns_per_dialog: int = MAX_TURNS_PER_DIALOG
     df_train = pd.DataFrame(columns=[
