@@ -35,6 +35,7 @@ def failed_nnOut_tknLblIds(
     for bch_idx in range(len(bch_nnOut_entityLbls)):
 
         # associate (nnIn_tkn, tknLbl_True, nnOut_tknLbl) and
+        # userIn_filtered_wrds_True
         tknLbls_assoc: List[str] = []
         prev_wrd_idx: int = None
         next_wrd_idx: int = None
@@ -42,6 +43,7 @@ def failed_nnOut_tknLblIds(
         tknLbl_True: str = None
         nnOut_tknLbl: str = None
         tknLbl_Pass: bool = True
+        userIn_filtered_wrds_True: List[str] = []
         nnIn_tknIds_beginEnd: torch.Tensor = (
             bch['nnIn_tknIds']['input_ids'][bch_idx] == 102).nonzero()
         for nnIn_tknIds_idx in range(nnIn_tknIds_beginEnd[0].item() + 1,
@@ -53,6 +55,8 @@ def failed_nnOut_tknLblIds(
                 [nnIn_tknIds_idx]) != prev_wrd_idx:
                 # ignore tknId that is not first-token-of-the-word; BIO labels
                 assert not nnIn_tkn.startswith("##")
+
+                # create (nnIn_tkn, tknLbl_True, nnOut_tknLbl)
                 if tkns is not None:
                     if tknLbl_True != nnOut_tknLbl:
                         if tknLbl_True[-1] != ")" and nnOut_tknLbl[-1] == ")":
@@ -103,6 +107,17 @@ def failed_nnOut_tknLblIds(
                     count["failed_tknLbls_perDlg"][tknLblId_True] = {
                         nnOut_tknLblId: 1
                     }
+
+                # create userIn_filtdred_wrds_True
+                if tknLbl_True[-1] != ")":
+                    userIn_filtered_wrds_True.append(
+                        bch['userIn_filtered_wrds'][bch_idx]
+                        [bch['map_tknIdx2wrdIdx'][bch_idx][nnIn_tknIds_idx]])
+                else:
+                    tknLbl_True = dataframes_meta['tknLblId2tknLbl'][
+                        tknLblId_True]
+                    userIn_filtered_wrds_True.append(
+                        tknLbl_True[tknLbl_True.index('(') + 1:-1])
 
             else:
                 assert tkns is not None
@@ -216,6 +231,8 @@ def failed_nnOut_tknLblIds(
                         f"{entityLbls_status}{userOut_status}",
                         "userIn:",
                         f"     {(df[(df['dlgId'] == bch['dlgTrnId'][bch_idx][0]) & (df['trnId'] == bch['dlgTrnId'][bch_idx][1])]['userIn']).item()}",
+                        "userIn_filtered_wrds_True:",
+                        f"     {' '.join(userIn_filtered_wrds_True)}",
                         "userIn_filtered_wrds:",
                         f"     {' '.join(bch['userIn_filtered_wrds'][bch_idx])}",
                         "(nnIn_tkn, tknLbl_True, nnOut_tknLbl):",
@@ -256,7 +273,7 @@ def prepare_metric(
     nnIn_tknIds_idx_beginEnd: torch.Tensor = (
         bch['nnIn_tknIds']['input_ids'] == 102).nonzero()
     assert bch['nnIn_tknIds']['input_ids'].shape[
-            0] * 2 == nnIn_tknIds_idx_beginEnd.shape[
+        0] * 2 == nnIn_tknIds_idx_beginEnd.shape[
             0], "no_history is False but dataset does not have  history"
 
     for bch_idx in range(bch_nnOut_tknLblIds.shape[0]):
