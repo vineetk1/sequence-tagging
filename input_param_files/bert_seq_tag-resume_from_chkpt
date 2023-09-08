@@ -33,7 +33,7 @@ parameters for python-dictionary 'optz_sched'. ***Contents of this dict are repl
 parameters for python-dictionary 'data'
 ***Either keep this dict empty or specifiy All key-values
 - 
-#{'dataframes_dirPath': 'experiments/2', 'batch_sizes': {'train': 2, 'val': 2, 'test': 32}} 
+#{'dataframes_dirPath': 'experiments/5', 'batch_sizes': {'train': 1, 'val': 8, 'test': 16}} 
 {}
 
 
@@ -49,4 +49,4 @@ parameters for python-dictionary 'model_init'. ***Contents of this dict are repl
 
 parameters for python-dictionary 'ld_resume_chkpt'. ***Must specify the contents of this dict***
 - 
-{'resume_from_checkpoint': '/home/vin/sequence-tagging/experiments/2/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/optz=Adam,lr=1e-05,lr_sched=ReduceLROnPlateau,mode=min,patience=4,factor=0.5,epoch=04-val_loss=0.01194.ckpt'}
+{'resume_from_checkpoint': '/home/vin/sequence-tagging/experiments/5/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/last.ckpt'}
