@@ -33,7 +33,7 @@ parameters for python-dictionary 'optz_sched'. ***Must specify the contents of t
 parameters for python-dictionary 'data'. 
 ***Either keep this dict empty or specifiy All key-values
 - 
-{'dataframes_dirPath': 'experiments/2', 'batch_sizes': {'train': 4, 'val': 16, 'test': 32}} 
+{'dataframes_dirPath': 'experiments/2', 'batch_sizes': {'train': 1, 'val': 8, 'test': 16}} 
 
 
 parameters for python-dictionary 'trainer'. 
