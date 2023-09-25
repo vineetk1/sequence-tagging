@@ -9,6 +9,7 @@ from pathlib import Path
 import random
 import copy
 import pickle
+import gc
 import Utilities
 from Segments2Sentence import Segments2Sentence
 from Other_functions import (remove_type_O_wrdLbls, generate_tknLbls,
@@ -43,6 +44,7 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
     userIn_filtered_entityWrds: List[str]
     entityLbls: List[str]
     fill_entityWrds = Fill_entityWrds(dataframes_dirPath)
+    gc.collect()
     dlgId: int = -1
     max_turns_per_dialog: int = MAX_TURNS_PER_DIALOG
     df_train = pd.DataFrame(columns=[
