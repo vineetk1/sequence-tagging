@@ -7,7 +7,6 @@ from typing import List, Dict, Tuple, Union, Any, Set
 import pathlib
 import pickle
 import pandas as pd
-import gc
 import random
 from collections import Counter
 from itertools import zip_longest
@@ -18,6 +17,7 @@ from Synthetic_dataset import (
     PLACEHOLDER_ID_END,
     hyphen,
     carEntityNonNumLbls,
+    carEntityNumLbls,
     unitsLbls,
     cmdsLbls,
     synonyms_for_carEntityNonNumLbls,
@@ -31,6 +31,13 @@ logg = getLogger(__name__)
 class Fill_entityWrds():
 
     def __init__(self, dataframes_dirPath: str):
+        self.other_words: List[str] = []
+        self.assoc_brand_modelNum: List[Tuple[str, str]] = []
+        self.model_nums: List[str] = []
+        self.multilabel_entityWrds: Dict[str, List[str]] = {}
+
+        # fill entityWrds in some entityLbls of
+        # self.nonNumEntityWrds_per_entityLbl
         self.nonNumEntityWrds_per_entityLbl: Dict[str, Dict[str, Union[
             Set[Union[str, Tuple[str, str]]], int, bool]]] = {}
         carEntityNonNumLbls_plus_style = list(carEntityNonNumLbls) + ['style']
@@ -55,6 +62,10 @@ class Fill_entityWrds():
                 'all_nonNumEntityWrds_used': False,
             }
 
+        # (1) fill entityWrds of those entityLbls that were not previously
+        #     filled;
+        # (2) extract row-level info from each df; info such as associating
+        #     brands with their model numbers such as "saab" with "9000"
         def get_df(car_datasets_dirPath: pathlib.Path) -> pd.DataFrame:
             for child in car_datasets_dirPath.iterdir():  # github, kaggle
                 if child.is_dir():  # github
@@ -71,6 +82,7 @@ class Fill_entityWrds():
 
         for df in get_df(
                 pathlib.Path(__file__).parent.joinpath('datasets').resolve()):
+            # fill entityWrds of entityLbls that were not previously filled
             for entityLbl in self.nonNumEntityWrds_per_entityLbl:
                 if entityLbl in carEntityNonNumLbls_plus_style:
                     for lbl in synonyms_for_carEntityNonNumLbls_plus_style[
@@ -81,6 +93,45 @@ class Fill_entityWrds():
                                     set(df[lbl].str.lower().unique()))
                             break
 
+            # extract any type of info from each row
+            for idx in df.index:
+                if df['model'][idx].isdecimal():
+                    if "brand" in df.columns:
+                        self.assoc_brand_modelNum.append(
+                            (df['brand'][idx], df['model'][idx]))
+                    elif "make" in df.columns:
+                        self.assoc_brand_modelNum.append(
+                            (df['make'][idx], df['model'][idx]))
+                    else:
+                        assert False, "Neither brand or make in df.columns"
+            self.assoc_brand_modelNum = list(set(self.assoc_brand_modelNum))
+
+        # (1) self.model_nums has all numbers that are in "model";
+        # (2) remove number-strings (e.g. "9000", not "9000 127") from model
+        # (3) model names like "vf 9" get an additional name of "vf9"
+        for strng in list(self.nonNumEntityWrds_per_entityLbl['model']
+                          ['nonNumEntityWrds']):
+            if strng.isdecimal():
+                # "9000" => True, "9000 127" => False
+                self.nonNumEntityWrds_per_entityLbl['model'][
+                    'nonNumEntityWrds'].remove(strng)
+                if strng not in self.model_nums:
+                    self.model_nums.append(strng)
+            strng = strng.split()
+            if len(strng) == 2 and (
+                    not strng[0].isdecimal()) and strng[1].isdecimal():
+                # user can write "vf 9" also as "vf9"
+                self.nonNumEntityWrds_per_entityLbl['model'][
+                    'nonNumEntityWrds'].add(f"{strng[0]}{strng[1]}")
+
+        # assert if brand or color have number-string
+        for entityLbl in ("brand", "color"):
+            for strng in list(self.nonNumEntityWrds_per_entityLbl[entityLbl]
+                              ['nonNumEntityWrds']):
+                if strng.isdecimal():
+                    assert False, "number found in brand or color"
+
+        # convert entityWrds of 'style' from strange format
         self.nonNumEntityWrds_per_entityLbl['style']['nonNumEntityWrds']: Set[
             str] = {
                 entityWrd
@@ -90,6 +141,7 @@ class Fill_entityWrds():
             }
         self.nonNumEntityWrds_per_entityLbl['style'][
             'nonNumEntityWrds'].update({"van", "minivan"})
+
         # move entityWrds of 'style' to 'model', and get rid of style
         self.nonNumEntityWrds_per_entityLbl['model']['nonNumEntityWrds'].update(
             self.nonNumEntityWrds_per_entityLbl['style']['nonNumEntityWrds'])
@@ -97,15 +149,21 @@ class Fill_entityWrds():
         del carEntityNonNumLbls_plus_style
         del synonyms_for_carEntityNonNumLbls_plus_style
 
+        # entityWrds that have more than one entityLbl
         self.multilabel_entityWrds = find_multilabel_entityWrds(
             self.nonNumEntityWrds_per_entityLbl)
 
+        """
+        # add typos to entityWrds; how to make sure that typos are not
+        # non-entity-words (i.e. other-words)
         self.nonNumEntityWrds_per_entityLbl = add_typos(
             self.nonNumEntityWrds_per_entityLbl)
 
+        # add spelling mistakes to entityWrds
         self.nonNumEntityWrds_per_entityLbl = add_spelling_mistakes(
             self.nonNumEntityWrds_per_entityLbl)
 
+        # check that no new multilabel entityWrds are generated
         new_multilabel_entityWrds = find_multilabel_entityWrds(
             self.nonNumEntityWrds_per_entityLbl)
         # assert self.multilabel_entityWrds == new_multilabel_entityWrds
@@ -115,12 +173,18 @@ class Fill_entityWrds():
             set(self.multilabel_entityWrds)
         }
         assert not diff
+        """
 
+        # convert to python-list all of
+        # self.nonNumEntityWrds_per_entityLbl[entityLbl]['nonNumEntityWrds']
         for entityLbl in self.nonNumEntityWrds_per_entityLbl:
             self.nonNumEntityWrds_per_entityLbl[entityLbl][
                 'nonNumEntityWrds'] = list(
                     self.nonNumEntityWrds_per_entityLbl[entityLbl]
                     ['nonNumEntityWrds'])
+
+        # save self.nonNumEntityWrds_per_entityLbl to a file
+        # "entityWrds_for_programmer_io"
         dataframes_dirPath = pathlib.Path(dataframes_dirPath).resolve(
             strict=True)
         entityWrds_for_programmer_io_file = dataframes_dirPath.joinpath(
@@ -131,6 +195,25 @@ class Fill_entityWrds():
                         file,
                         protocol=pickle.HIGHEST_PROTOCOL)
 
+        # (1) generate non-entity-words, called other-words; (2) remove
+        # entityWrds (excluding those from brand/model/color) from it
+        with open("/etc/dictionaries-common/words", "r") as file:
+            self.other_words = file.read()
+            self.other_words = list(
+                set(map(str.lower, self.other_words.split())))
+        entity_wrds = set()
+        for entity_wrds_lbls in (cmdsLbls, synonyms_for_carEntityNonNumLbls,
+                                 unitsLbls):
+            for entity_wrd_grp in entity_wrds_lbls.values():
+                for entity_wrd in entity_wrd_grp:
+                    entity_wrds.add(entity_wrd)
+        entity_wrds.update(set(carEntityNumLbls))
+        for entity_wrd in entity_wrds:
+            if entity_wrd in self.other_words:
+                self.other_words.remove(entity_wrd)
+        random.shuffle(self.other_words)
+
+        # create self.entityLbls_of_numEntityWrds_mapTo_genFuncs
         self.entityLbls_of_numEntityWrds_mapTo_genFuncs: Dict[str,
                                                               Dict[str,
                                                                    Any]] = {}
@@ -140,8 +223,6 @@ class Fill_entityWrds():
                 "gen_func": gen_func,
                 'all_numEntityWrds_used': False,
             }
-
-        gc.collect()
 
     def sentence_label(
         self,
