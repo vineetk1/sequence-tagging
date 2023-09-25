@@ -703,9 +703,7 @@ def generate_userOut(
                         carEntityNumsLbl = None
 
                     wrdLbl_idx += 1
-                    if (wrdLbl_idx >= len(bch_nnOut_entityLbls[bch_idx])) or (
-                         bch_nnOut_entityLbls[bch_idx][
-                                    wrdLbl_idx] == 'everything'):
+                    if (wrdLbl_idx == len(bch_nnOut_entityLbls[bch_idx])):
                         for k in bch_nnOut_userOut[bch_idx].keys():
                             bch_nnOut_userOut[bch_idx][k].clear()
                     else:
@@ -741,7 +739,7 @@ def generate_userOut(
                         assert False
 
                 case _:
-                    if entityLbl == 'setting' or entityLbl == 'everything':
+                    if entityLbl == 'setting':
                         pass
                     else:
                         assert False
@@ -978,14 +976,6 @@ in_out = [
   ['restore', 'remove'],
   {'brand': [], 'model': [], 'color': [], 'mileage': [],
    'price': [], 'year': []}],
-
- [{'brand': ['honda'], 'model': ['accord'], 'color': ['tuxedo black metallic'],
-   'mileage': ['less 40001 mi'],
-   'price': ['less 15000 $'], 'year': ['2019-2024']},
-  ['delete', 'everything', 'toyota', 'camry'],
-  ['remove', 'everything', 'brand',  'model'],
-  {'brand': ['toyota'], 'model': ['camry'], 'color': [],
-   'mileage': [], 'price': [], 'year': []}],
 
  [{'brand': ['honda'], 'model': ['accord'], 'color': ['tuxedo black metallic'],
    'mileage': ['less 40001 mi'],
