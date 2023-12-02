@@ -21,8 +21,10 @@ from Synthetic_dataset import (
     unitsLbls,
     cmdsLbls,
     synonyms_for_carEntityNonNumLbls,
-    entityLbls_for_numEntityWrds_mapTo_func,
-    entityLbls_for_numEntityWrds_mapTo_genFunc,
+    all_labels,
+    all_entityWrds,
+    labelsFor_entityWrds_lbl_other,
+    some_entityWrds_withLbl_other,
 )
 
 logg = getLogger(__name__)
@@ -31,15 +33,21 @@ logg = getLogger(__name__)
 class Fill_entityWrds():
 
     def __init__(self, dataframes_dirPath: str):
-        self.other_words: List[str] = []
-        self.assoc_brand_modelNum: List[Tuple[str, str]] = []
+        # all Sets are converted to Tuples, later in this function
+        self.nonNumEntityWrds_per_entityLbl: Dict[str, Dict[str, Union[
+            Set[Union[str, Tuple[str, str]]], int, bool]]] = {}
+        self.entityLbls_of_numEntityWrds_mapTo_genFuncs: Dict[str,
+                                                              Dict[str,
+                                                                   Any]] = {}
+        self.list_multipleIncrements: Dict[str, List[str]] = {}
+        self.assoc_brand_modelNum: List[Tuple[str, str]] = []  # not used
         self.model_nums: List[str] = []
         self.multilabel_entityWrds: Dict[str, List[str]] = {}
+        self.some_entityWrds_withLbl_other: set[Union[Dict[str, str], str]]
+        self.entityWrdsWithLblOther_all_used: bool = None
 
         # fill entityWrds in some entityLbls of
         # self.nonNumEntityWrds_per_entityLbl
-        self.nonNumEntityWrds_per_entityLbl: Dict[str, Dict[str, Union[
-            Set[Union[str, Tuple[str, str]]], int, bool]]] = {}
         carEntityNonNumLbls_plus_style = list(carEntityNonNumLbls) + ['style']
         synonyms_for_carEntityNonNumLbls_plus_style = (
             synonyms_for_carEntityNonNumLbls)
@@ -57,9 +65,9 @@ class Fill_entityWrds():
             else:
                 assert False
             self.nonNumEntityWrds_per_entityLbl[entityLbl] = {
-                'nonNumEntityWrds': entityWrds,
-                'nonNumEntityWrds_idx': 0,
-                'all_nonNumEntityWrds_used': False,
+                'items': entityWrds,
+                'idx': 0,
+                'all_used': False,
             }
 
         # (1) fill entityWrds of those entityLbls that were not previously
@@ -89,7 +97,7 @@ class Fill_entityWrds():
                             entityLbl]:
                         if lbl in df.columns:
                             self.nonNumEntityWrds_per_entityLbl[entityLbl][
-                                'nonNumEntityWrds'].update(
+                                'items'].update(
                                     set(df[lbl].str.lower().unique()))
                             break
 
@@ -106,45 +114,44 @@ class Fill_entityWrds():
                         assert False, "Neither brand or make in df.columns"
             self.assoc_brand_modelNum = list(set(self.assoc_brand_modelNum))
 
-        # (1) self.model_nums has all numbers that are in "model";
+        # (1) self.model_nums has all number-strings that are in "model";
         # (2) remove number-strings (e.g. "9000", not "9000 127") from model
         # (3) model names like "vf 9" get an additional name of "vf9"
-        for strng in list(self.nonNumEntityWrds_per_entityLbl['model']
-                          ['nonNumEntityWrds']):
+        for strng in list(
+                self.nonNumEntityWrds_per_entityLbl['model']['items']):
             if strng.isdecimal():
                 # "9000" => True, "9000 127" => False
-                self.nonNumEntityWrds_per_entityLbl['model'][
-                    'nonNumEntityWrds'].remove(strng)
+                self.nonNumEntityWrds_per_entityLbl['model']['items'].remove(
+                    strng)
                 if strng not in self.model_nums:
                     self.model_nums.append(strng)
             strng = strng.split()
             if len(strng) == 2 and (
                     not strng[0].isdecimal()) and strng[1].isdecimal():
                 # user can write "vf 9" also as "vf9"
-                self.nonNumEntityWrds_per_entityLbl['model'][
-                    'nonNumEntityWrds'].add(f"{strng[0]}{strng[1]}")
+                self.nonNumEntityWrds_per_entityLbl['model']['items'].add(
+                    f"{strng[0]}{strng[1]}")
 
         # assert if brand or color have number-string
         for entityLbl in ("brand", "color"):
-            for strng in list(self.nonNumEntityWrds_per_entityLbl[entityLbl]
-                              ['nonNumEntityWrds']):
+            for strng in list(
+                    self.nonNumEntityWrds_per_entityLbl[entityLbl]['items']):
                 if strng.isdecimal():
                     assert False, "number found in brand or color"
 
         # convert entityWrds of 'style' from strange format
-        self.nonNumEntityWrds_per_entityLbl['style']['nonNumEntityWrds']: Set[
-            str] = {
-                entityWrd
-                for entityWrds_lst_str in self.
-                nonNumEntityWrds_per_entityLbl['style']['nonNumEntityWrds']
-                for entityWrd in ast.literal_eval(entityWrds_lst_str)
-            }
-        self.nonNumEntityWrds_per_entityLbl['style'][
-            'nonNumEntityWrds'].update({"van", "minivan"})
+        self.nonNumEntityWrds_per_entityLbl['style']['items']: Set[str] = {
+            entityWrd
+            for entityWrds_lst_str in
+            self.nonNumEntityWrds_per_entityLbl['style']['items']
+            for entityWrd in ast.literal_eval(entityWrds_lst_str)
+        }
+        self.nonNumEntityWrds_per_entityLbl['style']['items'].update(
+            {"van", "minivan"})
 
         # move entityWrds of 'style' to 'model', and get rid of style
-        self.nonNumEntityWrds_per_entityLbl['model']['nonNumEntityWrds'].update(
-            self.nonNumEntityWrds_per_entityLbl['style']['nonNumEntityWrds'])
+        self.nonNumEntityWrds_per_entityLbl['model']['items'].update(
+            self.nonNumEntityWrds_per_entityLbl['style']['items'])
         del self.nonNumEntityWrds_per_entityLbl['style']
         del carEntityNonNumLbls_plus_style
         del synonyms_for_carEntityNonNumLbls_plus_style
@@ -152,8 +159,7 @@ class Fill_entityWrds():
         # entityWrds that have more than one entityLbl
         self.multilabel_entityWrds = find_multilabel_entityWrds(
             self.nonNumEntityWrds_per_entityLbl)
-
-        """
+        # """
         # add typos to entityWrds; how to make sure that typos are not
         # non-entity-words (i.e. other-words)
         self.nonNumEntityWrds_per_entityLbl = add_typos(
@@ -173,15 +179,13 @@ class Fill_entityWrds():
             set(self.multilabel_entityWrds)
         }
         assert not diff
-        """
+        # """
 
         # convert to python-list all of
-        # self.nonNumEntityWrds_per_entityLbl[entityLbl]['nonNumEntityWrds']
+        # self.nonNumEntityWrds_per_entityLbl[entityLbl]['items']
         for entityLbl in self.nonNumEntityWrds_per_entityLbl:
-            self.nonNumEntityWrds_per_entityLbl[entityLbl][
-                'nonNumEntityWrds'] = list(
-                    self.nonNumEntityWrds_per_entityLbl[entityLbl]
-                    ['nonNumEntityWrds'])
+            self.nonNumEntityWrds_per_entityLbl[entityLbl]['items'] = list(
+                self.nonNumEntityWrds_per_entityLbl[entityLbl]['items'])
 
         # save self.nonNumEntityWrds_per_entityLbl to a file
         # "entityWrds_for_programmer_io"
@@ -198,9 +202,8 @@ class Fill_entityWrds():
         # (1) generate non-entity-words, called other-words; (2) remove
         # entityWrds (excluding those from brand/model/color) from it
         with open("/etc/dictionaries-common/words", "r") as file:
-            self.other_words = file.read()
-            self.other_words = list(
-                set(map(str.lower, self.other_words.split())))
+            other_words = file.read()
+            other_words = list(set(map(str.lower, other_words.split())))
         entity_wrds = set()
         for entity_wrds_lbls in (cmdsLbls, synonyms_for_carEntityNonNumLbls,
                                  unitsLbls):
@@ -209,20 +212,37 @@ class Fill_entityWrds():
                     entity_wrds.add(entity_wrd)
         entity_wrds.update(set(carEntityNumLbls))
         for entity_wrd in entity_wrds:
-            if entity_wrd in self.other_words:
-                self.other_words.remove(entity_wrd)
-        random.shuffle(self.other_words)
+            if entity_wrd in other_words:
+                other_words.remove(entity_wrd)
+        random.shuffle(other_words)
 
-        # create self.entityLbls_of_numEntityWrds_mapTo_genFuncs
-        self.entityLbls_of_numEntityWrds_mapTo_genFuncs: Dict[str,
-                                                              Dict[str,
-                                                                   Any]] = {}
+        # install (lbl, blank), such as "other", in self.list_multipleIncrements
+        for lbl in [
+                "other",
+        ]:
+            self.list_multipleIncrements[lbl] = {
+                'items': other_words,
+                'idx': 0,
+                'all_used': False,
+            }
+
+        # install <other><___entWrdLblOther>
+        # non-entity-words (i.e. other-words)
+        self.some_entityWrds_withLbl_other = add_typos(set(some_entityWrds_withLbl_other))
+        # add spelling mistakes: none yet
+
+        # install labels in self.entityLbls_of_numEntityWrds_mapTo_genFuncs
+        entityLbls_for_numEntityWrds_mapTo_genFunc = {
+            "year": sequentialYear,
+        }
         for entityLbl in entityLbls_for_numEntityWrds_mapTo_genFunc:
             gen_func = entityLbls_for_numEntityWrds_mapTo_genFunc[entityLbl]()
             self.entityLbls_of_numEntityWrds_mapTo_genFuncs[entityLbl] = {
-                "gen_func": gen_func,
-                'all_numEntityWrds_used': False,
+                "func": gen_func,
+                'all_used': False,
             }
+
+        # install (lbl, entityWrd) such as <other><___entWrdLblOther> in self.
 
     def sentence_label(
         self,
@@ -241,13 +261,19 @@ class Fill_entityWrds():
     def _fill_entityWrds(
             self, sentenceWith_placeholders: str
     ) -> List[Union[str, Dict[str, str]]]:
+
+        def inc_idx(dictObj: Dict[str, Any]) -> None:
+            if dictObj['idx'] == (len(dictObj['items']) - 1):
+                dictObj['idx'] = 0
+                dictObj['all_used'] = True
+                random.shuffle(dictObj['items'])
+            else:
+                dictObj['idx'] += 1
+
         sentenceWith_placeholders: List[str] = sentenceWith_placeholders.split(
         )
         wrds_wrdLbls: List[Union[str, Dict[str, str]]] = []
         for strng in sentenceWith_placeholders:
-            if PLACEHOLDER_ID_START not in strng:
-                wrds_wrdLbls.append(strng)
-                continue
             assert strng[0] == PLACEHOLDER_ID_START
             assert strng.count(PLACEHOLDER_ID_START) == 2
             assert strng[-1] == PLACEHOLDER_ID_END
@@ -260,38 +286,49 @@ class Fill_entityWrds():
                 wrds = strng[id_end + 2:-1]
             except ValueError:
                 assert False
-            if (not wrds) and lbl in self.nonNumEntityWrds_per_entityLbl:
-                wrds = self.nonNumEntityWrds_per_entityLbl[lbl][
-                    'nonNumEntityWrds'][self.nonNumEntityWrds_per_entityLbl[
-                        lbl]['nonNumEntityWrds_idx']]
-                if self.nonNumEntityWrds_per_entityLbl[lbl][
-                        'nonNumEntityWrds_idx'] == (
-                            len(self.nonNumEntityWrds_per_entityLbl[lbl]
-                                ['nonNumEntityWrds']) - 1):
-                    self.nonNumEntityWrds_per_entityLbl[lbl][
-                        'nonNumEntityWrds_idx'] = 0
-                    self.nonNumEntityWrds_per_entityLbl[lbl][
-                        'all_nonNumEntityWrds_used'] = True
-                    random.shuffle(self.nonNumEntityWrds_per_entityLbl[lbl]
-                                   ['nonNumEntityWrds'])
-                else:
-                    self.nonNumEntityWrds_per_entityLbl[lbl][
-                        'nonNumEntityWrds_idx'] += 1
-            elif (not wrds) and lbl in entityLbls_for_numEntityWrds_mapTo_func:
-                wrds = entityLbls_for_numEntityWrds_mapTo_func[lbl]()
+            assert lbl in all_labels, f"unknown label= {lbl}"
+            assert ((wrds in all_entityWrds,
+                     f"unknown entityWrd= {wrds}") if wrds else True)
+
+            if wrds == ___entWrdLblOther:
+            elif wrds.startswith("___"):
+                entityWrd, all_used = resolve_entityWrds_glob(lbl, wrds[3:])
+                wrds_wrdLbls.append()
+            elif wrds:
+                wrds_wrdLbls.append({"entityLbl": lbl, "entityWrds": wrds})
+            elif (not wrds) and lbl in self.nonNumEntityWrds_per_entityLbl:
+                # labels: "brand", "model", "color", "units_price_$", etc.
+                wrds = self.nonNumEntityWrds_per_entityLbl[lbl]['items'][
+                    self.nonNumEntityWrds_per_entityLbl[lbl]['idx']]
+                wrds_wrdLbls.append({"entityLbl": lbl, "entityWrds": wrds})
+                inc_idx(self.nonNumEntityWrds_per_entityLbl[lbl])
+            elif (not wrds) and lbl in self.list_multipleIncrements:
+                # labels: "other",
+                rdm_num = random.randint(1, 3)
+                while rdm_num:
+                    wrd = self.list_multipleIncrements[lbl]['items'][
+                        self.list_multipleIncrements[lbl]['idx']]
+                    wrds_wrdLbls.append({"entityLbl": lbl, "entityWrds": wrd})
+                    inc_idx(self.list_multipleIncrements[lbl])
+                    rdm_num -= 1
             elif (not wrds
                   ) and lbl in self.entityLbls_of_numEntityWrds_mapTo_genFuncs:
+                # labels: "year",
                 wrds, self.entityLbls_of_numEntityWrds_mapTo_genFuncs[lbl][
-                    "all_numEntityWrds_used"] = next(
+                    "all_used"] = next(
                         self.entityLbls_of_numEntityWrds_mapTo_genFuncs[lbl]
-                        ["gen_func"])
+                        ["func"])
+                wrds_wrdLbls.append({"entityLbl": lbl, "entityWrds": wrds})
+            elif (not wrds) and (lbl == "mileage" or lbl == "price"):
+                wrds_wrdLbls.append(resolve_entityWrds_glob(lbl, "intFloat"))
+            elif (not wrds) and lbl == "setting":
+                wrds_wrdLbls.append(resolve_entityWrds_glob(lbl, "int"))
+            elif (not wrds) and lbl == "multilabel":
+                wrds_wrdLbls.append(resolve_entityWrds_glob(lbl, "int"))
+            elif (not wrds) and lbl == "assoc_brand_modelNum":
+                wrds_wrdLbls.append(resolve_entityWrds_glob(lbl, "int"))
             else:
-                assert wrds
-                assert (lbl in self.nonNumEntityWrds_per_entityLbl) or (
-                    lbl in entityLbls_for_numEntityWrds_mapTo_func) or (
-                        lbl in self.entityLbls_of_numEntityWrds_mapTo_genFuncs)
-
-            wrds_wrdLbls.append({"entityLbl": lbl, "entityWrds": wrds})
+                assert False, f"unknown label= {lbl}"
         return wrds_wrdLbls
 
     def _filter_wrdsWrdLbls(
@@ -452,8 +489,7 @@ class Fill_entityWrds():
         for entityLbl in self.nonNumEntityWrds_per_entityLbl:
             all_entityWrds_used = (
                 all_entityWrds_used
-                and self.nonNumEntityWrds_per_entityLbl[entityLbl]
-                ['all_nonNumEntityWrds_used'])
+                and self.nonNumEntityWrds_per_entityLbl[entityLbl]['all_used'])
             if not all_entityWrds_used:
                 return False
         for entityLbl in self.entityLbls_of_numEntityWrds_mapTo_genFuncs:
@@ -478,7 +514,7 @@ def find_multilabel_entityWrds(
                                                     int, bool]]]
 ) -> Dict[str, List[str]]:
     # Given: the sets in
-    # self.nonNumEntityWrds_per_entityLbl[entityLbl]['nonNumEntityWrds']
+    # self.nonNumEntityWrds_per_entityLbl[entityLbl]['items']
     # consist of strings and tuple-of-two-strings,
     # e.g. {"red", ("blua indidot salver", "blue indigo silver"),....};
     # In the tuple, only the first string is used for matching
@@ -486,8 +522,7 @@ def find_multilabel_entityWrds(
     filtered_nonNumEntityWrds: Dict[str, List[str]] = {}
     for entityLbl in nonNumEntityWrds_per_entityLbl:
         filtered_nonNumEntityWrds[entityLbl] = []
-        for entityWrd in nonNumEntityWrds_per_entityLbl[entityLbl][
-                'nonNumEntityWrds']:
+        for entityWrd in nonNumEntityWrds_per_entityLbl[entityLbl]['items']:
             if isinstance(entityWrd, tuple):
                 filtered_nonNumEntityWrds[entityLbl].append(entityWrd[0])
             elif isinstance(entityWrd, str):
@@ -514,9 +549,9 @@ def find_multilabel_entityWrds(
 
 
 def add_typos(
-    nonNumEntityWrds_per_entityLbl: Dict[str, Dict[str, Union[Set[str], int,
-                                                              bool]]]
-) -> Dict[str, Dict[str, Union[Set[Union[str, Tuple[str, str]]], int, bool]]]:
+    nonNumEntityWrds: Union[Dict[str, Dict[str, Union[Set[str], int, bool]]],
+                            Set[str]]
+) -> Union[Dict[str, Dict[str, Union[Set[str], int, bool]]], Set[str]]:
     keyboard_neighbors_of = {
         'a': ['q', 'w', 's', 'z'],
         'b': ['v', 'g', 'h', 'n'],
@@ -582,31 +617,17 @@ def add_typos(
         return typing_error_wrds
 
     all_nonNumEntityWrds: Set[str] = set()
-    for entityLbl in nonNumEntityWrds_per_entityLbl:
-        all_nonNumEntityWrds.update(
-            nonNumEntityWrds_per_entityLbl[entityLbl]['nonNumEntityWrds'])
+    if isinstance(nonNumEntityWrds, Dict):
+        for entityLbl in nonNumEntityWrds:
+            all_nonNumEntityWrds.update(nonNumEntityWrds[entityLbl]['items'])
 
-    for entityLbl in nonNumEntityWrds_per_entityLbl:
-        typo_wrds = get_typoWrds(
-            nonNumEntityWrds_per_entityLbl[entityLbl]['nonNumEntityWrds'])
-        duplicate_typo_wrds = set()
-        for typo_wrd in typo_wrds:
-            unique_typo_wrd: bool = True
-            for key in nonNumEntityWrds_per_entityLbl:
-                if key != entityLbl and unique_typo_wrd:
-                    for wrd in nonNumEntityWrds_per_entityLbl[key][
-                            'nonNumEntityWrds']:
-                        typo_wrd_mod = typo_wrd[0] if isinstance(
-                            typo_wrd, tuple) else typo_wrd
-                        wrd_mod = wrd[0] if isinstance(wrd, tuple) else wrd
-                        if typo_wrd_mod == wrd_mod:
-                            duplicate_typo_wrds.add(typo_wrd)
-                            unique_typo_wrd = False
-                            break
-        typo_wrds -= duplicate_typo_wrds
-        nonNumEntityWrds_per_entityLbl[entityLbl]['nonNumEntityWrds'].update(
-            typo_wrds)
-    return nonNumEntityWrds_per_entityLbl
+        for entityLbl in nonNumEntityWrds:
+            typo_wrds = get_typoWrds(nonNumEntityWrds[entityLbl]['items'])
+            nonNumEntityWrds[entityLbl]['items'].update(typo_wrds)
+    elif isinstance(nonNumEntityWrds, Set):
+        typo_wrds = get_typoWrds(nonNumEntityWrds)
+        nonNumEntityWrds.update(typo_wrds)
+    return nonNumEntityWrds
 
 
 def add_spelling_mistakes(
@@ -658,7 +679,7 @@ def add_spelling_mistakes(
                 for key in nonNumEntityWrds_per_entityLbl:
                     if key != entityLbl and unique_spellm:
                         for wrd in nonNumEntityWrds_per_entityLbl[key][
-                                'nonNumEntityWrds']:
+                                'items']:
                             spellm_mod = spellm[0] if isinstance(
                                 spellm, tuple) else spellm
                             wrd_mod = wrd[0] if isinstance(wrd, tuple) else wrd
@@ -667,6 +688,71 @@ def add_spelling_mistakes(
                                 unique_spellm = False
                                 break
             spelling_mistakes[entityLbl] -= duplicate_spellm
-            nonNumEntityWrds_per_entityLbl[entityLbl][
-                'nonNumEntityWrds'].update(spelling_mistakes[entityLbl])
+            nonNumEntityWrds_per_entityLbl[entityLbl]['items'].update(
+                spelling_mistakes[entityLbl])
     return nonNumEntityWrds_per_entityLbl
+
+
+def resolve_entityWrds_glob(lbl: str,
+                            glob: str) -> Tuple[Dict[str, str], bool]:
+    try:
+        idxOf_openParen = glob.index("(")
+        assert glob[-1] == ")"
+        name: str = glob[:idxOf_openParen]
+        params: List[str] = glob[idxOf_openParen + 1:-1].split()
+    except ValueError:
+        name = glob
+        params = None
+
+    wrds_wrdLbls: Dict[str, str] = {}
+    all_used: bool = None
+    if name == "int":
+        wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmInt()}
+    elif name == "float":
+        wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmFloat()}
+    elif name == "intFloat":
+        if random.getrandbits(1):
+            wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmFloat()}
+        else:
+            wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmInt()}
+    elif name == "year":
+        wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmYear()}
+    elif name == "entWrdLblOther":
+        assert lbl == "other"
+        entityWrd, all_used = entityWrd_WithLbl_Other()
+        wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": entityWrd}
+    elif name == "num":
+        assert len(params) == 2
+    else:
+        assert False, f"unknown entityWrd {name}"
+    return wrds_wrdLbls, all_used
+
+
+def rdmInt() -> str:
+    return str(int(random.uniform(0, 9999999999)))
+
+
+def rdmFloat() -> str:
+    return str(round(random.uniform(0, 9999999999), 2))
+
+
+year_range = (1970, 2024)
+
+
+def rdmYear() -> str:
+    return random.randint(year_range[0], year_range[1])
+
+
+def sequentialYear() -> Tuple[str, bool]:  # this generator has infinite loop
+    year: int = year_range[1]
+    all_years_done: bool = False
+    while True:
+        if year == year_range[0]:
+            all_years_done = True
+            year = year_range[1]
+        yield str(year), all_years_done
+        year -= 1
+
+
+def entityWrd_WithLbl_Other(all_items_used_status: bool = False) -> Tuple[str, bool]:  # this generator has infinite loop
+    x = 1
