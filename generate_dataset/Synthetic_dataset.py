@@ -57,6 +57,24 @@ Code picks entityWrd belonging to entityLbl
 
 (2) <entityLbl><entityWrd>
 
+Formats of <entityWrd>
+---------------------------
+** <entityLbl><>
+Code picks an entityWrd belonging to entityLbl
+
+** <price><> vs. <price><___intFloat> => No difference
+
+** <mileage><> vs. <mileage><___intFloat> => No difference
+
+** (i) <year><> vs. (ii) <entityLbl><___year>
+(i) everytime used, entityWrd is the next integer in the range of Year
+(ii) entityWrd is a random integer between the range of Year
+
+
+If entityWrd starts with three underscores then the format is one of
+follows: (1) ___unique_name; (2) ___unique_name(param1, param2, ....) ***there
+MUST be spaces between params****
+
 Some notes:
 -----------
 + Instead of using a -ve, a previous range can be removed by
@@ -69,53 +87,60 @@ Add to segments certain entityWrds (e.g. between, to, through) that the NN must 
 In the above sentence, the NN must NOT label the "to", "between", "through"
 
 
-Segments that are NOT ALLOWED:
+Segments that are NOT ALLOWED: *****MAJOR PROBLEM************
 ------------------------------
 " <price><>   <units_price_$><>  <range2><-> <price><> ",
 " <price><>   <range2><->  <units_price_$><> <price><> ",
 Reason: if "units_price_$" is "dollar" then its typo could become "dolkar". The
 function Utilities.py: userIn_filter_splitWords(userIn) removes the hyphen
 because "dolkar" is neither a number or a unit
+UPDATE: I think the above two segments MUST be allowed. If a user misspells
+"dollar" then the code will remove the hyphen and the output will be different
+than expected; the user made the mistake and in this case the NN was not smart
+enough
 """
 import random
 
 PLACEHOLDER_ID_START = "<"
 PLACEHOLDER_ID_END = ">"
 
+# Following sentences are different from segments; they are used only once in
+# the dataset
 train_sentences = ()
 val_sentences = (
     # following is how the user should normally type
 
-    # NN must sometimes label entityWrds as "O"; usually (but not always) when they are followed by an "O" word
-    "<color><>  <other><to> <model><>  <other><between>  <other><$>  <other><> <less><>  <other><than>   <units_price_$><> <price><> ",
-    " <other><larger>  <other><dollars>   <other><>  <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>  <other><above>  <other><>  <year><> <range2><> <year><>  <other><range>  <other><> <units_price_$><> <price><>   <range2><-> <price><>  <other><remove> ",
-    " <other><smaller>  <other><>  <other><__year>  <other><higher>  <other><>  <price><> <units_price_$><> <color><>   <other><below>   <brand><> ",
-    "  <brand><>  <other><through> <less><>  <other><than>  <units_price_$><>   <price><>  <other><greater>  <other><prices>   ",
-    "  <other><mileages>  <other><>  <model><>   <other><little>  <other><>  <price><>   <range2><-> <price><>  <units_price_$><>   <other><less>  <other><>  <mileage><>   <units_mileage_mi><> ",
-    "<price><> <units_price_$><>  <other><price> <other><>  <brand><>  ",
-    "  <other><years> <price><>   <range2><-> <price><> <units_price_$><> <other><lower>  <other><dollar> <color><>  <other><mileage>  ",
+    # NN must sometimes label entityWrds as "O"; usually (but not always) when
+    # they are followed by an "O" word
+    "<color><>  <other><___entWrdLblOther> <model><>  <other><___entWrdLblOther>  <other><___entWrdLblOther>  <other><> <less><>  <other><than>   <units_price_$><> <price><> ",
+    " <other><___entWrdLblOther>  <other><___entWrdLblOther>   <other><>  <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>  <other><___entWrdLblOther>  <other><>  <year><> <range2><> <year><>  <other><___entWrdLblOther>  <other><> <units_price_$><> <price><>   <range2><-> <price><>  <other><___entWrdLblOther> ",
+    " <other><___entWrdLblOther>  <other><>  <other><___year>  <other><___entWrdLblOther>  <other><>  <price><> <units_price_$><> <color><>   <other><___entWrdLblOther>   <brand><> ",
+    "  <brand><>  <other><___entWrdLblOther> <less><>  <other><than>  <units_price_$><>   <price><>  <other><___entWrdLblOther>  <other><___entWrdLblOther>   ",
+    "  <other><___entWrdLblOther>  <other><>  <model><>   <other><___entWrdLblOther>  <other><>  <price><>   <range2><-> <price><>  <units_price_$><>   <other><___entWrdLblOther>  <other><>  <mileage><>   <units_mileage_mi><> ",
+    "<price><> <units_price_$><>  <other><___entWrdLblOther> <other><>  <brand><>  ",
+    "  <other><___entWrdLblOther> <price><>   <range2><-> <price><> <units_price_$><> <other><___entWrdLblOther>  <other><___entWrdLblOther> <color><>  <other><___entWrdLblOther>  ",
 
     # NN must not always label 1970 - 2024 as belonging to year
-    "<model><> <brand><>  <other><__year>   <price><__year> <range2><> <price><__year> <units_price_$><>   <other><>   <mileage><__year> <units_mileage_mi><miles>  <other><more> ",
-    " <other><>  <mileage><__year> <units_mileage_mi><>   <other><and>   <price><__year> <units_price_$><> <price><__year>  <other><or>  <more><more>",
-    "<year><__year> <color><>  <units_price_$><> <price><__year> <more><more> <mileage><__year> <units_mileage_mi><miles>",
-    " <other><__year>  <other><> <mileage><__year> <units_mileage_mi><miles>   <less><less>  <other><than>   <units_price_$><> <price><__year>",
+    "<model><> <brand><>  <other><___year>   <price><___year> <range2><> <price><___year> <units_price_$><>   <other><>   <mileage><___year> <units_mileage_mi><miles>  <other><___entWrdLblOther> ",
+    " <other><>  <mileage><___year> <units_mileage_mi><>   <other><and>   <price><___year> <units_price_$><>  <other><or>  <more><more>",
+    "<year><___year> <color><>  <units_price_$><> <price><___year> <more><more> <mileage><___year> <units_mileage_mi><miles>",
+    " <other><___year>  <other><> <mileage><___year> <units_mileage_mi><miles>   <less><less>  <other><than>   <units_price_$><> <price><___year>",
 )
 test_sentences = (
     # following is how the user should normally type
 
     # NN must sometimes label entityWrds as "O"; usually (but not always) when they are followed by an "O" word
     " <other><mileages> <brand><>  <other><through>  <brand><>  ",  # In Predict, NN must not label "through" as range2 label
-    " <other><$>  <other><> <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>  <units_price_$><> <price><>   <other><between>  <other><>  <range2><-> <price><> <other><to>  <model><> ",
-    "<other><less>  <other><dollars>  <other><>   <other><__year>  <other><larger>   <color><>  <other><smaller> <brand><> ",
+    " <other><$>  <other><> <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>  <units_price_$><> <price><>   <other><between>  <other><>  <other><to>  <model><> ",
+    "<other><less>  <other><dollars>  <other><>   <other><___year>  <other><larger>   <color><>  <other><smaller> <brand><> ",
     " <other><under>   <brand><>  <brand><>  <other><mile>   <other><> <less><>  <other><than>   <units_price_$><> <price><>",
     " <model><>   <other><mi>   <brand><>  <other><price>   <color><>  <less><>  <other><than>  <mileage><>   <units_mileage_mi><> ",
     "the range of prices is above or below but i say <price><>   <range2><-> <price><> <units_price_$><> which is neither greater or little",
 
     # NN must not always label 1970 - 2024 as belonging to year
-    "<year><__year> <model><> <less><less>  <other><than>  <mileage><__year> <units_mileage_mi><> <color><> <price><__year> <range2><> <price><__year> <units_price_$><>",
-    "  <other><__year>  <other><> <units_price_$><> <price><__year> <more><more> <mileage><__year> <units_mileage_mi><>",
-    " <units_price_$><> <price><> <range2><-> <price><>  <units_price_$><> <price><__year> <mileage><__year> <units_mileage_mi><> <more><> ",
+    "<year><___year> <model><> <less><less>  <other><than>  <mileage><___year> <units_mileage_mi><> <color><> <price><___year> <range2><> <price><___year> <units_price_$><>",
+    "  <other><___year>  <other><> <units_price_$><> <price><___year> <more><more> <mileage><___year> <units_mileage_mi><>",
+    " <units_price_$><> <price><___year> <range2><-> <price><___year>  <units_price_$><> <price><___year> <mileage><___year> <units_mileage_mi><> <more><> ",
 )
 full_sentences = {
     "train": train_sentences,
@@ -507,7 +532,7 @@ year_segments = (
     "   <other><year>  <year><>    <other><or>   <more><>  <other><> ",
     "   <other><>  <other><year>  <year><>    <other><or>   <more><>  <other><> ",
 )
-remove_segments = (
+remove_restore_segments = (
     "<remove><> <restore><> <remove><> ",
     "<remove><> <brand><>  <model><>  <color><> ",
     "<remove><> <units_price_$><> <price><> <units_mileage_mi><> <mileage><> <year><> ",
@@ -560,47 +585,28 @@ mixed_segments = (
     "<units_price_$><$> <price><> <mileage><> <units_mileage_mi><> ",
 
     # NN must sometimes label entityWrds as "O"; usually (but not always) when they are followed by an "O" word
-    "<color><>  <other><through>   <other><year> <brand><>  ",  # In Predict, NN must not label "through" as range2 label
-    "   <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>  <other><>   <other><higher>   <other><>   <other><lower>   <other><>   <units_price_$><> <price><>  <range2><-> <price><>  <other><>   <other><little>   <other><> ",
-    "<color><>  <other><smaller>  <brand><>  <price><>  <range2><-> <price><> <units_price_$><> ",
-    " <other><>   <other><more>   <brand><>   <other><above>  <model><>  <other><>   <other><through>   <other><> <less><>   <other><than>  <units_price_$><> <price><>",
-    "  <other><>  <other><under>   <other><>  <model><>   <other><over>  <brand><>  <other><range>   <color><>  <larger><>  <other><than>   <mileage><>   <units_mileage_mi><> ",
-    " <other><>   <other><mileage>   <other><>   <other><$>   <other><>   <other><dollar>    <other><between>    <other><price>   <other><>  <other><color>  <other><>  <price><> <units_price_$><>",
-    " <other><>  <other><to>   <other><mileages>   <other><>   <other><dollars>   <other><above>    <other><>   <other><below>   <other><> <units_price_$><> <price><>   <range2><-> <price><>  <other><>   <other><greater>   <other><>   <other><little>   <other><>  <mileage><>   <units_mileage_mi><>",
-    "  <other><remove>  <other><> <color><>  <other><mi> <brand><>",
-    " <model><> <other><delete>  <other><> <model><>  <other><mile> <model><>",
-    "<units_price_$><> <price><>  <range2><-> <price><>  <other><clear>  <other><miles>  <other><> ",
-    "  <other><brand>  <other><model>  <other><color>  <other><make> ",
+    "<color><>  <other><___entWrdLblOther>   <other><___entWrdLblOther> <brand><>  ",  # In Predict, NN must not label "through" as range2 label
+    "   <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>  <other><>   <other><___entWrdLblOther>   <other><>   <other><___entWrdLblOther>   <other><>   <units_price_$><> <price><>  <range2><-> <price><>  <other><>   <other><___entWrdLblOther>   <other><> ",
+    "<color><>  <other><___entWrdLblOther>  <brand><>  <price><>  <range2><-> <price><> <units_price_$><> ",
+    " <other><>   <other><___entWrdLblOther>   <brand><>   <other><___entWrdLblOther>  <model><>  <other><>   <other><___entWrdLblOther>   <other><> <less><>   <other><than>  <units_price_$><> <price><>",
+    "  <other><>  <other><___entWrdLblOther>   <other><>  <model><>   <other><___entWrdLblOther>  <brand><>  <other><___entWrdLblOther>   <color><>  <other><than>   <mileage><>   <units_mileage_mi><> ",
+    " <other><>   <other><___entWrdLblOther>   <other><>   <other><$___entWrdLblOther>   <other><>   <other><___entWrdLblOther>    <other><___entWrdLblOther>    <other><___entWrdLblOther>   <other><>  <other><___entWrdLblOther>  <other><>  <price><> <units_price_$><>",
+    " <other><>  <other><___entWrdLblOther>   <other><___entWrdLblOther>   <other><>   <other><___entWrdLblOther>   <other><___entWrdLblOther>    <other><>   <other><___entWrdLblOther>   <other><> <units_price_$><> <price><>   <range2><-> <price><>  <other><>   <other><___entWrdLblOther>   <other><>   <other><___entWrdLblOther>   <other><>  <mileage><>   <units_mileage_mi><>",
+    "  <other><___entWrdLblOther>  <other><> <color><>  <other><___entWrdLblOther> <brand><>",
+    " <model><> <other><___entWrdLblOther>  <other><> <model><>  <other><___entWrdLblOther> <model><>",
+    "<units_price_$><> <price><>  <range2><-> <price><>  <other><___entWrdLblOther>  <other><___entWrdLblOther>  <other><> ",
+    "  <other><___entWrdLblOther>  <other><___entWrdLblOther>  <other><___entWrdLblOther>  <other><___entWrdLblOther> ",
 
     # NN must not always label 1970 - 2024 as belonging to year
-    "<color><> <other><__year>  <other><>  <price><__year> <range2><> <price><__year> <units_price_$><>   <less><less>  <other><than>  <mileage><__year> <units_mileage_mi><miles> ",
-    " <mileage><__year> <units_mileage_mi><>   <price><__year> <units_price_$><> <other><__year> ",
-    " <other><__year>  <other><> <units_price_$><> <price><__year> <more><> <mileage><__year> <units_mileage_mi><>",
-    "  <units_price_$><> <price><__year> <mileage><__year> <units_mileage_mi><miles> <more><> ",
+    "<color><> <other><___year>  <other><>  <price><___year> <range2><> <price><___year> <units_price_$><>   <less><>  <other><than>  <mileage><___year> <units_mileage_mi><> ",
+    " <mileage><___year> <units_mileage_mi><>   <price><___year> <units_price_$><> <other><___year> ",
+    " <other><___year>  <other><> <units_price_$><> <price><___year> <more><> <mileage><___year> <units_mileage_mi><>",
+    "  <units_price_$><> <price><___year> <mileage><___year> <units_mileage_mi><> <more><> ",
 )
 specific_segments = (
     "<multilabel><> ",
     "<assoc_brand_modelNum><> ",
 )
-"""
-style_segments = (
-    "<style><>",
-    "style <style><convertible>  ",
-    " <style><convertible> style ",
-    "style <style><sedan>  ",
-    " <style><sedan> style ",
-    "style <style><pickup>  ",
-    " <style><pickup> style ",
-    "style <style><wagon>  ",
-    " <style><wagon> style ",
-    "style <style><van>  ",
-    " <style><van> style ",
-    "style <style><coupe>  ",
-    " <style><coupe> style ",
-    "style <style><suv>  ",
-    " <style><suv> style ",
-)
-"""
 # "setting_segments" are in "remove segment" because restore in the middle of a
 # full sentence auto-removes everything before it
 # setting_segments = (
@@ -608,11 +614,11 @@ style_segments = (
 #     "<restore><>",
 # )
 segments_weights = {
+    # weights are relative to each other
+    # e.g. brand_probability = brand_weight / (sum of all weights)
     "brand": {
         "segments": brand_segments,
         "weight": 50
-        # weights are relative to each other
-        # brand_probability = brand_weight / (sum of all weights)
     },
     "model": {
         "segments": model_segments,
@@ -634,9 +640,9 @@ segments_weights = {
         "segments": mileage_segments,
         "weight": 50
     },
-    "remove": {
-        "segments": remove_segments,
-        "weight": 10
+    "remove_restore": {
+        "segments": remove_restore_segments,
+        "weight": 5
     },
     "mixed": {
         "segments": mixed_segments,
@@ -646,8 +652,6 @@ segments_weights = {
         "segments": specific_segments,
         "weight": 10
     },
-    # "style": style_segments,
-    # "setting": setting_segments,
 }
 
 cmdsLbls = {
@@ -713,42 +717,39 @@ carEntityNumLbls = (
 
 carEntityLbls = (carEntityNonNumLbls + carEntityNumLbls)
 
+# tuple of allowed labels; only these can be used in segments above
+include_labels = (
+    "multilabel",
+    "assoc_brand_modelNum",
+    "other",
+)
+all_labels = tuple(
+    set(
+        tuple(cmdsLbls.keys()) + tuple(unitsLbls.keys()) +
+        carEntityNonNumLbls + carEntityNumLbls + include_labels))
+del include_labels
 
-def mileage_func() -> str:
-    if random.getrandbits(1):
-        return str(round(random.uniform(0, 9999999999), 2))
-    else:
-        return str(int(random.uniform(0, 9999999999)))
+# tuple of allowed entityWrds; only these can be used in segments above
+include_entityWrds = ("make", )
+all_entityWrds = set(include_entityWrds)
+for entityWrds in cmdsLbls.values():
+    all_entityWrds.update(set(entityWrds))
+all_entityWrds.update(set(units))
+all_entityWrds.update(set(carEntityLbls))
+all_entityWrds = tuple(all_entityWrds)
+del include_entityWrds
 
-
-def price_func() -> str:
-    if random.getrandbits(1):
-        return str(round(random.uniform(0, 9999999999), 2))
-    else:
-        return str(int(random.uniform(0, 9999999999)))
-
-
-def setting_func() -> str:
-    return str(random.randint(0, 9999999999))
-    #return str(random.randint(1, 5))
-
-
-def year_func() -> str:  # this generator has infinite loop
-    year: int = 2024
-    all_years_done: bool = False
-    while True:
-        if year == 1970:
-            all_years_done = True
-            year = 2024
-        yield str(year), all_years_done
-        year -= 1
-
-
-entityLbls_for_numEntityWrds_mapTo_func = {
-    "mileage": mileage_func,
-    "price": price_func,
-    "setting": setting_func,
-}
-entityLbls_for_numEntityWrds_mapTo_genFunc = {
-    "year": year_func,
-}
+# entityWrds_lbl_other is a tuple of those entityWrds that should be labeled
+# based on the context in the sentence; either they have their proper label or
+# they have a label of "other"; the entityWrds in this tuple are ONLY used in a
+# context where the NN must label them as "other";
+# usage: <other><> <other><___entWrdLblOther> <other><>
+exclude_labelsFor_entityWrds_lbl_other = {"restore", "remove"}
+labelsFor_entityWrds_lbl_other = set(
+    tuple(cmdsLbls.keys()) + tuple(unitsLbls.keys()))
+labelsFor_entityWrds_lbl_other = tuple(labelsFor_entityWrds_lbl_other -
+                                       exclude_labelsFor_entityWrds_lbl_other)
+some_entityWrds_withLbl_other = {"make"}
+some_entityWrds_withLbl_other.update(set(carEntityLbls))
+some_entityWrds_withLbl_other = tuple(some_entityWrds_withLbl_other)
+del exclude_labelsFor_entityWrds_lbl_other
