@@ -23,8 +23,7 @@ from Synthetic_dataset import (
     synonyms_for_carEntityNonNumLbls,
     all_labels,
     all_entityWrds,
-    labelsFor_entityWrds_lbl_other,
-    some_entityWrds_withLbl_other,
+    entityWrds_withLbl_other,
 )
 
 logg = getLogger(__name__)
@@ -43,7 +42,7 @@ class Fill_entityWrds():
         self.assoc_brand_modelNum: List[Tuple[str, str]] = []  # not used
         self.model_nums: List[str] = []
         self.multilabel_entityWrds: Dict[str, List[str]] = {}
-        self.some_entityWrds_withLbl_other: set[Union[Dict[str, str], str]]
+        self.entityWrds_withLbl_other: set[Union[Dict[str, str], str]]
         self.entityWrdsWithLblOther_all_used: bool = None
 
         # fill entityWrds in some entityLbls of
@@ -161,7 +160,7 @@ class Fill_entityWrds():
             self.nonNumEntityWrds_per_entityLbl)
         # """
         # add typos to entityWrds; how to make sure that typos are not
-        # non-entity-words (i.e. other-words)
+        # non-entity-words (i.e. other-words)???
         self.nonNumEntityWrds_per_entityLbl = add_typos(
             self.nonNumEntityWrds_per_entityLbl)
 
@@ -216,7 +215,7 @@ class Fill_entityWrds():
                 other_words.remove(entity_wrd)
         random.shuffle(other_words)
 
-        # install (lbl, blank), such as "other", in self.list_multipleIncrements
+        # install other_words in self.list_multipleIncrements
         for lbl in [
                 "other",
         ]:
@@ -228,7 +227,8 @@ class Fill_entityWrds():
 
         # install <other><___entWrdLblOther>
         # non-entity-words (i.e. other-words)
-        self.some_entityWrds_withLbl_other = add_typos(set(some_entityWrds_withLbl_other))
+        self.entityWrds_withLbl_other = add_typos(
+            set(entityWrds_withLbl_other))
         # add spelling mistakes: none yet
 
         # install labels in self.entityLbls_of_numEntityWrds_mapTo_genFuncs
@@ -290,8 +290,7 @@ class Fill_entityWrds():
             assert ((wrds in all_entityWrds,
                      f"unknown entityWrd= {wrds}") if wrds else True)
 
-            if wrds == ___entWrdLblOther:
-            elif wrds.startswith("___"):
+            if wrds.startswith("___"):
                 entityWrd, all_used = resolve_entityWrds_glob(lbl, wrds[3:])
                 wrds_wrdLbls.append()
             elif wrds:
@@ -707,36 +706,40 @@ def resolve_entityWrds_glob(lbl: str,
     wrds_wrdLbls: Dict[str, str] = {}
     all_used: bool = None
     if name == "int":
-        wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmInt()}
+        wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmInt(lbl)}
     elif name == "float":
-        wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmFloat()}
+        assert False, "FLOAT is not implemented"
+        wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmFloat(lbl)}
     elif name == "intFloat":
         if random.getrandbits(1):
-            wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmFloat()}
+            wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmFloat(lbl)}
         else:
-            wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmInt()}
+            wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmInt(lbl)}
     elif name == "year":
         wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmYear()}
+    elif name == "notYear":
+        wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmFloat(lbl)}
     elif name == "entWrdLblOther":
         assert lbl == "other"
-        entityWrd, all_used = entityWrd_WithLbl_Other()
+        entityWrd, all_used = entityWrd_WithLbl_Other(lbl)
         wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": entityWrd}
     elif name == "num":
         assert len(params) == 2
+        assert False, "NUM is not implemented"
     else:
         assert False, f"unknown entityWrd {name}"
     return wrds_wrdLbls, all_used
 
 
-def rdmInt() -> str:
+def rdmInt(lbl: str) -> str:
     return str(int(random.uniform(0, 9999999999)))
 
 
-def rdmFloat() -> str:
+def rdmFloat(lbl: str) -> str:
     return str(round(random.uniform(0, 9999999999), 2))
 
 
-year_range = (1970, 2024)
+year_range = (1970, 2025)
 
 
 def rdmYear() -> str:
@@ -747,12 +750,15 @@ def sequentialYear() -> Tuple[str, bool]:  # this generator has infinite loop
     year: int = year_range[1]
     all_years_done: bool = False
     while True:
-        if year == year_range[0]:
+        if year < year_range[0]:
             all_years_done = True
             year = year_range[1]
         yield str(year), all_years_done
         year -= 1
 
 
-def entityWrd_WithLbl_Other(all_items_used_status: bool = False) -> Tuple[str, bool]:  # this generator has infinite loop
+def entityWrd_WithLbl_Other(
+    lbl: str,
+    all_items_used_status: bool = False
+) -> Tuple[str, bool]:  # this generator has infinite loop
     x = 1
