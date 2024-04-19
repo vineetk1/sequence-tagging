@@ -23,16 +23,13 @@ NOTE: carEntityWrds come from data/kaggle/usa_cars/USA_cars_datasets.csv
     "miles 5000 - miles 9000"  "miles 5000 - 9000"  "5000 - miles 9000"
     "5000 miles - 9000 miles"  "5000  - 9000 miles" "5000 miles - 9000"
 
-
-
-
 Problems:
 ---------
 (1) Pre-tokenization
 A string can be represented with single- or double-quotes. Following are
 solutions to three cases where the characters within the string have
 single- and double-quotes:
-(i) If a string has single-quotes then it should be represented with
+(i) If a string already has single-quotes then it should be represented with
      double-quotes, otherwise python-compiler will give Syntax Error.
      Example: "price of 'rice' in china"
 (ii) If a string has double-quotes then it should be represented with
@@ -45,7 +42,7 @@ single- and double-quotes:
 Valid formats of Placeholders:
 ------------------------------
 e.g. entity => entityLbl or entityWrd;
-     entityLbl = "color"; entityWrd = "red"
+     entityLbl = "color"; entityWrd (aka keyword) = "red"
 
 ***NOTE: that <> means that code will fill this placeholder with a string
             or integer based on the context
@@ -66,17 +63,24 @@ Code picks an entityWrd belonging to entityLbl
 
 ** <mileage><> vs. <mileage><___intFloat> => No difference
 
-** (i) <year><> vs. (ii) <entityLbl><___year>
+** (i) <year><> vs. (ii) <entityLbl><___rdmYear> vs. (iii) <other><___notYear>
 (i) everytime used, entityWrd is the next integer in the range of Year
 (ii) entityWrd is a random integer between the range of Year
+(iii) entityWrd is a random integer that is NOT between the range of Year
 
-
-If entityWrd starts with three underscores then the format is one of
-follows: (1) ___unique_name; (2) ___unique_name(param1, param2, ....) ***there
-MUST be spaces between params****
+entityWrd starts with three underscores, ___unique_name:
+    Following are used:
+        <other><___entWrdLblOther>
+        <other><___rdmYear>  <price><___rdmYear>    <year><___rdmYear>   <other><___notYear>
+    Following are not yet used:
+        <price><___intFloat>
 
 Some notes:
 -----------
++ The same numbers are used for all the numEntities. For example a number
+    of 2004 is used in all the following cases: (1) year 2004, (2) $2004,
+    (3) 2004 miles, (4) "setting 2004" is NOT used because only numbers
+    between 1 through 20 are valid
 + Instead of using a -ve, a previous range can be removed by
     mentioning a new range
 
@@ -84,7 +88,7 @@ NN must learn when to label or not-label the entityWrds:
 --------------------------------------------------------
 Add to segments certain entityWrds (e.g. between, to, through) that the NN must learn to NOT label. Example:
 "i have to tell you that <year><> <range2><> <year><>   <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>  <units_price_$><> <price><>   <range2><-> <price><>  is between a few cars i want through"
-In the above sentence, the NN must NOT label the "to", "between", "through"
+In the above sentence, the NN must NOT label the "to", "between", "through" {i think that "to", "between", "through" should be randomly generated from some list containing such words}
 
 
 Segments that are NOT ALLOWED: *****MAJOR PROBLEM************
@@ -97,7 +101,7 @@ because "dolkar" is neither a number or a unit
 UPDATE: I think the above two segments MUST be allowed. If a user misspells
 "dollar" then the code will remove the hyphen and the output will be different
 than expected; the user made the mistake and in this case the NN was not smart
-enough
+enough to correct the spelling of "dolkar"
 """
 import random
 
@@ -112,35 +116,25 @@ val_sentences = (
 
     # NN must sometimes label entityWrds as "O"; usually (but not always) when
     # they are followed by an "O" word
-    "<color><>  <other><___entWrdLblOther> <model><>  <other><___entWrdLblOther>  <other><___entWrdLblOther>  <other><> <less><>  <other><than>   <units_price_$><> <price><> ",
+    " <other><___entWrdLblOther> <color><>  <other><___entWrdLblOther> <TBD><___assoc_brand_modelNum>   <other><___entWrdLblOther>  <other><___entWrdLblOther>  <other><> <less><>  <other><than>   <units_price_$><> <price><> <TBD><___multilabel> ",
     " <other><___entWrdLblOther>  <other><___entWrdLblOther>   <other><>  <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>  <other><___entWrdLblOther>  <other><>  <year><> <range2><> <year><>  <other><___entWrdLblOther>  <other><> <units_price_$><> <price><>   <range2><-> <price><>  <other><___entWrdLblOther> ",
-    " <other><___entWrdLblOther>  <other><>  <other><___year>  <other><___entWrdLblOther>  <other><>  <price><> <units_price_$><> <color><>   <other><___entWrdLblOther>   <brand><> ",
-    "  <brand><>  <other><___entWrdLblOther> <less><>  <other><than>  <units_price_$><>   <price><>  <other><___entWrdLblOther>  <other><___entWrdLblOther>   ",
-    "  <other><___entWrdLblOther>  <other><>  <model><>   <other><___entWrdLblOther>  <other><>  <price><>   <range2><-> <price><>  <units_price_$><>   <other><___entWrdLblOther>  <other><>  <mileage><>   <units_mileage_mi><> ",
-    "<price><> <units_price_$><>  <other><___entWrdLblOther> <other><>  <brand><>  ",
+    " <other><___entWrdLblOther>  <other><>  <other><___rdmYear>  <other><___entWrdLblOther>  <other><>  <price><> <units_price_$><> <color><>   <other><___entWrdLblOther>   <brand><> ",
+    "  <brand><>  <other><___entWrdLblOther>  <other><> <less><>  <other><than>  <units_price_$><>   <price><>  <other><___entWrdLblOther>  <other><___entWrdLblOther>   ",
+    "  <other><___entWrdLblOther>  <model><>   <other><___entWrdLblOther>  <other><>  <price><>   <range2><-> <price><>  <units_price_$><>   <other><___entWrdLblOther>  <other><>  <mileage><>   <units_mileage_mi><> ",
+    "<price><> <units_price_$><>  <other><___entWrdLblOther>  <brand><>  ",
     "  <other><___entWrdLblOther> <price><>   <range2><-> <price><> <units_price_$><> <other><___entWrdLblOther>  <other><___entWrdLblOther> <color><>  <other><___entWrdLblOther>  ",
-
-    # NN must not always label 1970 - 2024 as belonging to year
-    "<model><> <brand><>  <other><___year>   <price><___year> <range2><> <price><___year> <units_price_$><>   <other><>   <mileage><___year> <units_mileage_mi><miles>  <other><___entWrdLblOther> ",
-    " <other><>  <mileage><___year> <units_mileage_mi><>   <other><and>   <price><___year> <units_price_$><>  <other><or>  <more><more>",
-    "<year><___year> <color><>  <units_price_$><> <price><___year> <more><more> <mileage><___year> <units_mileage_mi><miles>",
-    " <other><___year>  <other><> <mileage><___year> <units_mileage_mi><miles>   <less><less>  <other><than>   <units_price_$><> <price><___year>",
 )
 test_sentences = (
     # following is how the user should normally type
 
     # NN must sometimes label entityWrds as "O"; usually (but not always) when they are followed by an "O" word
-    " <other><mileages> <brand><>  <other><through>  <brand><>  ",  # In Predict, NN must not label "through" as range2 label
-    " <other><$>  <other><> <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>  <units_price_$><> <price><>   <other><between>  <other><>  <other><to>  <model><> ",
-    "<other><less>  <other><dollars>  <other><>   <other><___year>  <other><larger>   <color><>  <other><smaller> <brand><> ",
-    " <other><under>   <brand><>  <brand><>  <other><mile>   <other><> <less><>  <other><than>   <units_price_$><> <price><>",
-    " <model><>   <other><mi>   <brand><>  <other><price>   <color><>  <less><>  <other><than>  <mileage><>   <units_mileage_mi><> ",
-    "the range of prices is above or below but i say <price><>   <range2><-> <price><> <units_price_$><> which is neither greater or little",
-
-    # NN must not always label 1970 - 2024 as belonging to year
-    "<year><___year> <model><> <less><less>  <other><than>  <mileage><___year> <units_mileage_mi><> <color><> <price><___year> <range2><> <price><___year> <units_price_$><>",
-    "  <other><___year>  <other><> <units_price_$><> <price><___year> <more><more> <mileage><___year> <units_mileage_mi><>",
-    " <units_price_$><> <price><___year> <range2><-> <price><___year>  <units_price_$><> <price><___year> <mileage><___year> <units_mileage_mi><> <more><> ",
+    " <other><___entWrdLblOther> <other><___entWrdLblOther> ",
+    " <other><___entWrdLblOther> <brand><>  <other><___entWrdLblOther>  <brand><>  ",
+    " <other><___entWrdLblOther> <other><___entWrdLblOther>   <other><>  <range2><-> <mileage><>  <units_mileage_mi><>  <units_price_$><> <price><>   <other><___entWrdLblOther>  <other><>  <other><___entWrdLblOther>  <model><> ",
+    "<other><>  <other><>  <other><>   <other><___rdmYear>  <other><>   <color><>  <other><> <brand><> ",
+    " <other><>   <brand><>  <brand><>   <other><___entWrdLblOther>   <other><>   <units_price_$><> <price><>",
+    "   <year><> <model><>  <other><___entWrdLblOther>     <brand><>  <other><> <other><___entWrdLblOther>     <color><>  <less><>  <other><>  <mileage><>   <units_mileage_mi><> ",
+    " <year><> <TBD><___multilabel>  <other><___entWrdLblOther>  <TBD><___assoc_brand_modelNum> <price><>   <range2><-> <price><> <units_price_$><>",
 )
 full_sentences = {
     "train": train_sentences,
@@ -152,23 +146,26 @@ brand_segments = (
     # neural-net must memorize, e.g., toyota is brand, without any hints
     "<other><> "
     "<brand><>  ",
-    "<other><> <brand><>  ",
+    "<other><___entWrdLblOther>   <brand><>  ",
     "<brand><>  <other><> ",
     "<other><> <brand><>  <other><> ",
+    # why not include: <other><brand> <brand><>
 )
 model_segments = (
     # neural-net must memorize, e.g., camry is model, without any hints
     "<model><>  ",
-    "<other><> <model><>  ",
+    " <other><___entWrdLblOther>   <model><>  ",
     "<model><>  <other><> ",
     "<other><> <model><>  <other><> ",
+    # why not include: <other><model> <model><>
 )
 color_segments = (
     # neural-net must memorize, e.g., red is color, without any hints
     "<color><>  ",
     "<other><> <color><>  ",
     "<color><>  <other><> ",
-    "<other><> <color><>  <other><> ",
+    " <other><___entWrdLblOther>   <color><>  <other><> ",
+    # why not include: <other><color> <color><>
 )
 price_segments = (
     # a number, e.g. 2022 by itself does not tell whether user refers to price,
@@ -184,7 +181,7 @@ price_segments = (
     "<units_price_$><> <price><> <other><>",
     " <other><> <units_price_$><> <price><> <other><>",
     "<price><> <units_price_$><dollars>",
-    "<other><> <price><> <units_price_$><dollars>",
+    "<other><> <price><> <units_price_$><dollar>",
     "<price><> <units_price_$><dollars> <other><>",
     " <other><> <price><> <units_price_$><dollars> <other><>",
     "<price><> <units_price_$><>",
@@ -215,10 +212,10 @@ price_segments = (
     " <other><> <range1><>   <units_price_$><> <price><> <price><>  ",
     " <range1><>   <units_price_$><> <price><> <price><>  <other><>",
     " <other><> <range1><>   <units_price_$><> <price><> <price><>  <other><>",
-    " <range1><>   <units_price_$><> <price><> <other><and> <price><>  ",
-    "<other><> <range1><>   <units_price_$><> <price><> <other><and> <price><>  ",
-    " <range1><>   <units_price_$><> <price><>  <other><and>  <price><> <other><> ",
-    " <other><> <range1><>   <units_price_$><> <price><> <other><and> <price><>  <other><>",
+    " <range1><>   <units_price_$><> <price><> <other><> <price><>  ",
+    "<other><> <range1><>   <units_price_$><> <price><> <other><> <price><>  ",
+    " <range1><>   <units_price_$><> <price><>  <other><>  <price><> <other><> ",
+    " <other><> <range1><>   <units_price_$><> <price><> <other><> <price><>  <other><>",
     " <range1><>  <price><>  <units_price_$><> <price><>  ",
     " <other><> <range1><>  <price><>  <units_price_$><> <price><>  ",
     " <range1><>  <price><>  <units_price_$><> <price><>  <other><>",
@@ -227,10 +224,10 @@ price_segments = (
     " <other><> <range1><>  <price><> <price><>   <units_price_$><> ",
     " <range1><>  <price><> <price><>   <units_price_$><> <other><>",
     "<other><> <range1><>  <price><> <price><>   <units_price_$><> <other><>",
-    " <range1><>  <price><>  <other><and> <price><>   <units_price_$><> ",
-    " <other><> <range1><>  <price><>  <other><and> <price><>   <units_price_$><> ",
-    " <range1><>  <price><>  <other><and> <price><>   <units_price_$><> <other><>",
-    "<other><> <range1><>  <price><> <other><and>  <price><>   <units_price_$><> <other><>",
+    " <range1><>  <price><>  <other><> <price><>   <units_price_$><> ",
+    " <other><> <range1><>  <price><>  <other><> <price><>   <units_price_$><> ",
+    " <range1><>  <price><>  <other><> <price><>   <units_price_$><> <other><>",
+    "<other><> <range1><>  <price><> <other><>  <price><>   <units_price_$><> <other><>",
 
     # " <less><>  <price><>  ",
     " <less><>   <units_price_$><> <price><>  ",
@@ -255,18 +252,18 @@ price_segments = (
     "  <other><>  <units_price_$><>  <price><>  <less><> ",
     "  <units_price_$><>  <price><>  <less><>  <other><> ",
     "   <other><> <units_price_$><>  <price><>  <less><>  <other><> ",
-    "  <units_price_$><>  <price><>  <other><or>  <less><> ",
-    "  <other><>  <units_price_$><>  <price><>  <other><or>  <less><> ",
-    "  <units_price_$><>  <price><>  <other><or>  <less><>  <other><> ",
-    "   <other><> <units_price_$><>  <price><>  <other><or>  <less><>  <other><> ",
+    "  <units_price_$><>  <price><>  <other><>  <less><> ",
+    "  <other><>  <units_price_$><>  <price><>  <other><>  <less><> ",
+    "  <units_price_$><>  <price><>  <other><>  <less><>  <other><> ",
+    "   <other><> <units_price_$><>  <price><>  <other><>  <less><>  <other><> ",
     "  <price><>   <units_price_$><> <less><> ",
     "   <other><> <price><>   <units_price_$><> <less><> ",
     "  <price><>   <units_price_$><> <less><>  <other><> ",
     "   <other><> <price><>   <units_price_$><> <less><>  <other><> ",
-    "  <price><>   <units_price_$><> <other><or> <less><> ",
-    "  <other><>  <price><>   <units_price_$><> <other><or> <less><> ",
-    "  <price><>   <units_price_$><> <other><or> <less><>  <other><> ",
-    "  <other><>  <price><>   <units_price_$><> <other><or> <less><>  <other><> ",
+    "  <price><>   <units_price_$><> <other><> <less><> ",
+    "  <other><>  <price><>   <units_price_$><> <other><> <less><> ",
+    "  <price><>   <units_price_$><> <other><> <less><>  <other><> ",
+    "  <other><>  <price><>   <units_price_$><> <other><> <less><>  <other><> ",
 
     # " <more><>  <price><>  ",
     " <more><>   <units_price_$><> <price><>  ",
@@ -291,18 +288,18 @@ price_segments = (
     "  <other><>  <units_price_$><>  <price><>  <more><> ",
     "  <units_price_$><>  <price><>  <more><>  <other><> ",
     "   <other><> <units_price_$><>  <price><>  <more><>  <other><> ",
-    "  <units_price_$><>  <price><>  <other><or>  <more><> ",
-    "  <other><>  <units_price_$><>  <price><>  <other><or>  <more><> ",
-    "  <units_price_$><>  <price><>  <other><or>  <more><>  <other><> ",
-    "   <other><> <units_price_$><>  <price><>  <other><or>  <more><>  <other><> ",
+    "  <units_price_$><>  <price><>  <other><>  <more><> ",
+    "  <other><>  <units_price_$><>  <price><>  <other><>  <more><> ",
+    "  <units_price_$><>  <price><>  <other><>  <more><>  <other><> ",
+    "   <other><> <units_price_$><>  <price><>  <other><>  <more><>  <other><> ",
     "  <price><>   <units_price_$><> <more><> ",
     "   <other><> <price><>   <units_price_$><> <more><> ",
     "  <price><>   <units_price_$><> <more><>  <other><> ",
     "   <other><> <price><>   <units_price_$><> <more><>  <other><> ",
-    "  <price><>   <units_price_$><> <other><or> <more><> ",
-    "  <other><>  <price><>   <units_price_$><> <other><or> <more><> ",
-    "  <price><>   <units_price_$><> <other><or> <more><>  <other><> ",
-    "  <other><>  <price><>   <units_price_$><> <other><or> <more><>  <other><> ",
+    "  <price><>   <units_price_$><> <other><> <more><> ",
+    "  <other><>  <price><>   <units_price_$><> <other><> <more><> ",
+    "  <price><>   <units_price_$><> <other><> <more><>  <other><> ",
+    "  <other><>  <price><>   <units_price_$><> <other><> <more><>  <other><> ",
 )
 mileage_segments = (
     # a number, e.g. 2022 by itself does not tell whether user refers to price,
@@ -334,10 +331,10 @@ mileage_segments = (
     " <other><> <range1><>   <units_mileage_mi><> <mileage><> <mileage><>  ",
     " <range1><>   <units_mileage_mi><> <mileage><> <mileage><>  <other><>",
     " <other><> <range1><>   <units_mileage_mi><> <mileage><> <mileage><>  <other><>",
-    " <range1><>   <units_mileage_mi><> <mileage><> <other><and> <mileage><>  ",
-    "<other><> <range1><>   <units_mileage_mi><> <mileage><> <other><and> <mileage><>  ",
-    " <range1><>   <units_mileage_mi><> <mileage><>  <other><and>  <mileage><> <other><> ",
-    " <other><> <range1><>   <units_mileage_mi><> <mileage><> <other><and> <mileage><>  <other><>",
+    " <range1><>   <units_mileage_mi><> <mileage><> <other><> <mileage><>  ",
+    "<other><> <range1><>   <units_mileage_mi><> <mileage><> <other><> <mileage><>  ",
+    " <range1><>   <units_mileage_mi><> <mileage><>  <other><>  <mileage><> <other><> ",
+    " <other><> <range1><>   <units_mileage_mi><> <mileage><> <other><> <mileage><>  <other><>",
     " <range1><>  <mileage><>  <units_mileage_mi><> <mileage><>  ",
     " <other><> <range1><>  <mileage><>  <units_mileage_mi><> <mileage><>  ",
     " <range1><>  <mileage><>  <units_mileage_mi><> <mileage><>  <other><>",
@@ -346,10 +343,10 @@ mileage_segments = (
     " <other><> <range1><>  <mileage><> <mileage><>   <units_mileage_mi><> ",
     " <range1><>  <mileage><> <mileage><>   <units_mileage_mi><> <other><>",
     "<other><> <range1><>  <mileage><> <mileage><>   <units_mileage_mi><> <other><>",
-    " <range1><>  <mileage><>  <other><and> <mileage><>   <units_mileage_mi><> ",
-    " <other><> <range1><>  <mileage><>  <other><and> <mileage><>   <units_mileage_mi><> ",
-    " <range1><>  <mileage><>  <other><and> <mileage><>   <units_mileage_mi><> <other><>",
-    "<other><> <range1><>  <mileage><> <other><and>  <mileage><>   <units_mileage_mi><> <other><>",
+    " <range1><>  <mileage><>  <other><> <mileage><>   <units_mileage_mi><> ",
+    " <other><> <range1><>  <mileage><>  <other><> <mileage><>   <units_mileage_mi><> ",
+    " <range1><>  <mileage><>  <other><> <mileage><>   <units_mileage_mi><> <other><>",
+    "<other><> <range1><>  <mileage><> <other><>  <mileage><>   <units_mileage_mi><> <other><>",
 
     # " <less><>  <mileage><>  ",
     " <less><>   <units_mileage_mi><> <mileage><>  ",
@@ -374,18 +371,18 @@ mileage_segments = (
     "  <other><>  <units_mileage_mi><>  <mileage><>  <less><> ",
     "  <units_mileage_mi><>  <mileage><>  <less><>  <other><> ",
     "   <other><> <units_mileage_mi><>  <mileage><>  <less><>  <other><> ",
-    "  <units_mileage_mi><>  <mileage><>  <other><or>  <less><> ",
-    "  <other><>  <units_mileage_mi><>  <mileage><>  <other><or>  <less><> ",
-    "  <units_mileage_mi><>  <mileage><>  <other><or>  <less><>  <other><> ",
-    "   <other><> <units_mileage_mi><>  <mileage><>  <other><or>  <less><>  <other><> ",
+    "  <units_mileage_mi><>  <mileage><>  <other><>  <less><> ",
+    "  <other><>  <units_mileage_mi><>  <mileage><>  <other><>  <less><> ",
+    "  <units_mileage_mi><>  <mileage><>  <other><>  <less><>  <other><> ",
+    "   <other><> <units_mileage_mi><>  <mileage><>  <other><>  <less><>  <other><> ",
     "  <mileage><>   <units_mileage_mi><> <less><> ",
     "   <other><> <mileage><>   <units_mileage_mi><> <less><> ",
     "  <mileage><>   <units_mileage_mi><> <less><>  <other><> ",
     "   <other><> <mileage><>   <units_mileage_mi><> <less><>  <other><> ",
-    "  <mileage><>   <units_mileage_mi><> <other><or> <less><> ",
-    "  <other><>  <mileage><>   <units_mileage_mi><> <other><or> <less><> ",
-    "  <mileage><>   <units_mileage_mi><> <other><or> <less><>  <other><> ",
-    "  <other><>  <mileage><>   <units_mileage_mi><> <other><or> <less><>  <other><> ",
+    "  <mileage><>   <units_mileage_mi><> <other><> <less><> ",
+    "  <other><>  <mileage><>   <units_mileage_mi><> <other><> <less><> ",
+    "  <mileage><>   <units_mileage_mi><> <other><> <less><>  <other><> ",
+    "  <other><>  <mileage><>   <units_mileage_mi><> <other><> <less><>  <other><> ",
 
     # " <more><>  <mileage><>  ",
     " <more><>   <units_mileage_mi><> <mileage><>  ",
@@ -410,18 +407,18 @@ mileage_segments = (
     "  <other><>  <units_mileage_mi><>  <mileage><>  <more><> ",
     "  <units_mileage_mi><>  <mileage><>  <more><>  <other><> ",
     "   <other><> <units_mileage_mi><>  <mileage><>  <more><>  <other><> ",
-    "  <units_mileage_mi><>  <mileage><>  <other><or>  <more><> ",
-    "  <other><>  <units_mileage_mi><>  <mileage><>  <other><or>  <more><> ",
-    "  <units_mileage_mi><>  <mileage><>  <other><or>  <more><>  <other><> ",
-    "   <other><> <units_mileage_mi><>  <mileage><>  <other><or>  <more><>  <other><> ",
+    "  <units_mileage_mi><>  <mileage><>  <other><>  <more><> ",
+    "  <other><>  <units_mileage_mi><>  <mileage><>  <other><>  <more><> ",
+    "  <units_mileage_mi><>  <mileage><>  <other><>  <more><>  <other><> ",
+    "   <other><> <units_mileage_mi><>  <mileage><>  <other><>  <more><>  <other><> ",
     "  <mileage><>   <units_mileage_mi><> <more><> ",
     "   <other><> <mileage><>   <units_mileage_mi><> <more><> ",
     "  <mileage><>   <units_mileage_mi><> <more><>  <other><> ",
     "   <other><> <mileage><>   <units_mileage_mi><> <more><>  <other><> ",
-    "  <mileage><>   <units_mileage_mi><> <other><or> <more><> ",
-    "  <other><>  <mileage><>   <units_mileage_mi><> <other><or> <more><> ",
-    "  <mileage><>   <units_mileage_mi><> <other><or> <more><>  <other><> ",
-    "  <other><>  <mileage><>   <units_mileage_mi><> <other><or> <more><>  <other><> ",
+    "  <mileage><>   <units_mileage_mi><> <other><> <more><> ",
+    "  <other><>  <mileage><>   <units_mileage_mi><> <other><> <more><> ",
+    "  <mileage><>   <units_mileage_mi><> <other><> <more><>  <other><> ",
+    "  <other><>  <mileage><>   <units_mileage_mi><> <other><> <more><>  <other><> ",
 )
 year_segments = (
     # a number, e.g. 2022 by itself does not tell whether user refers to price,
@@ -497,10 +494,10 @@ year_segments = (
     "  <other><>  <year><>    <other><year>  <less><> ",
     "  <year><>    <other><year>  <less><>  <other><> ",
     "   <other><> <year><>    <other><year>  <less><>  <other><> ",
-    "   <other><year>  <year><>    <other><or>   <less><> ",
-    "   <other><>  <other><year>  <year><>    <other><or>   <less><> ",
-    "   <other><year>  <year><>    <other><or>   <less><>  <other><> ",
-    "   <other><>  <other><year>  <year><>    <other><or>   <less><>  <other><> ",
+    "   <other><year>  <year><>    <other><>   <less><> ",
+    "   <other><>  <other><year>  <year><>    <other><>   <less><> ",
+    "   <other><year>  <year><>    <other><>   <less><>  <other><> ",
+    "   <other><>  <other><year>  <year><>    <other><>   <less><>  <other><> ",
 
     # " <more><>  <year><>  ",
     # " <more><>  <year><>  ", it is in mixed_segments
@@ -527,10 +524,29 @@ year_segments = (
     "  <other><>  <year><>    <other><year>  <more><> ",
     "  <year><>    <other><year>  <more><>  <other><> ",
     "   <other><> <year><>    <other><year>  <more><>  <other><> ",
-    "   <other><year>  <year><>    <other><or>   <more><> ",
-    "   <other><>  <other><year>  <year><>    <other><or>   <more><> ",
-    "   <other><year>  <year><>    <other><or>   <more><>  <other><> ",
-    "   <other><>  <other><year>  <year><>    <other><or>   <more><>  <other><> ",
+    "   <other><year>  <year><>    <other><>   <more><> ",
+    "   <other><>  <other><year>  <year><>    <other><>   <more><> ",
+    "   <other><year>  <year><>    <other><>   <more><>  <other><> ",
+    "   <other><>  <other><year>  <year><>    <other><>   <more><>  <other><> ",
+
+    # "  <year><>  <brand/model/color><> ",
+    " <year><>  <brand><> ",
+    " <year><>  <model><> ",
+    " <year><>  <color><> ",
+    " <year><> <range2><> <year><>  <brand><>  ",
+    " <year><> <range2><> <year><>  <model><>  ",
+    " <year><> <range2><> <year><>  <color><>  ",
+    " <year><>  <TBD><___assoc_brand_modelNum>  ",
+    " <year><> <range2><> <year><>  <TBD><___assoc_brand_modelNum>   ",
+
+    # "-ve ex: <other><___rdmYear>  (not <brand/model/color><> ",
+    "   <other><___rdmYear>   <other><> ",
+
+    # "-ve ex: <other><___notYear> <brand/model/color><> "
+    "   <other><___notYear>   <other><> ",
+    "   <other><___notYear>   <brand><> ",
+    "   <other><___notYear>   <model><> ",
+    "   <other><___notYear>   <color><> ",
 )
 remove_restore_segments = (
     "<remove><> <restore><> <remove><> ",
@@ -542,16 +558,16 @@ remove_restore_segments = (
 mixed_segments = (
     "<units_price_$><$> <price><>  <range2><-> <price><> <mileage><> <range2><-> <mileage><> <units_mileage_mi><> ",
     "<units_price_$><$> <price><>  <range2><-> <price><> <less><>  <other><than>  <mileage><> <units_mileage_mi><> ",
-    "<units_price_$><$> <price><>  <range2><-> <price><> <mileage><> <units_mileage_mi><>  <other><or>  <less><>",
+    "<units_price_$><$> <price><>  <range2><-> <price><> <mileage><> <units_mileage_mi><>  <other><>  <less><>",
     "<less><> <units_price_$><> <price><> <mileage><> <range2><-> <mileage><> <units_mileage_mi><> ",
     "<less><> <units_price_$><> <price><> <less><>  <other><than>  <mileage><> <units_mileage_mi><>",
-    "<less><> <units_price_$><> <price><> <mileage><> <units_mileage_mi><>  <other><or>  <less><>",
+    "<less><> <units_price_$><> <price><> <mileage><> <units_mileage_mi><>  <other><>  <less><>",
     "<mileage><> <range2><-> <mileage><> <units_mileage_mi><> <units_price_$><> <price><> <range2><-> <price><> ",
     "<mileage><> <range2><-> <mileage><> <units_mileage_mi><> <less><> <units_price_$><> <price><>",
-    "<mileage><> <range2><-> <mileage><> <units_mileage_mi><> <price><> <units_price_$><>  <other><or>  <less><>",
+    "<mileage><> <range2><-> <mileage><> <units_mileage_mi><> <price><> <units_price_$><>  <other><>  <less><>",
     "<less><> <mileage><> <units_mileage_mi><> <units_price_$><> <price><> <range2><-> <price><> ",
     "<less><> <mileage><> <units_mileage_mi><> <less><> <units_price_$><> <price><>",
-    "<less><> <mileage><> <units_mileage_mi><> <price><> <units_price_$><>  <other><or>  <less><>",
+    "<less><> <mileage><> <units_mileage_mi><> <price><> <units_price_$><>  <other><>  <less><>",
     "<range1><> <units_price_$><> <price><> <price><> <range1><> <mileage><> <mileage><> <units_mileage_mi><>",
     "<range1><> <units_price_$><> <price><> <price><> <less><> <mileage><> <units_mileage_mi><>",
     "<range1><> <units_price_$><> <price><> <price><> <mileage><> <units_mileage_mi><> <less><>",
@@ -560,37 +576,31 @@ mixed_segments = (
     "<range1><> <mileage><> <mileage><> <units_mileage_mi><> <less><> <units_price_$><> <price><>",
     "<range1><> <mileage><> <mileage><> <units_mileage_mi><> <price><> <units_price_$><> <less><>",
     "<less><> <mileage><> <units_mileage_mi><> <range1><> <units_price_$><> <price><> <price><>",
-    "<year><> <brand><> ",
-    "<year><> <model><> ",
-    "<year><> <color><> ",
-    " <year><> <range2><> <year><>  <brand><>  ",
-    " <year><> <range2><> <year><>  <model><>  ",
-    " <year><> <range2><> <year><>  <color><>  ",
 
     # following is how the user should normally type
-    " <color><> <year><> <brand><> <model><>  <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>   <range1><>   <units_price_$><> <price><>  <other><and>  <price><>  ",
-    " <model><>  <year><> <range2><> <year><>   <color><>    <less><>  <other><than>   <price><> <units_price_$><> and  <less><>  <other><than>  <mileage><>   <units_mileage_mi><> ",
-    " <color><>  <more><>   <other><than>  <year><>  <model><> <brand><>   <units_price_$><> <price><>   <range2><-> <price><>  <mileage><>   <range2><->  <units_mileage_mi><mi> <mileage><>  ",
-    "<brand><> <less><>  <year><>   <color><> <model><>   <range1><>  <mileage><>  <units_mileage_mi><>  <other><and>  <mileage><>    <range1><>   <price><> <price><>  <units_price_$><> ",
-    "<mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>   <range1><>   <units_price_$><> <price><>   <other><and>   <price><>  <year><> <color><> <brand><> <model><>  ",
+    " <color><> <year><> <brand><> <model><>  <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>   <range1><>   <units_price_$><> <price><>  <other><>  <price><>  ",
+    " <model><>  <year><> <range2><> <year><>   <color><>    <less><>  <other><than>   <price><> <units_price_$><>  <less><>  <other><than>  <mileage><>   <units_mileage_mi><> ",
+    " <color><>  <more><>   <other><than>  <year><>  <model><> <brand><>   <units_price_$><> <price><>   <range2><-> <price><>  <mileage><>   <range2><->  <units_mileage_mi><> <mileage><>  ",
+    "<brand><> <less><>  <year><>   <color><> <model><>   <range1><>  <mileage><>  <units_mileage_mi><>  <other><>  <mileage><>    <range1><>   <price><> <price><>  <units_price_$><> ",
+    "<mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>   <range1><>   <units_price_$><> <price><>   <other><>   <price><>  <year><> <color><> <brand><> <model><>  ",
     "  <year><> <range2><> <year><>   <color><>    <less><>  <other><than>   <units_price_$><> <price><> <model><>   <less><>  <other><than>   <mileage><>   <units_mileage_mi><> ",
-    " <color><>  <more><>   <other><than>  <year><>  <model><>  <units_price_$><> <price><>   <range2><-> <price><>  <mileage><>   <range2><->  <units_mileage_mi><mi> <mileage><>   <brand><> ",
-    "<brand><>  <color><> <model><>   <range1><>  <mileage><>    <other><and>   <mileage><>  <units_mileage_mi><>   <range1><>   <units_price_$><> <price><> <price><>   <less><>  <year><> ",
-    " <less><>  <other><than>   <price><> <units_price_$><>   <other><and>    <mileage><>   <units_mileage_mi><> ",
+    " <color><>  <more><>   <other><than>  <year><>  <model><>  <units_price_$><> <price><>   <range2><-> <price><>  <mileage><>   <range2><->  <units_mileage_mi><> <mileage><>   <brand><> ",
+    "<brand><>  <color><> <model><>   <range1><>  <mileage><>    <other><>   <mileage><>  <units_mileage_mi><>   <range1><>   <units_price_$><> <price><> <price><>   <less><>  <year><> ",
+    " <less><>  <other><than>   <price><> <units_price_$><>   <other><>    <mileage><>   <units_mileage_mi><> ",
     "<units_price_$><$> <price><> <mileage><> <units_mileage_mi><> ",
-    "<year><> <color><> <brand><> <model><> <less><>  <other><than>   <units_price_$><> <price><>   <other><and>    <less><>  <other><than>   <mileage><>   <units_mileage_mi><> ",
-    " <color><>  <more><>   <other><than>  <year><>  <model><> <brand><>  <range1><>  <mileage><>  <units_mileage_mi><>   <other><and>   <mileage><>    <range1><>   <units_price_$><> <price><> <price><>  ",
-    "<brand><> <less><>  <year><>   <color><> <model><>   <units_price_$><> <price><>   <range2><-> <price><>  <mileage><>   <range2><->  <units_mileage_mi><mi> <mileage><> ",
-    " <model><>  <year><> <range2><> <year><>   <color><>      <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>   <range1><>   <units_price_$><> <price><>   <other><and>   <price><> ",
+    "<year><> <color><> <brand><> <model><> <less><>  <other><than>   <units_price_$><> <price><>   <other><>    <less><>  <other><than>   <mileage><>   <units_mileage_mi><> ",
+    " <color><>  <more><>   <other><than>  <year><>  <model><> <brand><>  <range1><>  <mileage><>  <units_mileage_mi><>   <other><>   <mileage><>    <range1><>   <units_price_$><> <price><> <price><>  ",
+    "<brand><> <less><>  <year><>   <color><> <model><>   <units_price_$><> <price><>   <range2><-> <price><>  <mileage><>   <range2><->  <units_mileage_mi><> <mileage><> ",
+    " <model><>  <year><> <range2><> <year><>   <color><>      <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>   <range1><>   <units_price_$><> <price><>   <other><>   <price><> ",
     "<units_price_$><$> <price><> <mileage><> <units_mileage_mi><> ",
 
     # NN must sometimes label entityWrds as "O"; usually (but not always) when they are followed by an "O" word
     "<color><>  <other><___entWrdLblOther>   <other><___entWrdLblOther> <brand><>  ",  # In Predict, NN must not label "through" as range2 label
     "   <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>  <other><>   <other><___entWrdLblOther>   <other><>   <other><___entWrdLblOther>   <other><>   <units_price_$><> <price><>  <range2><-> <price><>  <other><>   <other><___entWrdLblOther>   <other><> ",
     "<color><>  <other><___entWrdLblOther>  <brand><>  <price><>  <range2><-> <price><> <units_price_$><> ",
-    " <other><>   <other><___entWrdLblOther>   <brand><>   <other><___entWrdLblOther>  <model><>  <other><>   <other><___entWrdLblOther>   <other><> <less><>   <other><than>  <units_price_$><> <price><>",
-    "  <other><>  <other><___entWrdLblOther>   <other><>  <model><>   <other><___entWrdLblOther>  <brand><>  <other><___entWrdLblOther>   <color><>  <other><than>   <mileage><>   <units_mileage_mi><> ",
-    " <other><>   <other><___entWrdLblOther>   <other><>   <other><$___entWrdLblOther>   <other><>   <other><___entWrdLblOther>    <other><___entWrdLblOther>    <other><___entWrdLblOther>   <other><>  <other><___entWrdLblOther>  <other><>  <price><> <units_price_$><>",
+    " <other><>  <TBD><___multilabel>  <other><___entWrdLblOther>   <brand><>   <other><___entWrdLblOther>  <model><>  <other><>   <other><___entWrdLblOther>   <other><> <less><>   <other><than>  <units_price_$><> <price><>",
+    "  <TBD><___multilabel> <other><>  <TBD><___assoc_brand_modelNum> <other><___entWrdLblOther>   <other><>  <model><>   <other><___entWrdLblOther>  <brand><>  <other><___entWrdLblOther>   <color><>  <other><than>   <mileage><>   <units_mileage_mi><> ",
+    " <other><>   <other><___entWrdLblOther>   <other><>   <other><___entWrdLblOther>   <other><>   <other><___entWrdLblOther>    <other><___entWrdLblOther>    <other><___entWrdLblOther>   <other><>  <other><___entWrdLblOther>  <other><>  <price><> <units_price_$><>",
     " <other><>  <other><___entWrdLblOther>   <other><___entWrdLblOther>   <other><>   <other><___entWrdLblOther>   <other><___entWrdLblOther>    <other><>   <other><___entWrdLblOther>   <other><> <units_price_$><> <price><>   <range2><-> <price><>  <other><>   <other><___entWrdLblOther>   <other><>   <other><___entWrdLblOther>   <other><>  <mileage><>   <units_mileage_mi><>",
     "  <other><___entWrdLblOther>  <other><> <color><>  <other><___entWrdLblOther> <brand><>",
     " <model><> <other><___entWrdLblOther>  <other><> <model><>  <other><___entWrdLblOther> <model><>",
@@ -598,14 +608,17 @@ mixed_segments = (
     "  <other><___entWrdLblOther>  <other><___entWrdLblOther>  <other><___entWrdLblOther>  <other><___entWrdLblOther> ",
 
     # NN must not always label 1970 - 2024 as belonging to year
-    "<color><> <other><___year>  <other><>  <price><___year> <range2><> <price><___year> <units_price_$><>   <less><>  <other><than>  <mileage><___year> <units_mileage_mi><> ",
-    " <mileage><___year> <units_mileage_mi><>   <price><___year> <units_price_$><> <other><___year> ",
-    " <other><___year>  <other><> <units_price_$><> <price><___year> <more><> <mileage><___year> <units_mileage_mi><>",
-    "  <units_price_$><> <price><___year> <mileage><___year> <units_mileage_mi><> <more><> ",
+    "<color><> <other><___rdmYear>  <other><>  <price><___rdmYear> <range2><> <price><___rdmYear> <units_price_$><>   <less><>  <other><than>  <mileage><___rdmYear> <units_mileage_mi><> ",
+    " <mileage><___rdmYear> <units_mileage_mi><>   <price><___rdmYear> <units_price_$><> <other><___rdmYear> ",
+    " <other><___rdmYear>  <other><> <units_price_$><> <price><___rdmYear> <more><> <mileage><___rdmYear> <units_mileage_mi><>",
+    "  <units_price_$><> <price><___rdmYear> <mileage><___rdmYear> <units_mileage_mi><> <more><> ",
 )
 specific_segments = (
-    "<multilabel><> ",
-    "<assoc_brand_modelNum><> ",
+    # e.g. {'genesis': ['brand', 'model']} the code should do the following:
+    #    <other><brand> <brand><genesis>
+    #    <other><model> <model><genesis>
+    "<TBD><___multilabel> ",  # TBD => To Be Determined
+    "<TBD><___assoc_brand_modelNum> ",
 )
 # "setting_segments" are in "remove segment" because restore in the middle of a
 # full sentence auto-removes everything before it
@@ -718,38 +731,57 @@ carEntityNumLbls = (
 carEntityLbls = (carEntityNonNumLbls + carEntityNumLbls)
 
 # tuple of allowed labels; only these can be used in segments above
-include_labels = (
-    "multilabel",
-    "assoc_brand_modelNum",
+include_noNum_labels = (
+    "TBD",  # used with ___multilabel and ___assoc_brand_modelNum
     "other",
 )
-all_labels = tuple(
+noNum_labels = tuple(
     set(
         tuple(cmdsLbls.keys()) + tuple(unitsLbls.keys()) +
-        carEntityNonNumLbls + carEntityNumLbls + include_labels))
-del include_labels
+        carEntityNonNumLbls + include_noNum_labels))
+include_num_labels = ("setting", )
+num_labels = tuple(set(carEntityNumLbls + include_num_labels))
+assert set(noNum_labels).intersection(set(num_labels)) == set()
+all_labels = noNum_labels + num_labels
+del include_noNum_labels
+del include_num_labels
+del num_labels
 
-# tuple of allowed entityWrds; only these can be used in segments above
-include_entityWrds = ("make", )
-all_entityWrds = set(include_entityWrds)
-for entityWrds in cmdsLbls.values():
-    all_entityWrds.update(set(entityWrds))
-all_entityWrds.update(set(units))
-all_entityWrds.update(set(carEntityLbls))
-all_entityWrds = tuple(all_entityWrds)
-del include_entityWrds
-
-# entityWrds_lbl_other is a tuple of those entityWrds that should be labeled
-# based on the context in the sentence; either they have their proper label or
-# they have a label of "other"; the entityWrds in this tuple are ONLY used in a
-# context where the NN must label them as "other";
+# entityWrds_withLbl_other is a tuple of those entityWrds that should be
+# labeled based on the context in the sentence; either they have their proper
+# label or they have a label of "other"; the entityWrds in this tuple are ONLY
+# used in a context where the NN must label them as "other";
 # usage: <other><> <other><___entWrdLblOther> <other><>
-exclude_labelsFor_entityWrds_lbl_other = {"restore", "remove"}
-labelsFor_entityWrds_lbl_other = set(
-    tuple(cmdsLbls.keys()) + tuple(unitsLbls.keys()))
-labelsFor_entityWrds_lbl_other = tuple(labelsFor_entityWrds_lbl_other -
-                                       exclude_labelsFor_entityWrds_lbl_other)
-some_entityWrds_withLbl_other = {"make"}
-some_entityWrds_withLbl_other.update(set(carEntityLbls))
-some_entityWrds_withLbl_other = tuple(some_entityWrds_withLbl_other)
-del exclude_labelsFor_entityWrds_lbl_other
+# Note: ___entWrdLblOther has both numEntityWrds and nonNumEntityWrds; the
+# nonNumEntityWrds are in entityWrds_withLbl_other whereas the numEntityWrds
+# are those numbers that are used as entityWrds for labels such as year, price,
+# mileage, setting; the numEntityWrds are not generated in this file but are
+# generated elsewhere by the code
+# Note: In contrast, entityWrds of entityLbls such as brand, model, color have
+# a fixed label; e.g. entityWrd "red" has the same entityLbl of "color"
+# regardless of the context of the sentence
+entityWrds_withLbl_other = set()
+for entityWrds in synonyms_for_carEntityNonNumLbls.values():
+    entityWrds_withLbl_other.update(set(entityWrds))
+for entityWrds in cmdsLbls.values():
+    entityWrds_withLbl_other.update(set(entityWrds))
+entityWrds_withLbl_other.update(set(units))
+entityWrds_withLbl_other.update(set(carEntityLbls), set(hyphen))
+entityWrds_withLbl_other = list(entityWrds_withLbl_other -
+                                set(cmdsLbls["restore"]) -
+                                set(cmdsLbls["remove"]))
+"""
+units               ('$', 'dollar', 'dollars', 'mi', 'mile', 'miles', 'mileage', 'mileages')
+
+carEntityNonNumLbls ('brand', 'model', 'color')
+carEntityNumLbls    ('mileage', 'price', 'year')
+carEntityLbls       ('brand', 'model', 'color', 'mileage', 'price', 'year')
+
+noNum_labels        ('brand', 'TBD', 'less', 'range2', 'restore', 'units_mileage_mi', 'remove', 'units_price_$', 'color', 'more',
+                        'model', 'range1', 'other')
+all_labels          ('units_price_$', 'more', 'brand', 'model', 'color', 'TBD', 'range1', 'other', 'units_mileage_mi', 'range2',
+                        'remove', 'restore', 'less', 'price', 'year', 'setting', 'mileage')
+entityWrds_withLbl_other   ['mile', '-', 'mi', 'range', 'mileages', 'greater', 'brand', 'mileage', 'above', 'over', '$', 'less',
+                                'larger', 'miles', 'dollar', 'higher', 'lower', 'price', 'between', 'through', 'under', 'little',
+                                'year', 'below', 'make', 'smaller', 'to', 'dollars', 'color', 'more', 'model']
+"""
