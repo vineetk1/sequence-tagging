@@ -27,9 +27,12 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
     df_val_file = dataframes_dirPath.joinpath('val.df')
     df_test_file = dataframes_dirPath.joinpath('test.df')
     df_metadata_file = dataframes_dirPath.joinpath('df_metadata')
+    data_structures_file = dataframes_dirPath.joinpath(
+        'data_structures.pickle')
 
     if (df_train_file.exists() and df_val_file.exists()
-            and df_test_file.exists() and df_metadata_file.exists()):
+            and df_test_file.exists() and df_metadata_file.exists()
+            and data_structures_file.exists()):
         strng = (
             f'Skipped creating datasets because these files already exist '
             f'at {dataframes_dirPath}')
@@ -37,6 +40,14 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
         return
 
     MAX_TURNS_PER_DIALOG: int = 10
+    # each entityWrd MUST be used atleast "n" times in each (train/val/test)
+    # of the datasets
+    NUM_TIMES_ENTITYWRDS_USED = 2
+    # max number of words allowed in a sentence
+    # BERT allows 512 token-ids - 3 (CLS, SEP, SEP) = 509;
+    # 509 token-ids / 4 words per token-id = 127 words; assume 27 words for
+    # history, then 100 words/sentence max allowed
+    MAX_WRDS_PER_SENTENCE = 100
     SEGMENTS_PER_SENTENCE: int = None  # default is None => Random
     userIn: str
     userIn_filtered_wrds: List[str]
@@ -74,7 +85,8 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
                 and not sentence_from_segs.all_segments_done())
                or (SEGMENTS_PER_SENTENCE != 1 and trainValTest == 'train' and
                    ((not sentence_from_segs.all_segments_done()) or
-                    (not fill_entityWrds.all_entityWrds_used())))
+                    (not fill_entityWrds.all_entityWrds_used(
+                        NUM_TIMES_ENTITYWRDS_USED))))
                or (SEGMENTS_PER_SENTENCE != 1 and trainValTest != 'train'
                    and num_val_or_test_examples < max_val_or_test_examples)):
             if trnId < max_turns_per_dialog:
@@ -95,6 +107,7 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
 
             userIn, userIn_filtered_wrds, wrdLbls = (
                 fill_entityWrds.sentence_label(
+                    MAX_WRDS_PER_SENTENCE,
                     sentenceWith_placeholders=sentenceWith_placeholders,
                     tknLblId2tknLbl=tknLblId2tknLbl,
                 ))
@@ -153,8 +166,6 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
         df_test=df_test)
     df_metadata['pandas predict-dataframe file location'] = df_test_file
     df_metadata['bch sizes'] = bch_sizes
-    df_metadata['entityWrds that have more than one tknLbl'] = (
-        fill_entityWrds.get_multilabel_entityWrds())
     df_train.to_pickle(df_train_file)
     df_val.to_pickle(df_val_file)
     df_test.to_pickle(df_test_file)
