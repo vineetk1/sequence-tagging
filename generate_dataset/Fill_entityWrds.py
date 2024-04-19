@@ -12,6 +12,7 @@ from collections import Counter
 from itertools import zip_longest
 from Utilities import userIn_filter_splitWords
 import ast
+from copy import deepcopy
 from Synthetic_dataset import (
     PLACEHOLDER_ID_START,
     PLACEHOLDER_ID_END,
@@ -21,8 +22,8 @@ from Synthetic_dataset import (
     unitsLbls,
     cmdsLbls,
     synonyms_for_carEntityNonNumLbls,
+    noNum_labels,
     all_labels,
-    all_entityWrds,
     entityWrds_withLbl_other,
 )
 
@@ -32,225 +33,17 @@ logg = getLogger(__name__)
 class Fill_entityWrds():
 
     def __init__(self, dataframes_dirPath: str):
-        # all Sets are converted to Tuples, later in this function
-        self.nonNumEntityWrds_per_entityLbl: Dict[str, Dict[str, Union[
-            Set[Union[str, Tuple[str, str]]], int, bool]]] = {}
-        self.entityLbls_of_numEntityWrds_mapTo_genFuncs: Dict[str,
-                                                              Dict[str,
-                                                                   Any]] = {}
-        self.list_multipleIncrements: Dict[str, List[str]] = {}
-        self.assoc_brand_modelNum: List[Tuple[str, str]] = []  # not used
-        self.model_nums: List[str] = []
-        self.multilabel_entityWrds: Dict[str, List[str]] = {}
-        self.entityWrds_withLbl_other: set[Union[Dict[str, str], str]]
-        self.entityWrdsWithLblOther_all_used: bool = None
-
-        # fill entityWrds in some entityLbls of
-        # self.nonNumEntityWrds_per_entityLbl
-        carEntityNonNumLbls_plus_style = list(carEntityNonNumLbls) + ['style']
-        synonyms_for_carEntityNonNumLbls_plus_style = (
-            synonyms_for_carEntityNonNumLbls)
-        synonyms_for_carEntityNonNumLbls_plus_style['style'] = [
-            "body_style", "body_styles"
-        ]
-        for entityLbl in (tuple(unitsLbls.keys()) + tuple(cmdsLbls.keys()) +
-                          tuple(carEntityNonNumLbls_plus_style)):
-            if entityLbl in carEntityNonNumLbls_plus_style:
-                entityWrds = set()
-            elif entityLbl in unitsLbls.keys():
-                entityWrds = set(unitsLbls[entityLbl])
-            elif entityLbl in cmdsLbls.keys():
-                entityWrds = set(cmdsLbls[entityLbl])
-            else:
-                assert False
-            self.nonNumEntityWrds_per_entityLbl[entityLbl] = {
-                'items': entityWrds,
-                'idx': 0,
-                'all_used': False,
-            }
-
-        # (1) fill entityWrds of those entityLbls that were not previously
-        #     filled;
-        # (2) extract row-level info from each df; info such as associating
-        #     brands with their model numbers such as "saab" with "9000"
-        def get_df(car_datasets_dirPath: pathlib.Path) -> pd.DataFrame:
-            for child in car_datasets_dirPath.iterdir():  # github, kaggle
-                if child.is_dir():  # github
-                    for grandchild in child.iterdir(
-                    ):  # us-car-models-data-master
-                        if grandchild.is_dir():  # us-car-models-data-master
-                            for great_grandchild in grandchild.iterdir(
-                            ):  # 1992.csv, 1993.csv,
-                                if great_grandchild.is_file():  # 1992.csv
-                                    if great_grandchild.suffix == '.csv':
-                                        yield pd.read_csv(
-                                            great_grandchild,
-                                            encoding='unicode_escape')
-
-        for df in get_df(
-                pathlib.Path(__file__).parent.joinpath('datasets').resolve()):
-            # fill entityWrds of entityLbls that were not previously filled
-            for entityLbl in self.nonNumEntityWrds_per_entityLbl:
-                if entityLbl in carEntityNonNumLbls_plus_style:
-                    for lbl in synonyms_for_carEntityNonNumLbls_plus_style[
-                            entityLbl]:
-                        if lbl in df.columns:
-                            self.nonNumEntityWrds_per_entityLbl[entityLbl][
-                                'items'].update(
-                                    set(df[lbl].str.lower().unique()))
-                            break
-
-            # extract any type of info from each row
-            for idx in df.index:
-                if df['model'][idx].isdecimal():
-                    if "brand" in df.columns:
-                        self.assoc_brand_modelNum.append(
-                            (df['brand'][idx], df['model'][idx]))
-                    elif "make" in df.columns:
-                        self.assoc_brand_modelNum.append(
-                            (df['make'][idx], df['model'][idx]))
-                    else:
-                        assert False, "Neither brand or make in df.columns"
-            self.assoc_brand_modelNum = list(set(self.assoc_brand_modelNum))
-
-        # (1) self.model_nums has all number-strings that are in "model";
-        # (2) remove number-strings (e.g. "9000", not "9000 127") from model
-        # (3) model names like "vf 9" get an additional name of "vf9"
-        for strng in list(
-                self.nonNumEntityWrds_per_entityLbl['model']['items']):
-            if strng.isdecimal():
-                # "9000" => True, "9000 127" => False
-                self.nonNumEntityWrds_per_entityLbl['model']['items'].remove(
-                    strng)
-                if strng not in self.model_nums:
-                    self.model_nums.append(strng)
-            strng = strng.split()
-            if len(strng) == 2 and (
-                    not strng[0].isdecimal()) and strng[1].isdecimal():
-                # user can write "vf 9" also as "vf9"
-                self.nonNumEntityWrds_per_entityLbl['model']['items'].add(
-                    f"{strng[0]}{strng[1]}")
-
-        # assert if brand or color have number-string
-        for entityLbl in ("brand", "color"):
-            for strng in list(
-                    self.nonNumEntityWrds_per_entityLbl[entityLbl]['items']):
-                if strng.isdecimal():
-                    assert False, "number found in brand or color"
-
-        # convert entityWrds of 'style' from strange format
-        self.nonNumEntityWrds_per_entityLbl['style']['items']: Set[str] = {
-            entityWrd
-            for entityWrds_lst_str in
-            self.nonNumEntityWrds_per_entityLbl['style']['items']
-            for entityWrd in ast.literal_eval(entityWrds_lst_str)
-        }
-        self.nonNumEntityWrds_per_entityLbl['style']['items'].update(
-            {"van", "minivan"})
-
-        # move entityWrds of 'style' to 'model', and get rid of style
-        self.nonNumEntityWrds_per_entityLbl['model']['items'].update(
-            self.nonNumEntityWrds_per_entityLbl['style']['items'])
-        del self.nonNumEntityWrds_per_entityLbl['style']
-        del carEntityNonNumLbls_plus_style
-        del synonyms_for_carEntityNonNumLbls_plus_style
-
-        # entityWrds that have more than one entityLbl
-        self.multilabel_entityWrds = find_multilabel_entityWrds(
-            self.nonNumEntityWrds_per_entityLbl)
-        # """
-        # add typos to entityWrds; how to make sure that typos are not
-        # non-entity-words (i.e. other-words)???
-        self.nonNumEntityWrds_per_entityLbl = add_typos(
-            self.nonNumEntityWrds_per_entityLbl)
-
-        # add spelling mistakes to entityWrds
-        self.nonNumEntityWrds_per_entityLbl = add_spelling_mistakes(
-            self.nonNumEntityWrds_per_entityLbl)
-
-        # check that no new multilabel entityWrds are generated
-        new_multilabel_entityWrds = find_multilabel_entityWrds(
-            self.nonNumEntityWrds_per_entityLbl)
-        # assert self.multilabel_entityWrds == new_multilabel_entityWrds
-        diff = {
-            k: new_multilabel_entityWrds[k]
-            for k in set(new_multilabel_entityWrds) -
-            set(self.multilabel_entityWrds)
-        }
-        assert not diff
-        # """
-
-        # convert to python-list all of
-        # self.nonNumEntityWrds_per_entityLbl[entityLbl]['items']
-        for entityLbl in self.nonNumEntityWrds_per_entityLbl:
-            self.nonNumEntityWrds_per_entityLbl[entityLbl]['items'] = list(
-                self.nonNumEntityWrds_per_entityLbl[entityLbl]['items'])
-
-        # save self.nonNumEntityWrds_per_entityLbl to a file
-        # "entityWrds_for_programmer_io"
-        dataframes_dirPath = pathlib.Path(dataframes_dirPath).resolve(
-            strict=True)
-        entityWrds_for_programmer_io_file = dataframes_dirPath.joinpath(
-            'entityWrds_for_programmer_io')
-        # overwrite entityWrds_for_programmer_io file if it already exists
-        with entityWrds_for_programmer_io_file.open('wb') as file:
-            pickle.dump(self.nonNumEntityWrds_per_entityLbl,
-                        file,
-                        protocol=pickle.HIGHEST_PROTOCOL)
-
-        # (1) generate non-entity-words, called other-words; (2) remove
-        # entityWrds (excluding those from brand/model/color) from it
-        with open("/etc/dictionaries-common/words", "r") as file:
-            other_words = file.read()
-            other_words = list(set(map(str.lower, other_words.split())))
-        entity_wrds = set()
-        for entity_wrds_lbls in (cmdsLbls, synonyms_for_carEntityNonNumLbls,
-                                 unitsLbls):
-            for entity_wrd_grp in entity_wrds_lbls.values():
-                for entity_wrd in entity_wrd_grp:
-                    entity_wrds.add(entity_wrd)
-        entity_wrds.update(set(carEntityNumLbls))
-        for entity_wrd in entity_wrds:
-            if entity_wrd in other_words:
-                other_words.remove(entity_wrd)
-        random.shuffle(other_words)
-
-        # install other_words in self.list_multipleIncrements
-        for lbl in [
-                "other",
-        ]:
-            self.list_multipleIncrements[lbl] = {
-                'items': other_words,
-                'idx': 0,
-                'all_used': False,
-            }
-
-        # install <other><___entWrdLblOther>
-        # non-entity-words (i.e. other-words)
-        self.entityWrds_withLbl_other = add_typos(
-            set(entityWrds_withLbl_other))
-        # add spelling mistakes: none yet
-
-        # install labels in self.entityLbls_of_numEntityWrds_mapTo_genFuncs
-        entityLbls_for_numEntityWrds_mapTo_genFunc = {
-            "year": sequentialYear,
-        }
-        for entityLbl in entityLbls_for_numEntityWrds_mapTo_genFunc:
-            gen_func = entityLbls_for_numEntityWrds_mapTo_genFunc[entityLbl]()
-            self.entityLbls_of_numEntityWrds_mapTo_genFuncs[entityLbl] = {
-                "func": gen_func,
-                'all_used': False,
-            }
-
-        # install (lbl, entityWrd) such as <other><___entWrdLblOther> in self.
+        self.get_noNum = generate_nonNumbers(dataframes_dirPath)
+        self.get_num = generate_numbers(self.get_noNum.get_model_nums())
 
     def sentence_label(
         self,
+        MAX_WRDS_PER_SENTENCE: int,
         sentenceWith_placeholders: str,
         tknLblId2tknLbl: List[str],
     ) -> Tuple[str, List[str], List[str]]:
         wrds_wrdLbls: List[Union[str, Dict[str, str]]] = self._fill_entityWrds(
-            sentenceWith_placeholders)
+            sentenceWith_placeholders, MAX_WRDS_PER_SENTENCE)
         userIn, filtered_wrds_wrdLbls = self._filter_wrdsWrdLbls(wrds_wrdLbls)
         userIn_filtered_wrds, wrdLbls = self._separate_wrds_wrdLbls(
             filtered_wrds_wrdLbls=filtered_wrds_wrdLbls,
@@ -259,21 +52,14 @@ class Fill_entityWrds():
         return (userIn, userIn_filtered_wrds, wrdLbls)
 
     def _fill_entityWrds(
-            self, sentenceWith_placeholders: str
-    ) -> List[Union[str, Dict[str, str]]]:
-
-        def inc_idx(dictObj: Dict[str, Any]) -> None:
-            if dictObj['idx'] == (len(dictObj['items']) - 1):
-                dictObj['idx'] = 0
-                dictObj['all_used'] = True
-                random.shuffle(dictObj['items'])
-            else:
-                dictObj['idx'] += 1
-
+            self, sentenceWith_placeholders: str,
+            MAX_WRDS_PER_SENTENCE: int) -> List[Union[str, Dict[str, str]]]:
         sentenceWith_placeholders: List[str] = sentenceWith_placeholders.split(
         )
         wrds_wrdLbls: List[Union[str, Dict[str, str]]] = []
         for strng in sentenceWith_placeholders:
+            if len(wrds_wrdLbls) >= MAX_WRDS_PER_SENTENCE:
+                break
             assert strng[0] == PLACEHOLDER_ID_START
             assert strng.count(PLACEHOLDER_ID_START) == 2
             assert strng[-1] == PLACEHOLDER_ID_END
@@ -287,45 +73,87 @@ class Fill_entityWrds():
             except ValueError:
                 assert False
             assert lbl in all_labels, f"unknown label= {lbl}"
-            assert ((wrds in all_entityWrds,
-                     f"unknown entityWrd= {wrds}") if wrds else True)
+            assert (wrds == '' or wrds == '$' or wrds == 'than' or wrds == '-'
+                    or wrds == 'year' or wrds == 'dollar' or wrds == 'dollars'
+                    or wrds[:3]
+                    == '___'), f"unknown wrds in <lbl><wrds> = {wrds}"
 
             if wrds.startswith("___"):
-                entityWrd, all_used = resolve_entityWrds_glob(lbl, wrds[3:])
-                wrds_wrdLbls.append()
+                if wrds[3:] == "rdmYear":
+                    wrds_wrdLbls.append({
+                        "entityLbl": lbl,
+                        "entityWrds": self.get_num.rdmYear()
+                    })
+                elif wrds[3:] == "notYear":
+                    wrds_wrdLbls.append({
+                        "entityLbl":
+                        lbl,
+                        "entityWrds":
+                        self.get_num.get_num('notYear')
+                    })
+                elif wrds[3:] == "entWrdLblOther":
+                    assert lbl == 'other'
+                    if random.getrandbits(1):
+                        wrds = self.get_num.get_num('other')
+                    else:
+                        wrds = self.get_noNum.get_noNum('entWrdLblOther')
+                    wrds_wrdLbls.append({"entityLbl": lbl, "entityWrds": wrds})
+                elif wrds[3:] == "multilabel":
+                    assert lbl == 'TBD'
+                    wrds = self.get_noNum.get_noNum('multilabel')
+                    if random.getrandbits(1):
+                        wrds_wrdLbls.append({
+                            "entityLbl": "other",
+                            "entityWrds": wrds[0]
+                        })
+                        wrds_wrdLbls.append({
+                            "entityLbl": wrds[0],
+                            "entityWrds": wrds[1]
+                        })
+                    else:
+                        wrds_wrdLbls.append({
+                            "entityLbl": wrds[0],
+                            "entityWrds": wrds[1]
+                        })
+                        wrds_wrdLbls.append({
+                            "entityLbl": "other",
+                            "entityWrds": wrds[0]
+                        })
+                elif wrds[3:] == "assoc_brand_modelNum":
+                    assert lbl == 'TBD'
+                    wrds = self.get_noNum.get_noNum('assoc_brand_modelNum')
+                    wrds_wrdLbls.append({
+                        "entityLbl": 'brand',
+                        "entityWrds": wrds[0]
+                    })
+                    wrds_wrdLbls.append({
+                        "entityLbl": 'model',
+                        "entityWrds": wrds[1]
+                    })
+                else:
+                    assert False, f"unknown entityWrd: {wrds}"
             elif wrds:
                 wrds_wrdLbls.append({"entityLbl": lbl, "entityWrds": wrds})
-            elif (not wrds) and lbl in self.nonNumEntityWrds_per_entityLbl:
-                # labels: "brand", "model", "color", "units_price_$", etc.
-                wrds = self.nonNumEntityWrds_per_entityLbl[lbl]['items'][
-                    self.nonNumEntityWrds_per_entityLbl[lbl]['idx']]
-                wrds_wrdLbls.append({"entityLbl": lbl, "entityWrds": wrds})
-                inc_idx(self.nonNumEntityWrds_per_entityLbl[lbl])
-            elif (not wrds) and lbl in self.list_multipleIncrements:
-                # labels: "other",
-                rdm_num = random.randint(1, 3)
-                while rdm_num:
-                    wrd = self.list_multipleIncrements[lbl]['items'][
-                        self.list_multipleIncrements[lbl]['idx']]
-                    wrds_wrdLbls.append({"entityLbl": lbl, "entityWrds": wrd})
-                    inc_idx(self.list_multipleIncrements[lbl])
-                    rdm_num -= 1
-            elif (not wrds
-                  ) and lbl in self.entityLbls_of_numEntityWrds_mapTo_genFuncs:
-                # labels: "year",
-                wrds, self.entityLbls_of_numEntityWrds_mapTo_genFuncs[lbl][
-                    "all_used"] = next(
-                        self.entityLbls_of_numEntityWrds_mapTo_genFuncs[lbl]
-                        ["func"])
-                wrds_wrdLbls.append({"entityLbl": lbl, "entityWrds": wrds})
+            elif (not wrds) and (lbl in noNum_labels) and (lbl != 'TBD'):
+                wrds_wrdLbls.append({
+                    "entityLbl": lbl,
+                    "entityWrds": self.get_noNum.get_noNum(lbl)
+                })
+            elif (not wrds) and lbl == "year":
+                wrds_wrdLbls.append({
+                    "entityLbl": lbl,
+                    "entityWrds": self.get_num.seqYear()
+                })
             elif (not wrds) and (lbl == "mileage" or lbl == "price"):
-                wrds_wrdLbls.append(resolve_entityWrds_glob(lbl, "intFloat"))
+                wrds_wrdLbls.append({
+                    "entityLbl": lbl,
+                    "entityWrds": self.get_num.get_num(lbl)
+                })
             elif (not wrds) and lbl == "setting":
-                wrds_wrdLbls.append(resolve_entityWrds_glob(lbl, "int"))
-            elif (not wrds) and lbl == "multilabel":
-                wrds_wrdLbls.append(resolve_entityWrds_glob(lbl, "int"))
-            elif (not wrds) and lbl == "assoc_brand_modelNum":
-                wrds_wrdLbls.append(resolve_entityWrds_glob(lbl, "int"))
+                wrds_wrdLbls.append({
+                    "entityLbl": lbl,
+                    "entityWrds": self.get_num.setting()
+                })
             else:
                 assert False, f"unknown label= {lbl}"
         return wrds_wrdLbls
@@ -342,36 +170,31 @@ class Fill_entityWrds():
 
         def get_wrdLbl(wrds_wrdLbl: Union[str, Dict[str, Any]]) -> str:
             wrdLbl: str
-            if isinstance(wrds_wrdLbl, str):
+            assert isinstance(wrds_wrdLbl, dict)
+            if wrds_wrdLbl["entityLbl"] == 'other':
                 wrdLbl = "O"
-            elif isinstance(wrds_wrdLbl, dict):
-                wrdLbl = wrds_wrdLbl["entityLbl"]
             else:
-                assert False
+                wrdLbl = wrds_wrdLbl["entityLbl"]
             return wrdLbl
 
         def get_wrds(wrds_wrdLbl: Union[str, Dict[str, Any]]) -> str:
             wrds: str
-            if isinstance(wrds_wrdLbl, str):
-                wrds = wrds_wrdLbl
-            elif isinstance(wrds_wrdLbl, dict):
-                if isinstance(wrds_wrdLbl["entityWrds"], str):
-                    wrds = wrds_wrdLbl["entityWrds"]
-                elif isinstance(wrds_wrdLbl["entityWrds"], Tuple):
-                    wrds = wrds_wrdLbl["entityWrds"][0]
+            assert isinstance(wrds_wrdLbl, dict)
+            if isinstance(wrds_wrdLbl["entityWrds"], str):
+                wrds = wrds_wrdLbl["entityWrds"]
+            elif isinstance(wrds_wrdLbl["entityWrds"], Tuple):
+                wrds = wrds_wrdLbl["entityWrds"][0]
             else:
                 assert False
             return wrds
 
         def get_correct_wrds(wrds_wrdLbl: Union[str, Dict[str, Any]]) -> str:
             wrds: str
-            if isinstance(wrds_wrdLbl, str):
+            assert isinstance(wrds_wrdLbl, dict)
+            if isinstance(wrds_wrdLbl["entityWrds"], str):
                 wrds = None
-            elif isinstance(wrds_wrdLbl, dict):
-                if isinstance(wrds_wrdLbl["entityWrds"], str):
-                    wrds = None
-                elif isinstance(wrds_wrdLbl["entityWrds"], Tuple):
-                    wrds = wrds_wrdLbl["entityWrds"][1]
+            elif isinstance(wrds_wrdLbl["entityWrds"], Tuple):
+                wrds = wrds_wrdLbl["entityWrds"][1]
             else:
                 assert False
             return wrds
@@ -386,7 +209,7 @@ class Fill_entityWrds():
                 correct_wrds) if correct_wrds is not None else None
             userIn = f'{userIn}{" " if userIn else ""}{wrds}'
 
-            if wrds == hyphen and wrdLbl != "O":
+            if wrds == hyphen:
                 assert correct_wrds is None
                 strng: str = ""
                 if idx and (hyphen not in get_wrds(wrds_wrdLbls[idx - 1])):
@@ -483,25 +306,265 @@ class Fill_entityWrds():
         # no need to return the list tknLblId2tknLbl
         return userIn_filtered_wrds, wrdLbls
 
-    def all_entityWrds_used(self):
-        all_entityWrds_used: bool = True
-        for entityLbl in self.nonNumEntityWrds_per_entityLbl:
-            all_entityWrds_used = (
-                all_entityWrds_used
-                and self.nonNumEntityWrds_per_entityLbl[entityLbl]['all_used'])
-            if not all_entityWrds_used:
-                return False
-        for entityLbl in self.entityLbls_of_numEntityWrds_mapTo_genFuncs:
-            all_entityWrds_used = (
-                all_entityWrds_used
-                and self.entityLbls_of_numEntityWrds_mapTo_genFuncs[entityLbl]
-                ['all_numEntityWrds_used'])
-            if not all_entityWrds_used:
+    def all_entityWrds_used(self, NUM_TIMES_ENTITYWRDS_USED: int):
+        for class_obj in [self.get_noNum, self.get_num]:
+            if not class_obj.all_entityWrds_used(NUM_TIMES_ENTITYWRDS_USED):
                 return False
         return True
 
-    def get_multilabel_entityWrds(self) -> Dict[str, List[str]]:
-        return self.multilabel_entityWrds
+
+class generate_nonNumbers():
+
+    def __init__(self, dataframes_dirPath: str):
+        # all Sets are converted to Tuples, later in this function
+        self.nonNumWrds_per_entityLbl: Dict[str,
+                                            Dict[str,
+                                                 Union[Set[Union[str,
+                                                                 Tuple[str,
+                                                                       str]]],
+                                                       int, bool]]] = {}
+
+        # fill entityWrds in some entityLbls of
+        # self.nonNumWrds_per_entityLbl
+        carEntityNonNumLbls_plus_style = list(carEntityNonNumLbls) + ['style']
+        synonyms_for_carEntityNonNumLbls_plus_style = (
+            synonyms_for_carEntityNonNumLbls)
+        synonyms_for_carEntityNonNumLbls_plus_style['style'] = [
+            "body_style", "body_styles"
+        ]
+        for entityLbl in (tuple(unitsLbls.keys()) + tuple(cmdsLbls.keys()) +
+                          tuple(carEntityNonNumLbls_plus_style)):
+            if entityLbl in carEntityNonNumLbls_plus_style:
+                entityWrds = set()
+            elif entityLbl in unitsLbls.keys():
+                entityWrds = set(unitsLbls[entityLbl])
+            elif entityLbl in cmdsLbls.keys():
+                entityWrds = set(cmdsLbls[entityLbl])
+            else:
+                assert False
+            self.nonNumWrds_per_entityLbl[entityLbl] = {
+                'items': entityWrds,
+                'idx': 0,
+                'all_used': 0,
+            }
+
+        # (1) fill entityWrds of those entityLbls that were not previously
+        #     filled;
+        # (2) extract row-level info from each df; info such as associating
+        #     brands with their model numbers such as "saab" with "9000"
+        def get_df(car_datasets_dirPath: pathlib.Path) -> pd.DataFrame:
+            for child in car_datasets_dirPath.iterdir():  # github, kaggle
+                if child.is_dir():  # github
+                    for grandchild in child.iterdir(
+                    ):  # us-car-models-data-master
+                        if grandchild.is_dir():  # us-car-models-data-master
+                            for great_grandchild in grandchild.iterdir(
+                            ):  # 1992.csv, 1993.csv,
+                                if great_grandchild.is_file():  # 1992.csv
+                                    if great_grandchild.suffix == '.csv':
+                                        yield pd.read_csv(
+                                            great_grandchild,
+                                            encoding='unicode_escape')
+
+        assoc_brand_modelNum: List[Tuple[str, str]] = []
+        for df in get_df(
+                pathlib.Path(__file__).parent.joinpath('datasets').resolve()):
+            # fill entityWrds of entityLbls that were not previously filled
+            for entityLbl in self.nonNumWrds_per_entityLbl:
+                if entityLbl in carEntityNonNumLbls_plus_style:
+                    for lbl in synonyms_for_carEntityNonNumLbls_plus_style[
+                            entityLbl]:
+                        if lbl in df.columns:
+                            self.nonNumWrds_per_entityLbl[entityLbl][
+                                'items'].update(
+                                    set(df[lbl].str.lower().unique()))
+                            break
+
+            # extract any type of info from each row
+            for idx in df.index:
+                if df['model'][idx].isdecimal():
+                    if "brand" in df.columns:
+                        assoc_brand_modelNum.append(
+                            (df['brand'][idx], df['model'][idx]))
+                    elif "make" in df.columns:
+                        assoc_brand_modelNum.append(
+                            (df['make'][idx], df['model'][idx]))
+                    else:
+                        assert False, "Neither brand or make in df.columns"
+        assoc_brand_modelNum = list(set(assoc_brand_modelNum))
+
+        # (1) model_nums has all number-strings that are in "model";
+        # (2) remove number-strings (e.g. "9000", not "9000 127") from model
+        # (3) model names like "vf 9" get an additional name of "vf9"
+        self.model_nums: List[str] = []
+        for strng in list(self.nonNumWrds_per_entityLbl['model']['items']):
+            if strng.isdecimal():
+                # "9000" => True, "9000 127" => False
+                self.nonNumWrds_per_entityLbl['model']['items'].remove(strng)
+                if strng not in self.model_nums:
+                    self.model_nums.append(strng)
+            strng = strng.split()
+            if len(strng) == 2 and (
+                    not strng[0].isdecimal()) and strng[1].isdecimal():
+                # user can write "vf 9" also as "vf9"
+                self.nonNumWrds_per_entityLbl['model']['items'].add(
+                    f"{strng[0]}{strng[1]}")
+        self.model_nums: Tuple[str] = tuple(self.model_nums)
+
+        # assert if brand or color have number-string
+        for entityLbl in ("brand", "color"):
+            for strng in self.nonNumWrds_per_entityLbl[entityLbl]['items']:
+                if strng.isdecimal():
+                    assert False, "number found in brand or color"
+
+        # add names that are not present
+        # add 'mercedes' because it is present as 'mercedes-benz'
+        self.nonNumWrds_per_entityLbl['brand']['items'].add('mercedes')
+
+        # convert entityWrds of 'style' from strange format
+        self.nonNumWrds_per_entityLbl['style']['items']: Set[str] = {
+            entityWrd
+            for entityWrds_lst_str in self.nonNumWrds_per_entityLbl['style']
+            ['items'] for entityWrd in ast.literal_eval(entityWrds_lst_str)
+        }
+        self.nonNumWrds_per_entityLbl['style']['items'].update(
+            {"van", "minivan"})
+
+        # move entityWrds of 'style' to 'model', and get rid of style
+        self.nonNumWrds_per_entityLbl['model']['items'].update(
+            self.nonNumWrds_per_entityLbl['style']['items'])
+        del self.nonNumWrds_per_entityLbl['style']
+        del carEntityNonNumLbls_plus_style
+        del synonyms_for_carEntityNonNumLbls_plus_style
+
+        # create a set that keep tracks of all the entityWrds used so far; new
+        # entityWrds from spelling-mistakes and typos are created only if they
+        # do not exist in this set
+        all_nonNumEntityWrds: Set[str] = set()
+        for entityLbl in self.nonNumWrds_per_entityLbl:
+            all_nonNumEntityWrds.update(
+                self.nonNumWrds_per_entityLbl[entityLbl]['items'])
+        for entityWrds in synonyms_for_carEntityNonNumLbls.values():
+            all_nonNumEntityWrds.update(set(entityWrds))
+        all_nonNumEntityWrds.update(set(carEntityNumLbls))
+
+        # (1) generate non-entity-words, called other-words; (2) other-words
+        # must not have the words in all_nonNumEntityWrds
+        with open("/etc/dictionaries-common/words", "r") as file:
+            other_words = file.read()
+            other_words = set(map(str.lower, other_words.split()))
+        other_words = list(other_words - all_nonNumEntityWrds)
+        random.shuffle(other_words)
+
+        # entityWrds that have more than one entityLbl
+        multilabel_entityWrds_orignal: Dict[
+            str, List[str]] = find_multilabel_entityWrds(
+                self.nonNumWrds_per_entityLbl)
+        for entityWrd, entityLbls in multilabel_entityWrds_orignal.items():
+            for entityLbl in entityLbls:
+                self.nonNumWrds_per_entityLbl[entityLbl]['items'].remove(
+                    entityWrd)
+
+        # add spelling mistakes to entityWrds
+        for entityLbl in self.nonNumWrds_per_entityLbl:
+            add_spelling_mistakes(
+                entityLbl, self.nonNumWrds_per_entityLbl[entityLbl]['items'],
+                all_nonNumEntityWrds)
+
+        multilabel_entityWrds: Dict[str, List[str]] = deepcopy(
+            multilabel_entityWrds_orignal)
+        for entityWrd, multilabels in multilabel_entityWrds_orignal.items():
+            entityWrd_withSpellMistakes: Set[str] = {entityWrd}
+            add_spelling_mistakes(multilabels[0], entityWrd_withSpellMistakes,
+                                  all_nonNumEntityWrds)
+            for misspelled_entityWrd in entityWrd_withSpellMistakes:
+                if misspelled_entityWrd not in multilabel_entityWrds_orignal:
+                    multilabel_entityWrds[
+                        misspelled_entityWrd] = multilabel_entityWrds_orignal[
+                            misspelled_entityWrd[1]]
+
+        # add typos to entityWrds
+        for entityLbl in self.nonNumWrds_per_entityLbl:
+            typo_wrds: Set[Tuple[str, str]] = get_typos(
+                self.nonNumWrds_per_entityLbl[entityLbl]['items'],
+                all_nonNumEntityWrds)
+            self.nonNumWrds_per_entityLbl[entityLbl]['items'].update(typo_wrds)
+
+        typo_wrds: Set[Tuple[str, str]] = get_typos(
+            set(multilabel_entityWrds_orignal.keys()), all_nonNumEntityWrds)
+        for typo_wrd in typo_wrds:
+            assert typo_wrd[0] not in multilabel_entityWrds.keys()
+            multilabel_entityWrds[typo_wrd] = multilabel_entityWrds_orignal[
+                typo_wrd[1]]
+        # change from Dict[str, List[str]] to List[Tuple[str, str]]
+        new_multilabel_entityWrds: List[Tuple[str, str]] = []
+        for entityWrd, multilabels in multilabel_entityWrds.items():
+            for multilabel in multilabels:
+                new_multilabel_entityWrds.append((multilabel, entityWrd))
+
+        # check that no new multilabel entityWrds are generated in
+        # self.nonNumWrds_per_entityLbl because all such entityWrds were
+        # removed before spelling-mistakes and typo-errors were added
+        test_multilabel_entityWrds = find_multilabel_entityWrds(
+            self.nonNumWrds_per_entityLbl)
+        assert (test_multilabel_entityWrds == {}
+                ), f'new multilabel entitywrds = {test_multilabel_entityWrds}'
+
+        # convert to python-list all of
+        # self.nonNumWrds_per_entityLbl[entityLbl]['items']
+        for entityLbl in self.nonNumWrds_per_entityLbl:
+            self.nonNumWrds_per_entityLbl[entityLbl]['items'] = list(
+                self.nonNumWrds_per_entityLbl[entityLbl]['items'])
+
+        # add other (lbl, wrds) to self.nonNumWrds_per_entityLbl
+        # 'other' is the only label; rest are not but they are used here anyway
+        lbls_wrds = [('assoc_brand_modelNum', assoc_brand_modelNum),
+                     ('multilabel', new_multilabel_entityWrds),
+                     ('other', other_words),
+                     ('entWrdLblOther', entityWrds_withLbl_other)]
+        for lbl_wrd in lbls_wrds:
+            self.nonNumWrds_per_entityLbl[lbl_wrd[0]] = {
+                'items': lbl_wrd[1],
+                'idx': 0,
+                'all_used': 0,
+            }
+
+        # save data_structures to a file
+        data_structures = [self.nonNumWrds_per_entityLbl, self.model_nums]
+        dataframes_dirPath = pathlib.Path(dataframes_dirPath).resolve(
+            strict=True)
+        data_structures_file = dataframes_dirPath.joinpath(
+            'data_structures.pickle')
+        with data_structures_file.open('wb') as file:
+            for data_structure in data_structures:
+                pickle.dump(data_structure,
+                            file,
+                            protocol=pickle.HIGHEST_PROTOCOL)
+
+    def get_model_nums(self) -> Tuple[str]:
+        return self.model_nums
+
+    def get_noNum(self, lbl) -> Tuple[Dict[str, str]]:
+        # Note the following are not labels but they are used here
+        # anyway: entWrdLblOther, multilabel, assoc_brand_modelNum
+        wrds = self.nonNumWrds_per_entityLbl[lbl]['items'][
+            self.nonNumWrds_per_entityLbl[lbl]['idx']]
+        if self.nonNumWrds_per_entityLbl[lbl]['idx'] == (
+                len(self.nonNumWrds_per_entityLbl[lbl]['items']) - 1):
+            self.nonNumWrds_per_entityLbl[lbl]['idx'] = 0
+            self.nonNumWrds_per_entityLbl[lbl]['all_used'] += 1
+            random.shuffle(self.nonNumWrds_per_entityLbl[lbl]['items'])
+        else:
+            self.nonNumWrds_per_entityLbl[lbl]['idx'] += 1
+        return wrds
+
+    def all_entityWrds_used(self, NUM_TIMES_ENTITYWRDS_USED: int) -> bool:
+        for entityLbl in self.nonNumWrds_per_entityLbl:
+            if entityLbl != 'other':
+                if not (self.nonNumWrds_per_entityLbl[entityLbl]['all_used'] >=
+                        NUM_TIMES_ENTITYWRDS_USED):
+                    return False
+        return True
 
 
 def find_multilabel_entityWrds(
@@ -547,10 +610,8 @@ def find_multilabel_entityWrds(
     return multilabel_entityWrds
 
 
-def add_typos(
-    nonNumEntityWrds: Union[Dict[str, Dict[str, Union[Set[str], int, bool]]],
-                            Set[str]]
-) -> Union[Dict[str, Dict[str, Union[Set[str], int, bool]]], Set[str]]:
+def get_typos(entityWrdsChunks: Set[Union[str, Tuple[str, str]]],
+              all_nonNumEntityWrds: Set[str]) -> Set[Tuple[str, str]]:
     keyboard_neighbors_of = {
         'a': ['q', 'w', 's', 'z'],
         'b': ['v', 'g', 'h', 'n'],
@@ -580,63 +641,45 @@ def add_typos(
         'z': ['a', 's', 'x'],
     }
 
-    def get_typoWrds(entityWrdsChunks: Set[str]) -> List[str]:
+    def typo_wrds_from(wrd: str) -> List[str]:
+        typo_wrds: List[str] = []
+        if (len(wrd) >= 4):
+            for wrd_idx in range(len(wrd)):
+                if wrd[wrd_idx] in keyboard_neighbors_of:
+                    for typo_char in keyboard_neighbors_of[wrd[wrd_idx]]:
+                        typo_wrds.append((f'{wrd[0: wrd_idx]}'
+                                          f'{typo_char}{wrd[wrd_idx+1:]}'))
+        return typo_wrds
 
-        def typo_wrds_from(wrd: str) -> List[str]:
-            typo_wrds: List[str] = []
-            if (len(wrd) >= 4):
-                for wrd_idx in range(len(wrd)):
-                    if wrd[wrd_idx] in keyboard_neighbors_of:
-                        for typo_char in keyboard_neighbors_of[wrd[wrd_idx]]:
-                            typo_wrds.append((f'{wrd[0: wrd_idx]}'
-                                              f'{typo_char}{wrd[wrd_idx+1:]}'))
-            return typo_wrds
-
-        typing_error_wrds: Set[str] = set()
-        for entityWrdsChunk in entityWrdsChunks:
-            wrds: List[str] = entityWrdsChunk.split()
-            outerList: List[List[str]] = [typo_wrds_from(wrd) for wrd in wrds]
-            max_len_of_innerList: int = max(
-                [len(innerList) for innerList in outerList])
-            for wrds_idx, innerList in enumerate(outerList):
-                innerList.extend(
-                    (max_len_of_innerList - len(innerList)) * [wrds[wrds_idx]])
-            for innerList in outerList:
-                assert len(innerList) == max_len_of_innerList
-                random.shuffle(innerList)
-            for typoWrdNum_in_innerList in range(max_len_of_innerList):
-                wrdsChunk: str = ""
-                for innerList_num in range(len(outerList)):
-                    wrdsChunk = (
-                        f'{wrdsChunk}{" " if wrdsChunk else ""}'
-                        f'{outerList[innerList_num][typoWrdNum_in_innerList]}')
-                if wrdsChunk not in all_nonNumEntityWrds:
-                    all_nonNumEntityWrds.add(wrdsChunk)
-                    typing_error_wrds.add((wrdsChunk, entityWrdsChunk))
-        return typing_error_wrds
-
-    all_nonNumEntityWrds: Set[str] = set()
-    if isinstance(nonNumEntityWrds, Dict):
-        for entityLbl in nonNumEntityWrds:
-            all_nonNumEntityWrds.update(nonNumEntityWrds[entityLbl]['items'])
-
-        for entityLbl in nonNumEntityWrds:
-            typo_wrds = get_typoWrds(nonNumEntityWrds[entityLbl]['items'])
-            nonNumEntityWrds[entityLbl]['items'].update(typo_wrds)
-    elif isinstance(nonNumEntityWrds, Set):
-        typo_wrds = get_typoWrds(nonNumEntityWrds)
-        nonNumEntityWrds.update(typo_wrds)
-    return nonNumEntityWrds
+    typing_error_wrds: Set[Tuple[str, str]] = set()
+    for entityWrdsChunk in entityWrdsChunks:
+        if isinstance(entityWrdsChunk, tuple):
+            # tuple have spelling mistakes only
+            continue
+        wrds: List[str] = entityWrdsChunk.split()
+        outerList: List[List[str]] = [typo_wrds_from(wrd) for wrd in wrds]
+        max_len_of_innerList: int = max(
+            [len(innerList) for innerList in outerList])
+        for wrds_idx, innerList in enumerate(outerList):
+            innerList.extend(
+                (max_len_of_innerList - len(innerList)) * [wrds[wrds_idx]])
+        for innerList in outerList:
+            assert len(innerList) == max_len_of_innerList
+            random.shuffle(innerList)
+        for typoWrdNum_in_innerList in range(max_len_of_innerList):
+            wrdsChunk: str = ""
+            for innerList_num in range(len(outerList)):
+                wrdsChunk = (
+                    f'{wrdsChunk}{" " if wrdsChunk else ""}'
+                    f'{outerList[innerList_num][typoWrdNum_in_innerList]}')
+            if wrdsChunk not in all_nonNumEntityWrds:
+                all_nonNumEntityWrds.add(wrdsChunk)
+                typing_error_wrds.add((wrdsChunk, entityWrdsChunk))
+    return typing_error_wrds
 
 
-def add_spelling_mistakes(
-    nonNumEntityWrds_per_entityLbl: Dict[str,
-                                         Dict[str,
-                                              Union[Set[Union[str,
-                                                              Tuple[str,
-                                                                    str]]],
-                                                    int, bool]]]
-) -> Dict[str, Dict[str, Union[Set[Union[str, Tuple[str, str]]], int, bool]]]:
+def add_spelling_mistakes(entityLbl: str, nonNumEntityWrds: Set[str],
+                          all_nonNumEntityWrds: Set[str]):
     spelling_mistakes = {
         'brand': {('mersedes', 'mercedes'), ('mecedes', 'mercedes'),
                   ('Hundai', 'hyundai'), ('Hyndai', 'hyundai'),
@@ -664,101 +707,127 @@ def add_spelling_mistakes(
                   ('Hurricane', 'Huracan'), ('Boxer', 'Boxster'),
                   ('Corrola', 'Corolla'), ('Romero', 'Romeo')}
     }
-    for k in spelling_mistakes:
-        spell_m = set()
-        for tup_wrds in spelling_mistakes[k]:
-            spell_m.add((tup_wrds[0].lower(), tup_wrds[1].lower()))
-        spelling_mistakes[k] = spell_m
-
-    for entityLbl in nonNumEntityWrds_per_entityLbl:
-        if entityLbl in spelling_mistakes:
-            duplicate_spellm = set()
-            for spellm in spelling_mistakes[entityLbl]:
-                unique_spellm: bool = True
-                for key in nonNumEntityWrds_per_entityLbl:
-                    if key != entityLbl and unique_spellm:
-                        for wrd in nonNumEntityWrds_per_entityLbl[key][
-                                'items']:
-                            spellm_mod = spellm[0] if isinstance(
-                                spellm, tuple) else spellm
-                            wrd_mod = wrd[0] if isinstance(wrd, tuple) else wrd
-                            if spellm_mod == wrd_mod:
-                                duplicate_spellm.add(spellm)
-                                unique_spellm = False
-                                break
-            spelling_mistakes[entityLbl] -= duplicate_spellm
-            nonNumEntityWrds_per_entityLbl[entityLbl]['items'].update(
-                spelling_mistakes[entityLbl])
-    return nonNumEntityWrds_per_entityLbl
+    if entityLbl in spelling_mistakes:
+        for spellm in spelling_mistakes[entityLbl]:
+            spellm = (spellm[0].lower(), spellm[1].lower())
+            if spellm[1] in nonNumEntityWrds and spellm[
+                    0] not in all_nonNumEntityWrds:
+                all_nonNumEntityWrds.add(spellm[0])
+                nonNumEntityWrds.add(spellm)
 
 
-def resolve_entityWrds_glob(lbl: str,
-                            glob: str) -> Tuple[Dict[str, str], bool]:
-    try:
-        idxOf_openParen = glob.index("(")
-        assert glob[-1] == ")"
-        name: str = glob[:idxOf_openParen]
-        params: List[str] = glob[idxOf_openParen + 1:-1].split()
-    except ValueError:
-        name = glob
-        params = None
+class generate_numbers():
 
-    wrds_wrdLbls: Dict[str, str] = {}
-    all_used: bool = None
-    if name == "int":
-        wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmInt(lbl)}
-    elif name == "float":
-        assert False, "FLOAT is not implemented"
-        wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmFloat(lbl)}
-    elif name == "intFloat":
-        if random.getrandbits(1):
-            wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmFloat(lbl)}
+    def __init__(self, model_nums: List[str]):
+        self.year_seq_range = (1970, 2025)
+        setting_seq_range = (1, 20)
+        self.seq_done = {'year': 0, 'setting': 0}
+        self.year_seq = self._sequence_gen(self.year_seq_range[0],
+                                           self.year_seq_range[1], 'year')
+        self.setting_seq = self._sequence_gen(setting_seq_range[0],
+                                              setting_seq_range[1], 'setting')
+        self.nums: List[str] = list(model_nums) + [
+            str(i)
+            for i in range(self.year_seq_range[0], self.year_seq_range[1] + 1)
+        ] + [
+            str(i)
+            for i in range(setting_seq_range[0], setting_seq_range[1] + 1)
+        ]
+        self.nums_idx = {
+            # idx is pointing at an element that has not been retrieved, or
+            # there is no element in that location
+            'price': 0,
+            'mileage': 0,
+            'notYear': 0,
+            'other': 0
+        }
+
+    def all_entityWrds_used(self, NUM_TIMES_ENTITYWRDS_USED: int) -> bool:
+        for v in self.seq_done.values():
+            if not (v >= NUM_TIMES_ENTITYWRDS_USED):
+                return False
+        return True
+
+    def rdmYear(self) -> str:
+        # get a random int in the Year sequence
+        return str(
+            random.randint(self.year_seq_range[0], self.year_seq_range[1]))
+
+    def seqYear(self) -> str:
+        # get the next int from the Year sequence
+        return next(self.year_seq)
+
+    def setting(self) -> str:
+        # get the next int from the Setting sequence
+        return next(self.setting_seq)
+
+    def get_num(self, lbl: str) -> str:
+        # 'notYear' is not a label but it is used here anyway
+        # 'entWrdLblOther' has a label of 'other', which is used here
+        assert (lbl == 'price' or lbl == 'mileage' or lbl == 'notYear'
+                or lbl == 'other'), f"unknown label = {lbl}"
+        self._reduce_nums()
+
+        def _rdmInt_notYearSeq():
+            for loop in range(10):
+                numStr = self._rdmInt()
+                if int(numStr) >= self.year_seq_range[0] and int(
+                        numStr) <= self.year_seq_range[1]:
+                    assert loop < 9,\
+                          "cannot find random int that is NOT in Year sequence"
+                else:
+                    break
+            return numStr
+
+        if self.nums_idx[lbl] == len(self.nums):
+            # either list is empty or all elements retrieved
+            if lbl == 'notYear':
+                self.nums.append(_rdmInt_notYearSeq())
+            else:
+                if random.getrandbits(1):
+                    self.nums.append(self._rdmFloat())
+                else:
+                    self.nums.append(self._rdmInt())
+        elif self.nums_idx[lbl] < len(self.nums):
+            # not all elements retrieved from list
+            if lbl == 'notYear':
+                while self.nums_idx[lbl] < len(self.nums):
+                    num = float(self.nums[self.nums_idx[lbl]])
+                    if num >= self.year_seq_range[
+                            0] and num <= self.year_seq_range[1]:
+                        self.nums_idx[lbl] += 1
+                        continue
+                    else:
+                        break
+                if self.nums_idx[lbl] == len(self.nums):
+                    self.nums.append(_rdmInt_notYearSeq())
         else:
-            wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmInt(lbl)}
-    elif name == "year":
-        wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmYear()}
-    elif name == "notYear":
-        wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": rdmFloat(lbl)}
-    elif name == "entWrdLblOther":
-        assert lbl == "other"
-        entityWrd, all_used = entityWrd_WithLbl_Other(lbl)
-        wrds_wrdLbls = {"entityLbl": lbl, "entityWrds": entityWrd}
-    elif name == "num":
-        assert len(params) == 2
-        assert False, "NUM is not implemented"
-    else:
-        assert False, f"unknown entityWrd {name}"
-    return wrds_wrdLbls, all_used
+            # self.nums_idx[lbl] > len(self.nums)
+            assert False
+        self.nums_idx[lbl] += 1
+        return self.nums[self.nums_idx[lbl] - 1]
 
+    def _rdmInt(self) -> str:
+        return str(int(random.uniform(0, 9999999999)))
 
-def rdmInt(lbl: str) -> str:
-    return str(int(random.uniform(0, 9999999999)))
+    def _rdmFloat(self) -> str:
+        return str(round(random.uniform(0, 9999999999), 2))
 
+    def _sequence_gen(
+            self, START: int, END: int, entity: str
+    ) -> Tuple[str, bool]:  # this generator has infinite loop
+        num: int = END
+        while True:
+            if num < START:
+                self.seq_done[entity] += 0
+                num = END
+            yield str(num)
+            num -= 1
 
-def rdmFloat(lbl: str) -> str:
-    return str(round(random.uniform(0, 9999999999), 2))
-
-
-year_range = (1970, 2025)
-
-
-def rdmYear() -> str:
-    return random.randint(year_range[0], year_range[1])
-
-
-def sequentialYear() -> Tuple[str, bool]:  # this generator has infinite loop
-    year: int = year_range[1]
-    all_years_done: bool = False
-    while True:
-        if year < year_range[0]:
-            all_years_done = True
-            year = year_range[1]
-        yield str(year), all_years_done
-        year -= 1
-
-
-def entityWrd_WithLbl_Other(
-    lbl: str,
-    all_items_used_status: bool = False
-) -> Tuple[str, bool]:  # this generator has infinite loop
-    x = 1
+    def _reduce_nums(self):
+        # reduce size of list by deleting "n" used-up elements from front
+        reduction_len = min(self.nums_idx.values())
+        if reduction_len >= 10:
+            del self.nums[:reduction_len]
+            for k, v in self.nums_idx.items():
+                self.nums_idx[k] = v - reduction_len
