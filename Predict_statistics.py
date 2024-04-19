@@ -368,7 +368,6 @@ def print_statistics(
                 relevant_keys_of_dataframes_meta = [
                     'bch sizes',
                     '# of dialog-turns in dataframes',
-                    'entityWrds that have more than one tknLbl',
                     'pandas predict-dataframe file location',
                     'predict-set entityWrds not seen in train-set',
                 ]
