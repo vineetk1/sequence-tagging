@@ -39,15 +39,20 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
         logg.info(strng)
         return
 
+    # more turns => potentially larger history
+    # torch.cuda.OutOfMemoryError: this problem could be solved by reducing
+    # input (sequence length) to the model; input can be reduced by reducing
+    # history and MAX_WRDS_PER_SENTENCE
     MAX_TURNS_PER_DIALOG: int = 10
     # each entityWrd MUST be used atleast "n" times in each (train/val/test)
     # of the datasets
     NUM_TIMES_ENTITYWRDS_USED = 2
     # max number of words allowed in a sentence
     # BERT allows 512 token-ids - 3 (CLS, SEP, SEP) = 509;
-    # 509 token-ids / 4 words per token-id = 127 words; assume 27 words for
-    # history, then 100 words/sentence max allowed
-    MAX_WRDS_PER_SENTENCE = 100
+    # 509 token-ids / 5 token-ids per word = 101.8 words max; assume 0 words
+    # for history because the whole history will be removed if needed, then
+    # 101 words/sentence max allowed
+    MAX_WRDS_PER_SENTENCE = 40
     SEGMENTS_PER_SENTENCE: int = None  # default is None => Random
     userIn: str
     userIn_filtered_wrds: List[str]
@@ -78,8 +83,7 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
         if SEGMENTS_PER_SENTENCE == 1:
             get_segment = sentence_from_segs.get_segment()
         if trainValTest != 'train':
-            max_val_or_test_examples = int(len(df_train) * 0.5)
-            num_val_or_test_examples = 0
+            max_val_or_test_rows = int(len(df_train) * 0.5)
 
         while ((SEGMENTS_PER_SENTENCE == 1
                 and not sentence_from_segs.all_segments_done())
@@ -88,7 +92,7 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
                     (not fill_entityWrds.all_entityWrds_used(
                         NUM_TIMES_ENTITYWRDS_USED))))
                or (SEGMENTS_PER_SENTENCE != 1 and trainValTest != 'train'
-                   and num_val_or_test_examples < max_val_or_test_examples)):
+                   and len(df[trainValTest]) < max_val_or_test_rows)):
             if trnId < max_turns_per_dialog:
                 trnId += 1
             else:
@@ -147,9 +151,6 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
             df[trainValTest].loc[len(df[trainValTest])] = copy.deepcopy(row)
             prevTrnUserOut = df[trainValTest].loc[len(df[trainValTest]) -
                                                   1]['userOut']
-
-            if trainValTest != 'train':
-                num_val_or_test_examples += 1
 
         df[trainValTest]['tknLblIds'] = [[
             tknLblId2tknLbl.index(tknLbl) if tknLbl != -100 else -100
