@@ -60,12 +60,13 @@ def generate_tknLbls(history: List[str], userIn_filtered_wrds: List[str],
     assert len(userIn_filtered_wrds) == len(wrdLbls)
     assert wrdLbls
 
+    tokenizer.truncation_side = 'right'  # this is the default also
     tknIds = tokenizer(
         text=history,
         text_pair=userIn_filtered_wrds,
         is_split_into_words=True,
         padding=True,  # it won't happen anyway
-        truncation='do_not_truncate',
+        truncation='only_first',
         return_tensors='pt',
         return_token_type_ids=False,
         return_attention_mask=True,
