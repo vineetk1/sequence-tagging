@@ -125,27 +125,25 @@ class Data(LightningDataModule):
             bch_userIn_filtered_wrds.append(
                 Utilities.userIn_filter_splitWords(example[2]))
             bch_history.append(Utilities.prevTrnUserOut2history(example[3]))
+            if (len(bch_history[-1]) * 3) + len(
+                    bch_userIn_filtered_wrds[-1]) > 101:
+                bch_history[-1] = []
+                assert False, 'history truncated'  # not used in Deployment
             bch_prevTrnUserOut.append(example[3])
 
         # return_attention_mask must be True for the model to work properly
-        bch_nnIn_tknIds = self.tokenizer(
-            text=bch_history,
-            text_pair=bch_userIn_filtered_wrds,
-            is_split_into_words=True,
-            padding=True,
-            truncation='do_not_truncate',
-            return_tensors='pt',
-            return_token_type_ids=False,
-            return_attention_mask=True,
-            return_overflowing_tokens=False)
+        bch_nnIn_tknIds = self.tokenizer(text=bch_history,
+                                         text_pair=bch_userIn_filtered_wrds,
+                                         is_split_into_words=True,
+                                         padding=True,
+                                         truncation='only_second',
+                                         return_tensors='pt',
+                                         return_token_type_ids=False,
+                                         return_attention_mask=True,
+                                         return_overflowing_tokens=False)
 
         for idx in range(len(examples)):
             map_tknIdx2wrdIdx.append(bch_nnIn_tknIds.word_ids(idx))
-
-        # if truncation is needed during Training then Stop and fix the problem
-        if bch_nnIn_tknIds['input_ids'].shape[
-                1] > self.tokenizer.model_max_length:
-            assert False, "truncation needed"
 
         # Verify that number of token-ids in history and userIn_filtered
         # are equal to token-label-ids; token-label-ids not used in
@@ -156,8 +154,7 @@ class Data(LightningDataModule):
             assert (tknLbls_len + 1) == len(examples[i][4])
 
         # pad token-label-ids; token-label-ids not used in Deployment
-        bch_tknLblIds_max_len = max(
-            [len(example[4]) for example in examples])
+        bch_tknLblIds_max_len = max([len(example[4]) for example in examples])
         bch_tknLblIds = torch.LongTensor([
             example[4] + [-100] * (bch_tknLblIds_max_len - len(example[4]))
             for example in examples
@@ -175,7 +172,7 @@ class Data(LightningDataModule):
             'prevTrnUserOut': bch_prevTrnUserOut,
             'userIn_filtered_wrds': bch_userIn_filtered_wrds,
             'map_tknIdx2wrdIdx': map_tknIdx2wrdIdx,
-            'error_msgs': []    # needed by Inference (deployment) code
+            'error_msgs': []  # needed by Inference (deployment) code
         }
 
 
