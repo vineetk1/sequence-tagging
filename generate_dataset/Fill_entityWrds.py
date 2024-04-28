@@ -819,7 +819,7 @@ class generate_numbers():
         num: int = END
         while True:
             if num < START:
-                self.seq_done[entity] += 0
+                self.seq_done[entity] += 1
                 num = END
             yield str(num)
             num -= 1
