@@ -21,11 +21,11 @@ with gr.Blocks() as demo:
         if not len(message):
             # nnOut_userOut is unchanged
             return "", chat_history
-        elif len(message) > 400:
+        elif len(message) > 400:    # no need to do this; Tokenizer truncates
             if not chat_history:
                 nnOut_userOut = 0
             chat_history.append(
-                [message, "Shorten your text; it must be less than 100 words"])
+                [message, "Shorten your text; it must be less than 101 words"])
             return "", chat_history
 
         if not chat_history:
