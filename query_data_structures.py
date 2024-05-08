@@ -9,6 +9,9 @@ model_nums
 nonNumEntityWrds_per_entityLbl.keys()
 dict_keys(['units_price_$', 'units_mileage_mi', 'restore', 'more', 'less', 'range1', 'range2', 'remove', 'brand', 'model', 'color', 'assoc_brand_modelNum', 'multilabel', 'other', 'entWrdLblOther'])
 
+nonNumEntityWrds_per_entityLbl['units_mileage_mi']['items']
+['mileages', ('mildages', 'mileages'), ('milewge', 'mileage'), ('milex', 'miles'), ......]
+
 nonNumEntityWrds_per_entityLbl['assoc_brand_modelNum']['items']
 [('chevrolet', '2500'), ('Chrysler', '200'), ('Porsche', '968'), ('Porsche', '928'), ('Oldsmobile', '98'), ('Volvo', '960'), ('Alfa Romeo', '164'), ('Chrysler', '300'), ('Volvo', '940'), ('chevrolet', '3500'), ('Polestar', '2'), ('Toyota', '86'), ('MAZDA', '626'), ('Polestar', '3'), ('Volvo', '850'), ('Audi', '100'), ('MAZDA', '323'), ('Oldsmobile', '88'), ('MAZDA', '929'), ('Audi', '90'), ('audi', '5'), ('chevrolet', '1500'), ('Maybach', '57'), ('FIAT', '500'), ('Saab', '900'), ('Saab', '9000'), ('Audi', '80'), ('Volvo', '240'), ('gmc', '1500'), ('Volvo', '740'), ('Maybach', '62'), ('chrysler', '300'), ('Polestar', '5'), ('Porsche', '911'), ('Polestar', '1')]
 
@@ -18,6 +21,8 @@ nonNumEntityWrds_per_entityLbl['multilabel']['items']
 nonNumEntityWrds_per_entityLbl['entWrdLblOther']['items']
 ['dollars', 'between', 'mileage', 'above', 'make', 'under', 'larger', 'more', 'mi', 'dollar', 'little', 'over', 'lower', 'mileages', '-', 'price', 'miles', 'below', 'brand', 'color', 'smaller', '$', 'greater', 'year', 'mile', 'model', 'less', 'through', 'to', 'range', 'higher']
 
+nonNumEntityWrds_per_entityLbl['brand']['items']
+[('volvk', 'volvo'), ('mxlaren', 'mclaren'), ('petrrbilt', 'peterbilt'),.....] 
 'toyota' in nonNumEntityWrds_per_entityLbl['brand']['items']
 True
 ------------------------------------------------------------------------------
