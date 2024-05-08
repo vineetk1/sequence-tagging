@@ -1,3 +1,5 @@
+# "gradio demo.py" OR "python3 -m pdb demo.py" if debugging code
+
 import gradio as gr
 from Inference import Inference
 
