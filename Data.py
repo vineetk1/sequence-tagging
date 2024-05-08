@@ -127,8 +127,11 @@ class Data(LightningDataModule):
             bch_history.append(Utilities.prevTrnUserOut2history(example[3]))
             if (len(bch_history[-1]) * 3) + len(
                     bch_userIn_filtered_wrds[-1]) > 101:
+                # history is generated from prevTrnUserOut; In file
+                # Generate_dataframes.py, history became empty list and then
+                # tknLblIds were generated; here also history becomes empty
+                # list and later tknLblIds are generated
                 bch_history[-1] = []
-                assert False, 'history truncated'  # not used in Deployment
             bch_prevTrnUserOut.append(example[3])
 
         # return_attention_mask must be True for the model to work properly
@@ -151,7 +154,12 @@ class Data(LightningDataModule):
         for i, tknLbls_len in enumerate(
             ((bch_nnIn_tknIds['input_ids'] == 102).nonzero()[1::2,
                                                              1]).tolist()):
-            assert (tknLbls_len + 1) == len(examples[i][4])
+            assert (tknLbls_len + 1) == len(examples[i][4]), (
+                f"tknLbls_len+1={tknLbls_len+1}, ",
+                f"len(examples[i][4])={len(examples[i][4])}, ",
+                f"history={bch_history[i]}, ",
+                f"bch_userIn_filtered_wrds={bch_userIn_filtered_wrds[i]}"
+            )
 
         # pad token-label-ids; token-label-ids not used in Deployment
         bch_tknLblIds_max_len = max([len(example[4]) for example in examples])
