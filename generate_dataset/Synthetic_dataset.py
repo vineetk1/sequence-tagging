@@ -103,7 +103,6 @@ UPDATE: I think the above two segments MUST be allowed. If a user misspells
 than expected; the user made the mistake and in this case the NN was not smart
 enough to correct the spelling of "dolkar"
 """
-import random
 
 PLACEHOLDER_ID_START = "<"
 PLACEHOLDER_ID_END = ">"
