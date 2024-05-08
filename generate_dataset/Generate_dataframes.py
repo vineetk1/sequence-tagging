@@ -52,7 +52,7 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
     # 509 token-ids / 5 token-ids per word = 101.8 words max; assume 0 words
     # for history because the whole history will be removed if needed, then
     # 101 words/sentence max allowed
-    MAX_WRDS_PER_SENTENCE = 40
+    MAX_WRDS_PER_SENTENCE = 101
     SEGMENTS_PER_SENTENCE: int = None  # default is None => Random
     userIn: str
     userIn_filtered_wrds: List[str]
@@ -116,11 +116,26 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
                     tknLblId2tknLbl=tknLblId2tknLbl,
                 ))
 
-            userIn_filtered_entityWrds, entityLbls = remove_type_O_wrdLbls(
-                userIn_filtered_wrds=userIn_filtered_wrds, wrdLbls=wrdLbls)
-
             if trnId == 0:
                 prevTrnUserOut: Dict[str, List[str]] = Utilities.userOut_init()
+
+            history: List[str] = Utilities.prevTrnUserOut2history(
+                prevTrnUserOut=prevTrnUserOut)
+
+            if (len(history) * 3) + len(userIn_filtered_wrds) > MAX_WRDS_PER_SENTENCE:
+                history = []
+                userIn_filtered_wrds = (
+                    userIn_filtered_wrds[:MAX_WRDS_PER_SENTENCE])
+                wrdLbls = wrdLbls[:MAX_WRDS_PER_SENTENCE]
+
+            tknLbls: List[str] = generate_tknLbls(
+                history=history,
+                userIn_filtered_wrds=userIn_filtered_wrds,
+                wrdLbls=wrdLbls,
+                tokenizer=tokenizer)
+
+            userIn_filtered_entityWrds, entityLbls = remove_type_O_wrdLbls(
+                userIn_filtered_wrds=userIn_filtered_wrds, wrdLbls=wrdLbls)
 
             userOut: Dict[str, List[str]] = Utilities.generate_userOut(
                 bch_prevTrnUserOut=[prevTrnUserOut],
@@ -128,15 +143,6 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
                     userIn_filtered_entityWrds
                 ],
                 bch_nnOut_entityLbls=[entityLbls])[0]
-
-            history: List[str] = Utilities.prevTrnUserOut2history(
-                prevTrnUserOut=prevTrnUserOut)
-
-            tknLbls: List[str] = generate_tknLbls(
-                history=history,
-                userIn_filtered_wrds=userIn_filtered_wrds,
-                wrdLbls=wrdLbls,
-                tokenizer=tokenizer)
 
             row = {
                 'dlgId': dlgId,
