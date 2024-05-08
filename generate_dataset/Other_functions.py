@@ -66,11 +66,13 @@ def generate_tknLbls(history: List[str], userIn_filtered_wrds: List[str],
         text_pair=userIn_filtered_wrds,
         is_split_into_words=True,
         padding=True,  # it won't happen anyway
-        truncation='only_first',
+        truncation='do_not_truncate',
         return_tensors='pt',
         return_token_type_ids=False,
         return_attention_mask=True,
         return_overflowing_tokens=False)
+    assert tknIds['input_ids'].shape[1] <= tokenizer.model_max_length, (
+            "tknIds length exceeds max allowed")
     map_tknIdx2wrdIdx = tknIds.word_ids(0)
     assert map_tknIdx2wrdIdx.count(None) == 3
     tknIds['input_ids'].shape[1] == len(map_tknIdx2wrdIdx)
