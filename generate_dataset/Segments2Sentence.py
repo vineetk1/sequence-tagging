@@ -100,11 +100,11 @@ class Segments2Sentence():
             segmentsInfo['segs_used'] += 1
 
     def all_segments_done(self) -> bool:
-        numOfTimes_segs_used = 300
+        min_numOf_segs_created = 1500
         segs_used: bool = True
         for segmentsInfo in self.segmentsInfo_per_entityLbl.values():
-            segs_used = segs_used and (segmentsInfo['segs_used'] >=
-                                       numOfTimes_segs_used)
-            if not segs_used:
+            if not (segs_used and
+                    (segmentsInfo['segs_used'] * len(segmentsInfo['segs']) >=
+                     min_numOf_segs_created)):
                 return False
         return True
