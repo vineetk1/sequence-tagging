@@ -46,7 +46,7 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
     MAX_TURNS_PER_DIALOG: int = 10
     # each entityWrd MUST be used atleast "n" times in each (train/val/test)
     # of the datasets
-    NUM_TIMES_ENTITYWRDS_USED = 2
+    NUM_TIMES_ENTITYWRDS_USED = 3
     # max number of words allowed in a sentence
     # BERT allows 512 token-ids - 3 (CLS, SEP, SEP) = 509;
     # 509 token-ids / 5 token-ids per word = 101.8 words max; assume 0 words
@@ -85,6 +85,7 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
         if trainValTest != 'train':
             max_val_or_test_rows = int(len(df_train) * 0.5)
 
+        logg.info(f"starting to create {trainValTest} dataset")
         while ((SEGMENTS_PER_SENTENCE == 1
                 and not sentence_from_segs.all_segments_done())
                or (SEGMENTS_PER_SENTENCE != 1 and trainValTest == 'train' and
@@ -122,7 +123,8 @@ def generate_dataframes(tokenizer, dataframes_dirPath: str,
             history: List[str] = Utilities.prevTrnUserOut2history(
                 prevTrnUserOut=prevTrnUserOut)
 
-            if (len(history) * 3) + len(userIn_filtered_wrds) > MAX_WRDS_PER_SENTENCE:
+            if (len(history) *
+                    3) + len(userIn_filtered_wrds) > MAX_WRDS_PER_SENTENCE:
                 history = []
                 userIn_filtered_wrds = (
                     userIn_filtered_wrds[:MAX_WRDS_PER_SENTENCE])
