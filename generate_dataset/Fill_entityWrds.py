@@ -75,7 +75,7 @@ class Fill_entityWrds():
             assert lbl in all_labels, f"unknown label= {lbl}"
             assert (wrds == '' or wrds == '$' or wrds == 'than' or wrds == '-'
                     or wrds == 'year' or wrds == 'dollar' or wrds == 'dollars'
-                    or wrds[:3]
+                    or wrds == 'and' or wrds == 'or' or wrds[:3]
                     == '___'), f"unknown wrds in <lbl><wrds> = {wrds}"
 
             if wrds.startswith("___"):
@@ -447,9 +447,9 @@ class generate_nonNumbers():
             for strg in self.nonNumWrds_per_entityLbl[entityLbl]['items']:
                 for wrd in strg.split():
                     try:
-                        float(wrd)   # ignore if wrd in a number
+                        float(wrd)  # ignore if wrd in a number
                     except ValueError:
-                        all_nonNumEntityWrds.add(wrd)   # wrd is not a number
+                        all_nonNumEntityWrds.add(wrd)  # wrd is not a number
 
         for entityWrds in synonyms_for_carEntityNonNumLbls.values():
             all_nonNumEntityWrds.update(set(entityWrds))
