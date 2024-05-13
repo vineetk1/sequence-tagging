@@ -418,7 +418,7 @@ class generate_nonNumbers():
                     assert False, "number found in brand or color"
 
         # add names that are not present
-        # add 'mercedes' because it is present as 'mercedes-benz'
+        # add 'mercedes' because it is only present as 'mercedes-benz'
         self.nonNumWrds_per_entityLbl['brand']['items'].add('mercedes')
 
         # convert entityWrds of 'style' from strange format
@@ -442,8 +442,15 @@ class generate_nonNumbers():
         # do not exist in this set
         all_nonNumEntityWrds: Set[str] = set()
         for entityLbl in self.nonNumWrds_per_entityLbl:
-            all_nonNumEntityWrds.update(
-                self.nonNumWrds_per_entityLbl[entityLbl]['items'])
+            # all_nonNumEntityWrds.update(
+            #     self.nonNumWrds_per_entityLbl[entityLbl]['items'])
+            for strg in self.nonNumWrds_per_entityLbl[entityLbl]['items']:
+                for wrd in strg.split():
+                    try:
+                        float(wrd)   # ignore if wrd in a number
+                    except ValueError:
+                        all_nonNumEntityWrds.add(wrd)   # wrd is not a number
+
         for entityWrds in synonyms_for_carEntityNonNumLbls.values():
             all_nonNumEntityWrds.update(set(entityWrds))
         all_nonNumEntityWrds.update(set(carEntityNumLbls))
@@ -456,7 +463,8 @@ class generate_nonNumbers():
         other_words = list(other_words - all_nonNumEntityWrds)
         random.shuffle(other_words)
 
-        # entityWrds that have more than one entityLbl
+        # entityWrds that have more than one entityLbl; also remove
+        # those entityWrds from those entityLbls
         multilabel_entityWrds_orignal: Dict[
             str, List[str]] = find_multilabel_entityWrds(
                 self.nonNumWrds_per_entityLbl)
@@ -516,7 +524,7 @@ class generate_nonNumbers():
             self.nonNumWrds_per_entityLbl[entityLbl]['items'] = list(
                 self.nonNumWrds_per_entityLbl[entityLbl]['items'])
 
-        # add other (lbl, wrds) to self.nonNumWrds_per_entityLbl
+        # add remaining (lbl, wrds) to self.nonNumWrds_per_entityLbl
         # 'other' is the only label; rest are not but they are used here anyway
         lbls_wrds = [('assoc_brand_modelNum', assoc_brand_modelNum),
                      ('multilabel', new_multilabel_entityWrds),
@@ -547,6 +555,10 @@ class generate_nonNumbers():
     def get_noNum(self, lbl) -> Tuple[Dict[str, str]]:
         # Note the following are not labels but they are used here
         # anyway: entWrdLblOther, multilabel, assoc_brand_modelNum
+
+        # do not use 'entWrdLblOther' because it confuses Bert; use 'other'
+        if lbl == 'entWrdLblOther':
+            lbl = 'other'
         wrds = self.nonNumWrds_per_entityLbl[lbl]['items'][
             self.nonNumWrds_per_entityLbl[lbl]['idx']]
         if self.nonNumWrds_per_entityLbl[lbl]['idx'] == (
@@ -560,7 +572,7 @@ class generate_nonNumbers():
 
     def all_entityWrds_used(self, NUM_TIMES_ENTITYWRDS_USED: int) -> bool:
         for entityLbl in self.nonNumWrds_per_entityLbl:
-            if entityLbl != 'other':
+            if not (entityLbl == 'other' or entityLbl == 'entWrdLblOther'):
                 if not (self.nonNumWrds_per_entityLbl[entityLbl]['all_used'] >=
                         NUM_TIMES_ENTITYWRDS_USED):
                     return False
@@ -808,10 +820,10 @@ class generate_numbers():
         return self.nums[self.nums_idx[lbl] - 1]
 
     def _rdmInt(self) -> str:
-        return str(int(random.uniform(0, 9999999999)))
+        return str(random.randint(0, 999999))
 
     def _rdmFloat(self) -> str:
-        return str(round(random.uniform(0, 9999999999), 2))
+        return str(round(random.uniform(0, 999999), 2))
 
     def _sequence_gen(
             self, START: int, END: int, entity: str
