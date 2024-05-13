@@ -743,9 +743,9 @@ remove_restore_segments = (
     "<restore><>  <setting><> <remove><>  <brand><>  <year><> ",
 )
 mixed_segments = (
-    "<units_price_$><$> <price><>  <range2><-> <price><> <mileage><> <range2><-> <mileage><> <units_mileage_mi><> ",
-    "<units_price_$><$> <price><>  <range2><-> <price><> <less><>  <other><>  <mileage><> <units_mileage_mi><> ",
-    "<units_price_$><$> <price><>  <range2><-> <price><> <mileage><> <units_mileage_mi><>  <other><>  <less><>",
+    "<units_price_$><> <price><>  <range2><-> <price><> <mileage><> <range2><-> <mileage><> <units_mileage_mi><> ",
+    "<units_price_$><> <price><>  <range2><-> <price><> <less><>  <other><>  <mileage><> <units_mileage_mi><> ",
+    "<units_price_$><> <price><>  <range2><-> <price><> <mileage><> <units_mileage_mi><>  <other><>  <less><>",
     "<less><> <units_price_$><> <price><> <mileage><> <range2><-> <mileage><> <units_mileage_mi><> ",
     "<less><> <units_price_$><> <price><> <less><>  <other><>  <mileage><> <units_mileage_mi><>",
     "<less><> <units_price_$><> <price><> <mileage><> <units_mileage_mi><>  <other><>  <less><>",
@@ -774,12 +774,12 @@ mixed_segments = (
     " <color><>  <more><>   <other><>  <year><>  <model><>  <units_price_$><> <price><>   <range2><-> <price><>  <mileage><>   <range2><->  <units_mileage_mi><> <mileage><>   <brand><> ",
     "<brand><>  <color><> <model><>   <range1><>  <mileage><>    <other><>   <mileage><>  <units_mileage_mi><>   <range1><>   <units_price_$><> <price><> <price><>   <less><>  <year><> ",
     " <less><>  <other><>   <price><> <units_price_$><>   <other><>    <mileage><>   <units_mileage_mi><> ",
-    "<units_price_$><$> <price><> <mileage><> <units_mileage_mi><> ",
+    "<units_price_$><> <price><> <mileage><> <units_mileage_mi><> ",
     "<year><> <color><> <brand><> <model><> <less><>  <other><>   <units_price_$><> <price><>   <other><>    <less><>  <other><>   <mileage><>   <units_mileage_mi><> ",
     " <color><>  <more><>   <other><>  <year><>  <model><> <brand><>  <range1><>  <mileage><>  <units_mileage_mi><>   <other><>   <mileage><>    <range1><>   <units_price_$><> <price><> <price><>  ",
     "<brand><> <less><>  <year><>   <color><> <model><>   <units_price_$><> <price><>   <range2><-> <price><>  <mileage><>   <range2><->  <units_mileage_mi><> <mileage><> ",
     " <model><>  <year><> <range2><> <year><>   <color><>      <mileage><>   <range2><-> <mileage><>  <units_mileage_mi><>   <range1><>   <units_price_$><> <price><>   <other><>   <price><> ",
-    "<units_price_$><$> <price><> <mileage><> <units_mileage_mi><> ",
+    "<units_price_$><> <price><> <mileage><> <units_mileage_mi><> ",
 
     # NN must sometimes label entityWrds as "O"; usually (but not always) when they are followed by an "O" word
     "<color><>  <other><___entWrdLblOther>   <other><___entWrdLblOther> <brand><>  ",  # In Predict, NN must not label "through" as range2 label
