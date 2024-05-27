@@ -9,13 +9,16 @@ from logging import getLogger
 from typing import Dict, List, Any, Tuple
 import math
 
-# following 6 imports are only needed in Training, not Deployment
-import pathlib
-from importlib import import_module
-import copy
-import pandas as pd
-import Utilities
-import Predict_statistics
+try:
+    # following 6 imports are only needed in Training, not Deployment
+    import pathlib
+    from importlib import import_module
+    import copy
+    import pandas as pd
+    import Utilities
+    import Predict_statistics
+except ImportError:
+    pass
 
 import os
 # disable parallelism in Fast-Tokenizer since it clashes with multiprocessing
