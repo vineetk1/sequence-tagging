@@ -15,19 +15,21 @@ import pickle
 logg = getLogger(__name__)
 
 
-class Inference():
+class Pipeline():
 
     def __init__(self):
         super().__init__()
         dataframes_dirPath: pathlib.Path = pathlib.Path(
-            'experiments/5').resolve(strict=True)
+            'experiments/14').resolve(strict=True)
         df_metadata_file: pathlib.Path = dataframes_dirPath.joinpath(
             'df_metadata')
         with df_metadata_file.open('rb') as file:
             self.dataframes_meta: Dict[str, Any] = pickle.load(file)
 
         self.tokenizer = BertTokenizerFast.from_pretrained(
-            'bert-large-uncased')
+            'bert-large-uncased',
+            map_location=torch.device(
+                "cuda:0" if torch.cuda.is_available() else "cpu"))
         self.tokenizer.truncation_side = 'right'  # this is the default also
         # comment the line below because I want the default value of 512
         # token-ids for the  max length of input to the model
@@ -36,16 +38,15 @@ class Inference():
         # following line has dependence on Lightning
         self.model = Model.load_from_checkpoint(
             # ******* NOTE: when checkpoint changes, also change dataframes_dirPath *******
-            '/home/vin/sequence-tagging/experiments/5/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/lr_sched=ReduceLROnPlateau,factor=0.5,mode=min,patience=4,optz=Adam,lr=1e-05,epoch=20-val_loss=0.01242.ckpt'
-        )
+            '/home/vin/sequence-tagging/experiments/14/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/lr_sched=ReduceLROnPlateau,factor=0.5,mode=min,patience=4,optz=Adam,lr=1e-05,epoch=17-val_loss=0.01394.ckpt',
+            map_location=torch.device(
+                "cuda:0" if torch.cuda.is_available() else "cpu"))
         #self.model = torch.quantization.quantize_dynamic(self.model,
         #                                                 {torch.nn.Linear},
         #                                                 dtype=torch.qint8)
-        self.model = self.model.to(
-            "cuda:0" if torch.cuda.is_available() else "cpu")
 
-    def batching(self, sessionId: str, userIn: str,
-                 prevTrnUserOut: Dict[str, List[str]]):
+    def input(self, sessionId: str, userIn: str,
+              prevTrnUserOut: Dict[str, List[str]]):
         # actually, one or more (userIn, sessionId) are in FIFO; len(userIn)
         # is greater than 0 and estimated to be less than
         # self.tokenizer.model_max_length
@@ -182,19 +183,3 @@ class Inference():
                 D_nnOut_tknLbl.append(self.dataframes_meta['tknLblId2tknLbl'][
                     bch_nnOut_tknLblIds[bch_idx, D_nnIn_tknIds_idx]])
         return D_nnIn_tkn, D_nnOut_tknLbl
-
-
-'''
-inference = Inference()
-sessionId = 93
-userIn = "1362287.04 dollars liytle 1992 genesis brand"
-prevTrnUserOut = 0
-nnOut_userOut = inference.batching(sessionId, userIn, prevTrnUserOut)
-#assert nnOut_userOut == {'brand': ['genesis'], 'model': [], 'color': [], 'style': [], 'mileage': [], 'price': ['1362287.04 $'], 'year': ['less 1992']}
-
-userIn = "smalker 1991 year frrightliner I want to buy fivian acentador"
-prevTrnUserOut = nnOut_userOut
-nnOut_userOut = inference.batching(sessionId, userIn, prevTrnUserOut)
-#assert nnOut_userOut == {'brand': ['genesis', 'freightliner', 'rivian'], 'model': ['aventador'], 'color': [], 'style': [], 'mileage': [], 'price': ['1362287.04 $'], 'year': ['less 1992', 'less 1991']}
-x = 1
-'''
