@@ -1,9 +1,15 @@
-# "gradio demo.py" OR "python3 -m pdb demo.py" if debugging code
-
+"""
+Run this app based on one of the following criteria:
+    (1) "python3 -m pdb demo.py" if debugging code
+    (2) "gradio demo.py"
+        (a) demo.launch(debug=, share=False) => get a local URL
+        (a) demo.launch(debug=, share=True) => get a public URL that is good for 72 hours
+    (3) "gradio deploy" => get a free permanent hosting and GPU upgrades to deploy to Spaces (https://huggingface.co/spaces)
+"""
 import gradio as gr
-from Inference import Inference
+from Pipeline import Pipeline
 
-inference = Inference()
+pipeline = Pipeline()
 
 with gr.Blocks() as demo:
     chatbot = gr.Chatbot()
@@ -11,8 +17,10 @@ with gr.Blocks() as demo:
     nnOut_userOut = gr.State()
     examples = gr.Examples(
         examples=[
-            "2022 - 2024 red vf 9 vinfast less than $32000 5000 miles or less", "black",
-            "less than 8000 miles", "remove red", "remove $32000 8000 miles",
+            "2022 - 2024 white olatinum tei-coat metaloic vf 9 vinfast less than $32000 5000 miles or less",
+            "landriver dedender 90", "remove $32000 5000 miles",
+            "40,000 dillars or lesa", "renove", "more than 8000 miles",
+            "clear"
         ],
         inputs=[msg],
         label="Familiarize yourself with the interface by running the following examples by clicking on them one-by-one from left-to-right:",
@@ -36,7 +44,7 @@ with gr.Blocks() as demo:
             prevTrnUserOut = nnOut_userOut
 
         sessionId = 98
-        nnOut_userOut_temp = inference.batching(sessionId, message,
+        nnOut_userOut_temp = pipeline.input(sessionId, message,
                                                 prevTrnUserOut)
         if isinstance(nnOut_userOut_temp, str):
             if not chat_history:
@@ -57,4 +65,7 @@ with gr.Blocks() as demo:
 
     msg.submit(respond, [msg, chatbot], [msg, chatbot])
 
-demo.launch(debug=True, share=False)
+if __name__ == "__main__":
+    demo.launch(debug=True, share=False)
+    #demo.launch(debug=True, share=True)
+    # demo.launch()
