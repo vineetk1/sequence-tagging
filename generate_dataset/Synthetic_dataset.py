@@ -738,7 +738,10 @@ year_segments = (
 remove_restore_segments = (
     "<remove><> <restore><> <remove><> ",
     "<remove><> <brand><>  <model><>  <color><> ",
+    "<remove><> <units_price_$><> <price><> <mileage><>  <units_mileage_mi><> ",
     "<remove><> <units_price_$><> <price><> <units_mileage_mi><> <mileage><> <year><> ",
+    "<remove><> <year><>  <units_mileage_mi><> <mileage><> <units_price_$><> <price><>",
+    "<remove><> <mileage><> <units_mileage_mi><> <units_price_$><> <price><>",
     "<restore><>  <setting><> <remove><>  <color><>  <year><> ",
     "<restore><>  <setting><> <remove><>  <brand><>  <year><> ",
 )
