@@ -8,64 +8,55 @@ Run this app based on one of the following criteria:
 """
 import gradio as gr
 from Pipeline import Pipeline
+from typing import List, Dict, Any, Tuple
+from json import loads
 
 pipeline = Pipeline()
+
+
+def respond(message: str, chat_history: List[List[str]]):
+    # chat_history: [["msg", "prevTrnUserOut"], ...]
+    if not len(message):
+        return "", chat_history
+    if chat_history:
+        try:
+            # convert dict-in-a-string to dict
+            prevTrnUserOut: Dict[str, List[str]] = loads(
+                chat_history[-1][1].replace("'", "\""))
+            if len(prevTrnUserOut) != 6:
+                prevTrnUserOut = {}
+        except Exception:
+            prevTrnUserOut = {}
+    else:
+        prevTrnUserOut = {}
+
+    sessionId = 98
+    userOut = pipeline.input(sessionId, message, prevTrnUserOut)
+    if isinstance(userOut, dict):
+        chat_history.append([message, str(userOut)])
+    elif isinstance(userOut, str):
+        chat_history.append([message, userOut])
+    else:
+        assert False, f"unknown userOut={userOut}"
+
+    print("-----------------------------------------------------")
+    return "", chat_history
+
 
 with gr.Blocks() as demo:
     chatbot = gr.Chatbot()
     msg = gr.Textbox(label="Dialogue Prompt")
-    nnOut_userOut = gr.State()
     examples = gr.Examples(
         examples=[
             "2022 - 2024 white olatinum tei-coat metaloic vf 9 vinfast less than $32000 5000 miles or less",
             "landriver dedender 90", "remove $32000 5000 miles",
-            "40,000 dillars or lesa", "renove", "more than 8000 miles",
-            "clear"
+            "40,000 dillars or lesa", "renove", "more than 8000 miles", "clear"
         ],
         inputs=[msg],
-        label="Familiarize yourself with the interface by running the following examples by clicking on them one-by-one from left-to-right:",
+        label=
+        "Familiarize yourself with the interface by running the following examples by clicking on them one-by-one from left-to-right:",
     )
-
-    def respond(message, chat_history):
-        global nnOut_userOut
-        if not len(message):
-            # nnOut_userOut is unchanged
-            return "", chat_history
-        elif len(message) > 400:    # no need to do this; Tokenizer truncates
-            if not chat_history:
-                nnOut_userOut = 0
-            chat_history.append(
-                [message, "Shorten your text; it must be less than 101 words"])
-            return "", chat_history
-
-        if not chat_history:
-            prevTrnUserOut = 0
-        else:
-            prevTrnUserOut = nnOut_userOut
-
-        sessionId = 98
-        nnOut_userOut_temp = pipeline.input(sessionId, message,
-                                                prevTrnUserOut)
-        if isinstance(nnOut_userOut_temp, str):
-            if not chat_history:
-                nnOut_userOut = 0
-            chat_history.append([message, nnOut_userOut_temp])
-            return "", chat_history
-        else:
-            # nnOut_userOut stores prevTrnUserOut
-            nnOut_userOut = nnOut_userOut_temp
-
-        bot_msg = []
-        for key, values in nnOut_userOut.items():
-            bot_msg.append(f'{key}: {values}')
-        bot_msg = ',\t'.join(bot_msg)
-        chat_history.append([message, bot_msg])
-
-        return "", chat_history
-
     msg.submit(respond, [msg, chatbot], [msg, chatbot])
 
 if __name__ == "__main__":
     demo.launch(debug=True, share=False)
-    #demo.launch(debug=True, share=True)
-    # demo.launch()
