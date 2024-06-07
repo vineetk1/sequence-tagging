@@ -33,13 +33,14 @@ parameters for python-dictionary 'optz_sched'. ***Contents of this dict are repl
 parameters for python-dictionary 'data'
 ***Either keep this dict empty or specifiy All key-values
 - 
-#{'dataframes_dirPath': 'experiments/5', 'batch_sizes': {'train': 1, 'val': 16, 'test': 16, 'predict': 16}} 
+#{'dataframes_dirPath': 'experiments/5', 'batch_sizes': {'train': 1, 'val': 32, 'test': 64, 'predict': 64}} 
 {}
 
 
 parameters for python-dictionary 'trainer'
 - 
-{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 10000, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'gradient_clip_val': 0.5}
+#{'accelerator': 'gpu', 'devices': 1, 'max_epochs': 10000, 'log_every_n_steps': 100, 'accumulate_grad_batches': 32, 'gradient_clip_val': 0.5}
+{}
 
 
 parameters for python-dictionary 'model_init'. ***Contents of this dict are replaced by corresponding checkpoint dict*** 
@@ -49,4 +50,4 @@ parameters for python-dictionary 'model_init'. ***Contents of this dict are repl
 
 parameters for python-dictionary 'ld_resume_chkpt'. ***Must specify the contents of this dict***
 - 
-{'resume_from_checkpoint': '/home/vin/sequence-tagging/experiments/10/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/last.ckpt'}
+{'resume_from_checkpoint': '/home/vin/sequence-tagging/experiments/14/model=bert,model_type=bert-large-uncased,tokenizer_type=bert/ckpts_v0/checkpoints/last.ckpt'}

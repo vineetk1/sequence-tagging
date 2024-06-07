@@ -8,7 +8,11 @@ import string
 from enum import Enum
 import torch
 import copy
-import generate_dataset.Synthetic_dataset as syntheticData
+try:
+    import generate_dataset.Synthetic_dataset as syntheticData
+except ImportError:
+    # huggingface-spaces path to file
+    import Synthetic_dataset as syntheticData
 
 logg = getLogger(__name__)
 
@@ -392,8 +396,12 @@ def tknLblIds2entity_wrds_lbls(
             if nnOut_tknLbl[-1] == ')':
                 # there MUST be an opening-parenthesis, else error
                 tknLbl_openParen_idx = nnOut_tknLbl.index('(')
-                entityWrd = nnOut_tknLbl[tknLbl_openParen_idx+1: -1]
                 entityLbl = nnOut_tknLbl[2: tknLbl_openParen_idx]
+                if entityLbl in syntheticData.carEntityNumLbls:
+                    entityWrd = bch_userIn_filtered_wrds[
+                                                  bch_idx][userIn_filtered_idx]
+                else:
+                    entityWrd = nnOut_tknLbl[tknLbl_openParen_idx+1: -1]
             else:
                 entityWrd = bch_userIn_filtered_wrds[
                                                   bch_idx][userIn_filtered_idx]
@@ -739,7 +747,8 @@ def generate_userOut(
                         assert False
 
                 case _:
-                    if entityLbl == 'setting':
+                    # *** 'everything' is not used, so remove it; how about 'setting'?
+                    if entityLbl == 'setting' or entityLbl == 'everything':
                         pass
                     else:
                         assert False

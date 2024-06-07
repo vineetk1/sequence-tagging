@@ -26,7 +26,7 @@ parameters for python-dictionary 'optz_sched'
 
 parameters for python-dictionary 'data'
 - 
-{'dataframes_dirPath': 'experiments/10', 'batch_sizes': {'train': 1, 'val': 16, 'test': 16, 'predict': 16}} 
+{'dataframes_dirPath': 'experiments/14', 'batch_sizes': {'train': 1, 'val': 32, 'test': 64, 'predict': 64}} 
 
 
 parameters for python-dictionary 'trainer'
