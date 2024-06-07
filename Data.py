@@ -180,7 +180,6 @@ class Data(LightningDataModule):
             'prevTrnUserOut': bch_prevTrnUserOut,
             'userIn_filtered_wrds': bch_userIn_filtered_wrds,
             'map_tknIdx2wrdIdx': map_tknIdx2wrdIdx,
-            'error_msgs': []  # needed by Inference (deployment) code
         }
 
 
