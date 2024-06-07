@@ -47,28 +47,13 @@ class Pipeline():
 
     def input(self, sessionId: str, userIn: str,
               prevTrnUserOut: Dict[str, List[str]]):
-        # actually, one or more (userIn, sessionId) are in FIFO; len(userIn)
-        # is greater than 0 and estimated to be less than
-        # self.tokenizer.model_max_length
-        # actually prevTrnUserOut comes from the session-state stored in Redis
+        # len(userIn) is greater than 0; rest of code accept
+        # function arguments in batches
         batch: Dict[str, Any] = self._bert_tokenize(
             [[sessionId, userIn, prevTrnUserOut]])
-        if batch['error_msgs']:
-            for sessionId, err_msg in zip(batch['dlgTrnId'],
-                                          batch['error_msgs']):
-                # for each sessionId, send them their error message; then
-                # return;
-                # only one entry in our case, so return now
-                return err_msg
-
-        # batch was tokenized without any errors
         bch_nnOut_userOut: List[Dict[str, List[str]]] = self._forward(batch)
         print(f"bch_nnOut_userOut= {bch_nnOut_userOut}\n")
-        for sessionId, nnOut_userOut in zip(batch['dlgTrnId'],
-                                            bch_nnOut_userOut):
-            # for each sessionId, send them their nnOut_userOut; then return
-            # only one entry in our case, so return now
-            return nnOut_userOut
+        return bch_nnOut_userOut[0]
 
     def _bert_tokenize(self, examples: List[List[Any]]) -> Dict[str, Any]:
         bch_dlgTrnId: List[Tuple[int, int]] = []
@@ -83,12 +68,19 @@ class Pipeline():
             bch_userIn_filtered_wrds.append(
                 Utilities.userIn_filter_splitWords(example[1]))
             print(f"bch_userIn_filtered_wrds= {bch_userIn_filtered_wrds}")
-            if example[2]:
+            if len(example[2]):
                 bch_prevTrnUserOut.append(example[2])
             else:
                 bch_prevTrnUserOut.append(Utilities.userOut_init())
             bch_history.append(
                 Utilities.prevTrnUserOut2history(bch_prevTrnUserOut[-1]))
+            if (len(bch_history[-1]) * 3) + len(
+                    bch_userIn_filtered_wrds[-1]) > 101:
+                # history is generated from prevTrnUserOut; In file
+                # Generate_dataframes.py, history became empty list and then
+                # tknLblIds were generated; here also history becomes empty
+                # list and later tknLblIds are generated
+                bch_history[-1] = []
 
         # return_attention_mask must be True for the model to work properly
         bch_nnIn_tknIds = self.tokenizer(
@@ -96,26 +88,13 @@ class Pipeline():
             text_pair=bch_userIn_filtered_wrds,
             is_split_into_words=True,
             padding=True,
-            truncation='do_not_truncate',
+            truncation='only_second',
             return_tensors='pt',
             return_token_type_ids=False,
             return_attention_mask=True,
             return_overflowing_tokens=False).to(
                 "cuda:0" if torch.cuda.is_available() else "cpu")
-
-        # if truncation is needed, create error messages
-        err_msgs = []
-        if bch_nnIn_tknIds['input_ids'].shape[
-                1] > self.tokenizer.model_max_length:
-            bch_nnIn_tknIds_SEP_beginEnd: torch.Tensor = (
-                bch_nnIn_tknIds['input_ids'] == 102).nonzero()
-            for idx, bol in enumerate(
-                (bch_nnIn_tknIds_SEP_beginEnd[1::2, 1] <=
-                 self.tokenizer.model_max_length).tolist()):
-                if bol:
-                    err_msgs.append("Try again; your text is lost")
-                else:
-                    err_msgs.append("Your text is too long; send shorter text")
+            # ".to(..." is not needed when running on huggingface-spaces
 
         for idx in range(len(examples)):
             map_tknIdx2wrdIdx.append(bch_nnIn_tknIds.word_ids(idx))
@@ -126,7 +105,6 @@ class Pipeline():
             'prevTrnUserOut': bch_prevTrnUserOut,
             'userIn_filtered_wrds': bch_userIn_filtered_wrds,
             'map_tknIdx2wrdIdx': map_tknIdx2wrdIdx,
-            'error_msgs': err_msgs
         }
 
     def _forward(self, batch: Dict[str, Any]) -> List[Dict[str, List[str]]]:
