@@ -1,4 +1,6 @@
-Vineet Kumar, sioom.ai
+"""
+Vineet Kumar, xyoom.ai
+"""
 
 This input file has user-settable hyper-parameters for loading a model from a checkpoint
    file and further training with different parameters in 'optz_sched'.
