@@ -418,8 +418,10 @@ class generate_nonNumbers():
                     assert False, "number found in brand or color"
 
         # add names that are not present
-        # add 'mercedes' because it is only present as 'mercedes-benz'
+        # add 'mercedes', 'chevy' because it is present as 'mercedes-benz',
+        # 'chevrolet'
         self.nonNumWrds_per_entityLbl['brand']['items'].add('mercedes')
+        self.nonNumWrds_per_entityLbl['brand']['items'].add('chevy')
 
         # convert entityWrds of 'style' from strange format
         self.nonNumWrds_per_entityLbl['style']['items']: Set[str] = {
