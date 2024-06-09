@@ -1,4 +1,6 @@
-Vineet Kumar, sioom.ai
+"""
+Vineet Kumar, xyoom.ai
+"""
 
 This input file has user-settable hyper-parameters to resume training of
    a checkpointed model. Testing is optional

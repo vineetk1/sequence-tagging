@@ -1,5 +1,5 @@
-'''
-Vineet Kumar, sioom.ai
+"""
+Vineet Kumar, xyoom.ai
 
 python3 query_data_structures.py experiments/{number}
 
@@ -34,8 +34,7 @@ Usage:
     multiple word string or a tuple) because this program will then find all
     the strings that have this given one-word***
 ------
-
-'''
+"""
 # python3 query_data_structures.py experiments/{number}
 
 from sys import argv
