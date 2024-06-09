@@ -1,6 +1,6 @@
-'''
-Vineet Kumar, sioom.ai
-'''
+"""
+Vineet Kumar, xyoom.ai
+"""
 
 import torch
 from logging import getLogger
