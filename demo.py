@@ -1,11 +1,15 @@
 """
+Vineet Kumar, xyoom.ai
+
 Run this app based on one of the following criteria:
     (1) "python3 -m pdb demo.py" if debugging code
     (2) "gradio demo.py"
         (a) demo.launch(debug=, share=False) => get a local URL
-        (a) demo.launch(debug=, share=True) => get a public URL that is good for 72 hours
-    (3) "gradio deploy" => get a free permanent hosting and GPU upgrades to deploy to Spaces (https://huggingface.co/spaces)
+        (a) demo.launch(debug=, share=True) => get a public URL that is good
+            for 72 hours; USE HUGGINGFACE INSTEAD
+    (3) Deploy permanently on Huggingface spaces
 """
+
 import gradio as gr
 from Pipeline import Pipeline
 from typing import List, Dict, Any, Tuple
