@@ -219,6 +219,7 @@ def main():
     if user_dicts['misc']['predict']:
         model.prepare_for_predict(
             predictStatistics=user_dicts['misc']['predictStatistics'],
+            nn_debug=user_dicts['misc']['nn_debug'],
             tokenizer=tokenizer,
             dataframes_meta=dataframes_metadata,
             dirPath=dirPath)
@@ -245,7 +246,7 @@ def verify_and_change_user_provided_parameters(user_dicts: Dict):
         logg.critical(strng)
         exit()
 
-    for k in ('train', 'predict', 'predictStatistics'):
+    for k in ('train', 'predict', 'predictStatistics', 'nn_debug'):
         if k in user_dicts['misc']:
             if not isinstance(user_dicts['misc'][k], bool):
                 strng = (
