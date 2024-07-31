@@ -208,8 +208,8 @@ class Model(LightningModule):
         elif 'optimizer' in locals():
             return optimizer
 
-    def prepare_for_predict(self, predictStatistics: bool, tokenizer,
-                            dataframes_meta: Dict[str, Any],
+    def prepare_for_predict(self, predictStatistics: bool, nn_debug: bool,
+                            tokenizer, dataframes_meta: Dict[str, Any],
                             dirPath: pathlib.Path) -> None:
         if predictStatistics is False:
             self.tokenizer = tokenizer
@@ -217,6 +217,18 @@ class Model(LightningModule):
             self.df: pd.DataFrame = pd.read_pickle(
                 dataframes_meta['pandas predict-dataframe file location'])
             return
+
+        if nn_debug:
+            self.nn_debug_file: pathlib.Path = dirPath.joinpath(
+                'unexpected_I_labels.txt')
+            self.nn_debug_file.touch()
+            with self.nn_debug_file.open('w') as file:
+                file.write(('unexpected I-labels in Utilities.py:'
+                            'tknLblIds2entity_wrds_lbls()\n'))
+            self.nn_debug_count: int = 0
+            self.nn_debug_lst: List[str] = []
+        else:
+            self.nn_debug_file = None
 
         self.failed_nnOut_tknLblIds_file: pathlib.Path = dirPath.joinpath(
             'failed_nnOut_tknLblIds.txt')
@@ -272,15 +284,20 @@ class Model(LightningModule):
         logits = self.classification_head(outputs.last_hidden_state)
         bch_nnOut_tknLblIds = torch.argmax(logits, dim=-1)
 
-        bch_nnOut_userIn_filtered_entityWrds, bch_nnOut_entityLbls = (
-            Utilities.tknLblIds2entity_wrds_lbls(
+        bch_nnOut_userIn_filtered_entityWrds, bch_nnOut_entityLbls,\
+            DEBUG_dataTo_file = Utilities.tknLblIds2entity_wrds_lbls(
                 bch_nnIn_tknIds=batch['nnIn_tknIds']['input_ids'],
                 bch_map_tknIdx2wrdIdx=batch['map_tknIdx2wrdIdx'],
                 bch_userIn_filtered_wrds=batch['userIn_filtered_wrds'],
                 bch_nnOut_tknLblIds=bch_nnOut_tknLblIds,
                 tknLblId2tknLbl=self.dataframes_meta['tknLblId2tknLbl'],
                 DEBUG_bch_tknLblIds_True=batch['tknLblIds'],
-                DEBUG_tokenizer=self.tokenizer))
+                DEBUG_dlgTrnId=batch['dlgTrnId'],
+                DEBUG_tokenizer=self.tokenizer,
+                DEBUG_nn_debug_file=self.nn_debug_file)
+        if DEBUG_dataTo_file:
+            self.nn_debug_count += 1
+            self.nn_debug_lst.extend(DEBUG_dataTo_file)
 
         bch_nnOut_userOut: List[Dict[str, List[str]]] = (
             Utilities.generate_userOut(
@@ -334,3 +351,9 @@ class Model(LightningModule):
             y_true=self.y_true,
             y_pred=self.y_pred,
         )
+
+        if self.nn_debug_file:
+            self.nn_debug_lst.insert(
+                0, f'# of failed turns = {self.nn_debug_count}\n\n')
+            with self.nn_debug_file.open('a') as f:
+                f.writelines(self.nn_debug_lst)

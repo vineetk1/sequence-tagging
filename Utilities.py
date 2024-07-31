@@ -8,6 +8,9 @@ import string
 from enum import Enum
 import torch
 import copy
+import textwrap as D_textwrap
+from pathlib import Path as D_Path
+
 try:
     import generate_dataset.Synthetic_dataset as syntheticData
 except ImportError:
@@ -332,7 +335,9 @@ def tknLblIds2entity_wrds_lbls(
         bch_nnOut_tknLblIds: torch.Tensor,
         tknLblId2tknLbl: List[str],
         DEBUG_bch_tknLblIds_True=torch.LongTensor([]),
+        DEBUG_dlgTrnId=[],
         DEBUG_tokenizer=0,
+        DEBUG_nn_debug_file: D_Path= None
         ) -> Tuple[List[Union[List[str], None]], List[Union[List[str], None]]]:
 
     # NOTE: Remove all ASSERTS from Production code of this function
@@ -346,18 +351,25 @@ def tknLblIds2entity_wrds_lbls(
     assert bch_nnIn_tknIds.shape[0] * 2 == nnIn_tknIds_idx_beginEnd.shape[0]
 
     # ***************remove DEBUG code starting from here*********************
-    if DEBUG_bch_tknLblIds_True.numel():
-        D_bch_associate = []
+    if DEBUG_nn_debug_file is not None:
+        D_dataTo_file: List[str] = []
+        D_bch_associate: List[List[Tuple[int, str, str, str, str]]] = []
         for bch_idx in range(bch_nnOut_tknLblIds.shape[0]):
             D_bch_associate.append([])
             for D_nnIn_tknIds_idx in range(
                     (nnIn_tknIds_idx_beginEnd[bch_idx * 2, 1] + 1), (
                        nnIn_tknIds_idx_beginEnd[(bch_idx * 2) + 1, 1])):
-                D_nnIn_tkn = DEBUG_tokenizer.convert_ids_to_tokens(bch_nnIn_tknIds[bch_idx][D_nnIn_tknIds_idx].item())
-                D_tknLbl_True = tknLblId2tknLbl[DEBUG_bch_tknLblIds_True[bch_idx, D_nnIn_tknIds_idx]]
-                D_nnOut_tknLbl = tknLblId2tknLbl[bch_nnOut_tknLblIds[bch_idx, D_nnIn_tknIds_idx]]
-                D_userIn_filtered_wrd = bch_userIn_filtered_wrds[bch_idx][bch_map_tknIdx2wrdIdx[bch_idx][D_nnIn_tknIds_idx]]
-                D_bch_associate[-1].append((D_nnIn_tknIds_idx, D_userIn_filtered_wrd, D_nnIn_tkn, D_tknLbl_True, D_nnOut_tknLbl))
+                D_nnIn_tkn = DEBUG_tokenizer.convert_ids_to_tokens(
+                        bch_nnIn_tknIds[bch_idx][D_nnIn_tknIds_idx].item())
+                D_tknLbl_True = tknLblId2tknLbl[DEBUG_bch_tknLblIds_True[
+                    bch_idx, D_nnIn_tknIds_idx]]
+                D_nnOut_tknLbl = tknLblId2tknLbl[
+                        bch_nnOut_tknLblIds[bch_idx, D_nnIn_tknIds_idx]]
+                D_userIn_filtered_wrd = bch_userIn_filtered_wrds[bch_idx][
+                        bch_map_tknIdx2wrdIdx[bch_idx][D_nnIn_tknIds_idx]]
+                D_bch_associate[-1].append(
+                        (D_nnIn_tknIds_idx, D_userIn_filtered_wrd,
+                            D_nnIn_tkn, D_tknLbl_True, D_nnOut_tknLbl))
     # ******************remove DEBUG code ending  here**********************
 
     bch_nnOut_entityLbls: List[List[str]] = []
@@ -417,6 +429,20 @@ def tknLblIds2entity_wrds_lbls(
                 if prev_BIO == "B" or prev_BIO == "I":
                     assert multipleWord_entity
                     if entityLbl != bch_nnOut_entityLbls[-1][-1]:
+                        if DEBUG_nn_debug_file is not None:
+                            D_tknLblIds2entity_wrds_lbls(
+                                dataTo_file=D_dataTo_file,
+                                dlgTrnId=DEBUG_dlgTrnId[bch_idx],
+                                txt=(
+                                    'B-label of multiword '
+                                    f'"{multipleWord_entity}" is '
+                                    f'"{bch_nnOut_entityLbls[-1][-1]}", but '
+                                    f'I-label of word "{entityWrd}" is '
+                                    f'"{nnOut_tknLbl}"; they must be same'),
+                                filtered_words=(
+                                           bch_userIn_filtered_wrds[bch_idx]),
+                                associate=D_bch_associate[bch_idx],
+                                associate_idx=nnIn_tknIds_idx,)
                         count_wrongPredictions = (
                                 max_count_wrongPredictions_plus1)
                         break
@@ -425,16 +451,43 @@ def tknLblIds2entity_wrds_lbls(
                                 f"{multipleWord_entity} {entityWrd}")
                     prev_BIO = "I"    # next tkn is "B" or "I" or "O"
                 elif prev_BIO == "O":
+                    if DEBUG_nn_debug_file is not None:
+                        D_tknLblIds2entity_wrds_lbls(
+                            dataTo_file=D_dataTo_file,
+                            dlgTrnId=DEBUG_dlgTrnId[bch_idx],
+                            txt=(f'unexpected I-label when prev_BIO={prev_BIO}'
+                                 f'; word "{entityWrd}" has label '
+                                 f'"{nnOut_tknLbl}"'),
+                            filtered_words=bch_userIn_filtered_wrds[bch_idx],
+                            associate=D_bch_associate[bch_idx],
+                            associate_idx=nnIn_tknIds_idx,)
                     count_wrongPredictions = max_count_wrongPredictions_plus1
                     break
                 else:   # prev_BIO == None
                     # expected "B" or "O" at start-of-sentence but model
                     # predicts "I"
-                    #assert prev_BIO is None
+                    if DEBUG_nn_debug_file is not None:
+                        D_tknLblIds2entity_wrds_lbls(
+                            dataTo_file=D_dataTo_file,
+                            dlgTrnId=DEBUG_dlgTrnId[bch_idx],
+                            txt=(f'unexpected I-label at start of sentence; '
+                                 f'word "{entityWrd}" has label '
+                                 f'"{nnOut_tknLbl}"'),
+                            filtered_words=bch_userIn_filtered_wrds[bch_idx],
+                            associate=D_bch_associate[bch_idx],
+                            associate_idx=nnIn_tknIds_idx,)
                     count_wrongPredictions = max_count_wrongPredictions_plus1
                     break
             else:
-                #assert False
+                if DEBUG_nn_debug_file is not None:
+                    D_tknLblIds2entity_wrds_lbls(
+                        dataTo_file=D_dataTo_file,
+                        dlgTrnId=DEBUG_dlgTrnId[bch_idx],
+                        txt=(f'unknown label of word "{entityWrd}" is '
+                             f'"{nnOut_tknLbl}"'),
+                        filtered_words=bch_userIn_filtered_wrds[bch_idx],
+                        associate=D_bch_associate[bch_idx],
+                        associate_idx=nnIn_tknIds_idx,)
                 count_wrongPredictions = max_count_wrongPredictions_plus1
                 break
         if multipleWord_entity:  # previous multipleWord_entity
@@ -452,7 +505,37 @@ def tknLblIds2entity_wrds_lbls(
                                               bch_nnOut_entityLbls[bch_idx])
     assert len(bch_nnOut_userIn_filtered_entityWrds) == len(
                                                        bch_nnOut_entityLbls)
-    return bch_nnOut_userIn_filtered_entityWrds, bch_nnOut_entityLbls
+    return (bch_nnOut_userIn_filtered_entityWrds, bch_nnOut_entityLbls,
+            D_dataTo_file if DEBUG_nn_debug_file else [])
+
+
+D_wrapper1: D_textwrap.TextWrapper = D_textwrap.TextWrapper(
+    width=80, initial_indent="", subsequent_indent="    ")
+D_wrapper2: D_textwrap.TextWrapper = D_textwrap.TextWrapper(
+    width=80, initial_indent="     ", subsequent_indent="     ")
+
+
+def D_tknLblIds2entity_wrds_lbls(
+        dataTo_file: List[str], dlgTrnId: Tuple[int, int],
+        txt: str, filtered_words: List[str],
+        associate: List[Tuple[int, str, str, str, str]], associate_idx: int):
+
+    dataTo_file.append(f'dlg_id, trn_id: [{dlgTrnId[0]}, {dlgTrnId[1]}]\n')
+    dataTo_file.append(f'{D_wrapper1.fill(txt)}\n')
+    dataTo_file.append('userIn_filtered_wrds:\n')
+    dataTo_file.append(f'{D_wrapper2.fill(" ".join(filtered_words))}\n')
+    dataTo_file.append(D_wrapper1.fill(
+             'D_nnIn_tknIds_idx, D_userIn_filtered_wrd, '
+             'D_nnIn_tkn, D_tknLbl_True, D_nnOut_tknLbl '
+             '(last 5 entries ending in the bug)') + '\n')
+    idx = associate_idx - associate[0][0]
+    if idx > 4:
+        dataTo_file.append(
+                f'{D_wrapper2.fill(str(associate[idx-4: idx+1]))}\n\n')
+    else:
+        dataTo_file.append(
+                f'{D_wrapper2.fill(str(associate[: idx+1]))}\n\n')
+    return
 
 
 def userOut_init():
@@ -747,8 +830,11 @@ def generate_userOut(
                         assert False
 
                 case _:
-                    # *** 'everything' is not used, so remove it; how about 'setting'?
-                    if entityLbl == 'setting' or entityLbl == 'everything':
+                    # setting is preceeded by restore, and setting is already
+                    # consumed under restore; ideally setting must be preceeded
+                    # by restore, but in case NN makes a mistake then it will
+                    # be ignored here
+                    if entityLbl == 'setting':
                         pass
                     else:
                         assert False
