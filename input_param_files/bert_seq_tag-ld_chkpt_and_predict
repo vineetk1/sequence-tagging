@@ -29,8 +29,9 @@ python3 -m pdb Main.py input_param_files/bert_seq_tag-ld_chkpt_and_predict
 
 parameters for python-dictionary 'misc'. ***Must specify the contents of this dict***
 -
-{'predict': True, 'predictStatistics': True}
+#{'predict': True, 'predictStatistics': True}
 #{'predict': True, 'predictStatistics': False}
+{'predict': True, 'predictStatistics': True, 'nn_debug': True}
 
 
 parameters for python-dictionary 'optz_sched'. ***This dict is not used***
