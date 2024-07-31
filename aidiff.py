@@ -3,10 +3,10 @@ Vineet Kumar, xyoom.ai
 
 usage:
     python3 aidiff path1-to-files path2-to-files
-       (1) path-to-files does not include the file-name; this path shouldi
+       (1) path-to-files does not include the file-name; this path should
             have the following two files: failed_nnOut_tknLblIds.txt,
             passed_file.txt
-       (2) output is at  path1-to-files/aidiff.txt
+       (2) output is at  path2-to-files/aidiff.txt
 """
 
 from sys import argv
