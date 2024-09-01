@@ -539,6 +539,45 @@ class generate_nonNumbers():
                 'all_used': 0,
             }
 
+        # a label of chunk-of-words is relevant only for the chunk; when the
+        # words of a chunk occur individually then their label could change
+        B_wrds, I_wrds, IwrdsLblOther = set(), set(), set()
+
+        def select_bin(wrds: str) -> None:  # word or chunk-of-words
+            if len(wrds_l := wrds.split()) == 1:
+                if not wrds.isdecimal():  # wrds is decimal, NOT float
+                    B_wrds.add(wrds)
+            else:
+                for wrd in wrds_l:
+                    if not wrd.isdecimal():  # wrd is decimal, NOT float
+                        I_wrds.add(wrd)
+
+        for wrds in self.nonNumWrds_per_entityLbl["multilabel"]["items"]:
+            if isinstance(wrds[1], str):
+                select_bin(wrds[1])
+            elif isinstance(wrds[1], tuple):
+                select_bin(wrds[1][0])
+            else:
+                assert False, f"unexpected type: {type(wrds[1])}"
+
+        for lbl in ('brand', 'model', 'color'):
+            for wrds in self.nonNumWrds_per_entityLbl[lbl]["items"]:
+                if isinstance(wrds, str):
+                    select_bin(wrds)
+                elif isinstance(wrds, tuple):
+                    select_bin(wrds[0])
+                else:
+                    assert False, f"unexpected type: {type(wrds[1])}"
+
+        for wrd in I_wrds:
+            if wrd not in B_wrds:
+                IwrdsLblOther.add(wrd)
+
+        IwrdsLblOther.update(
+            set(self.nonNumWrds_per_entityLbl["entWrdLblOther"]["items"]))
+        self.nonNumWrds_per_entityLbl["entWrdLblOther"]["items"] = list(
+            IwrdsLblOther)
+
         # save data_structures to a file
         data_structures = [self.nonNumWrds_per_entityLbl, self.model_nums]
         dataframes_dirPath = pathlib.Path(dataframes_dirPath).resolve(
