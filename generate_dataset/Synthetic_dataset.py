@@ -851,7 +851,7 @@ segments_weights = {
     },
     "mixed": {
         "segments": mixed_segments,
-        "weight": 5
+        "weight": 10
     },
     "specific": {
         "segments": specific_segments,
@@ -865,8 +865,10 @@ cmdsLbls = {
         "retrieve",
         "retreive",
     ),
-    "more": ("over", "more", "higher", "above", "larger", "greater"),
-    "less": ("under", "less", "lower", "below", "smaller", "little"),
+    "more":
+    ("over", "more", "higher", "above", "larger", "greater", "max", "maximum"),
+    "less":
+    ("under", "less", "lower", "below", "smaller", "little", "min", "minimum"),
     "range1": ("between", "range"),  # e.g. between $5000 and $7000
     "range2": ("-", "to", "through"),  # e.g. $5000 - $7000
     "remove": ("remove", "delete", "clear"),
@@ -949,9 +951,10 @@ del num_labels
 # are those numbers that are used as entityWrds for labels such as year, price,
 # mileage, setting; the numEntityWrds are not generated in this file but are
 # generated elsewhere by the code
-# Note: In contrast, entityWrds of entityLbls such as brand, model, color have
-# a fixed label; e.g. entityWrd "red" has the same entityLbl of "color"
-# regardless of the context of the sentence
+# Note: a label of chunk-of-words is relevant only for the chunk; when those
+# words of a chunk occur individually then their label could be different; this
+# problem is handled in the Fill_entityWrds.py code and such words are added
+# to this list
 entityWrds_withLbl_other = set()
 for entityWrds in synonyms_for_carEntityNonNumLbls.values():
     entityWrds_withLbl_other.update(set(entityWrds))
