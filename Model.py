@@ -284,8 +284,7 @@ class Model(LightningModule):
         logits = self.classification_head(outputs.last_hidden_state)
         bch_nnOut_tknLblIds = torch.argmax(logits, dim=-1)
 
-        bch_nnOut_userIn_filtered_entityWrds, bch_nnOut_entityLbls,\
-            DEBUG_dataTo_file = Utilities.tknLblIds2entity_wrds_lbls(
+        tknLblIds2entity_wrds_lbls = Utilities.tknLblIds2entity_wrds_lbls(
                 bch_nnIn_tknIds=batch['nnIn_tknIds']['input_ids'],
                 bch_map_tknIdx2wrdIdx=batch['map_tknIdx2wrdIdx'],
                 bch_userIn_filtered_wrds=batch['userIn_filtered_wrds'],
@@ -295,9 +294,14 @@ class Model(LightningModule):
                 DEBUG_dlgTrnId=batch['dlgTrnId'],
                 DEBUG_tokenizer=self.tokenizer,
                 DEBUG_nn_debug_file=self.nn_debug_file)
-        if DEBUG_dataTo_file:
+        if self.nn_debug_file:
+            bch_nnOut_userIn_filtered_entityWrds, bch_nnOut_entityLbls,\
+                DEBUG_dataTo_file = tknLblIds2entity_wrds_lbls
             self.nn_debug_count += 1
             self.nn_debug_lst.extend(DEBUG_dataTo_file)
+        else:
+            bch_nnOut_userIn_filtered_entityWrds, bch_nnOut_entityLbls =\
+                    tknLblIds2entity_wrds_lbls
 
         bch_nnOut_userOut: List[Dict[str, List[str]]] = (
             Utilities.generate_userOut(
