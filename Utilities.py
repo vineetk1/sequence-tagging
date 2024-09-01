@@ -506,7 +506,8 @@ def tknLblIds2entity_wrds_lbls(
     assert len(bch_nnOut_userIn_filtered_entityWrds) == len(
                                                        bch_nnOut_entityLbls)
     return (bch_nnOut_userIn_filtered_entityWrds, bch_nnOut_entityLbls,
-            D_dataTo_file if DEBUG_nn_debug_file else [])
+            D_dataTo_file) if DEBUG_nn_debug_file else (
+                    bch_nnOut_userIn_filtered_entityWrds, bch_nnOut_entityLbls)
 
 
 D_wrapper1: D_textwrap.TextWrapper = D_textwrap.TextWrapper(
